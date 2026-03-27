@@ -10,12 +10,13 @@ from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from db import get_db
 from models import Agent, Contact, AgentSkill, AgentSandboxedTool, SandboxedTool, Persona, TonePreset
 from api.api_auth import ApiCaller, require_api_permission
+from api.sanitizers import strip_html_tags, sanitize_text_field
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -54,6 +55,7 @@ class PaginatedResponse(BaseModel):
 
 class AgentCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = Field(None, max_length=500)
     system_prompt: str = Field(..., min_length=1)
     model_provider: str = Field(default="gemini", pattern="^(openai|anthropic|gemini|ollama|openrouter|groq|grok)$")
     model_name: str = Field(default="gemini-2.5-pro")
@@ -70,9 +72,27 @@ class AgentCreateRequest(BaseModel):
     skill_types: Optional[List[str]] = None
     sandboxed_tool_ids: Optional[List[int]] = None
 
+    @field_validator("name")
+    @classmethod
+    def sanitize_name(cls, v: str) -> str:
+        """Strip HTML tags from agent name to prevent stored XSS."""
+        cleaned = strip_html_tags(v)
+        if not cleaned or not cleaned.strip():
+            raise ValueError("Name must not be empty after removing HTML tags")
+        return cleaned.strip()
+
+    @field_validator("description")
+    @classmethod
+    def sanitize_description(cls, v: str | None) -> str | None:
+        """Strip HTML tags from description to prevent stored XSS."""
+        if v is None:
+            return v
+        return strip_html_tags(v).strip() or None
+
 
 class AgentUpdateRequest(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
+    description: Optional[str] = Field(None, max_length=500)
     system_prompt: Optional[str] = None
     model_provider: Optional[str] = Field(None, pattern="^(openai|anthropic|gemini|ollama|openrouter|groq|grok)$")
     model_name: Optional[str] = None
@@ -85,6 +105,25 @@ class AgentUpdateRequest(BaseModel):
     trigger_dm_enabled: Optional[bool] = None
     enable_semantic_search: Optional[bool] = None
     is_active: Optional[bool] = None
+
+    @field_validator("name")
+    @classmethod
+    def sanitize_name(cls, v: str | None) -> str | None:
+        """Strip HTML tags from agent name to prevent stored XSS."""
+        if v is None:
+            return v
+        cleaned = strip_html_tags(v)
+        if not cleaned or not cleaned.strip():
+            raise ValueError("Name must not be empty after removing HTML tags")
+        return cleaned.strip()
+
+    @field_validator("description")
+    @classmethod
+    def sanitize_description(cls, v: str | None) -> str | None:
+        """Strip HTML tags from description to prevent stored XSS."""
+        if v is None:
+            return v
+        return strip_html_tags(v).strip() or None
 
 
 class SkillAssignRequest(BaseModel):
@@ -109,8 +148,10 @@ def _enrich_agent(agent: Agent, db: Session) -> dict:
     contact = db.query(Contact).filter(Contact.id == agent.contact_id).first()
     agent_name = contact.friendly_name if contact else f"Agent {agent.id}"
 
-    description = None
-    if agent.system_prompt:
+    # Use the stored description if set; otherwise fall back to deriving
+    # a short summary from the first line of system_prompt.
+    description = agent.description
+    if description is None and agent.system_prompt:
         first_line = agent.system_prompt.split('\n')[0]
         if len(first_line) < 200:
             description = first_line
@@ -298,6 +339,7 @@ async def create_agent(
 
     agent = Agent(
         contact_id=contact.id,
+        description=request.description,
         system_prompt=request.system_prompt,
         persona_id=request.persona_id,
         keywords=request.keywords,
@@ -399,7 +441,7 @@ async def delete_agent(
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("agents.delete")),
 ):
-    """Soft-delete an agent (sets is_active=false)."""
+    """Delete an agent permanently."""
     agent = db.query(Agent).filter(
         Agent.id == agent_id,
         Agent.tenant_id == caller.tenant_id,
@@ -407,8 +449,23 @@ async def delete_agent(
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    agent.is_active = False
-    agent.updated_at = datetime.utcnow()
+    # Cannot delete default agent if it's the only one for this tenant
+    if agent.is_default:
+        total_agents = db.query(Agent).filter(
+            Agent.tenant_id == caller.tenant_id,
+        ).count()
+        if total_agents == 1:
+            raise HTTPException(status_code=400, detail="Cannot delete the only agent")
+
+        # Set another agent as default
+        next_agent = db.query(Agent).filter(
+            Agent.tenant_id == caller.tenant_id,
+            Agent.id != agent_id,
+        ).first()
+        if next_agent:
+            next_agent.is_default = True
+
+    db.delete(agent)
     db.commit()
 
 

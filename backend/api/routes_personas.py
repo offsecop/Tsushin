@@ -43,6 +43,8 @@ def get_db():
 
 
 class PersonaCreate(BaseModel):
+    # TODO: Add HTML sanitization validator for name and description fields
+    # to prevent stored XSS (same pattern as AgentCreateRequest in v1/routes_agents.py)
     name: str
     description: str
     role: Optional[str] = None

@@ -284,6 +284,95 @@ class TestAgentChat:
 
 
 # ============================================================================
+# Agent Description (independent of system_prompt)
+# ============================================================================
+
+class TestAgentDescription:
+    """Verify that `description` is stored and returned independently of `system_prompt`."""
+
+    def test_create_agent_with_description(self, api_headers):
+        """POST /agents with both description and system_prompt stores them independently."""
+        resp = requests.post(f"{API_URL}/api/v1/agents", json={
+            "name": f"Desc Test {int(time.time())}",
+            "description": "A short human-readable description",
+            "system_prompt": "You are a helpful assistant.\nWith a multi-line prompt.",
+        }, headers={**api_headers, "Content-Type": "application/json"})
+        assert resp.status_code == 201, f"Create failed: {resp.text}"
+        data = resp.json()
+        assert data["description"] == "A short human-readable description"
+        assert data["system_prompt"].startswith("You are a helpful assistant.")
+        return data["id"]
+
+    def test_create_agent_without_description_falls_back(self, api_headers):
+        """POST /agents without description falls back to first line of system_prompt."""
+        resp = requests.post(f"{API_URL}/api/v1/agents", json={
+            "name": f"NoDesc Test {int(time.time())}",
+            "system_prompt": "Fallback first line.\nSecond line ignored.",
+        }, headers={**api_headers, "Content-Type": "application/json"})
+        assert resp.status_code == 201, f"Create failed: {resp.text}"
+        data = resp.json()
+        # description should fall back to first line of system_prompt
+        assert data["description"] == "Fallback first line."
+
+    def test_update_description_independently(self, api_headers):
+        """PUT /agents/{id} can update description without changing system_prompt."""
+        # Create
+        create_resp = requests.post(f"{API_URL}/api/v1/agents", json={
+            "name": f"UpdDesc Test {int(time.time())}",
+            "description": "Original description",
+            "system_prompt": "Original system prompt.",
+        }, headers={**api_headers, "Content-Type": "application/json"})
+        assert create_resp.status_code == 201
+        agent_id = create_resp.json()["id"]
+
+        # Update description only
+        update_resp = requests.put(f"{API_URL}/api/v1/agents/{agent_id}", json={
+            "description": "Updated description",
+        }, headers={**api_headers, "Content-Type": "application/json"})
+        assert update_resp.status_code == 200, f"Update failed: {update_resp.text}"
+        data = update_resp.json()
+        assert data["description"] == "Updated description"
+        assert data["system_prompt"] == "Original system prompt."
+
+    def test_get_agent_returns_description(self, api_headers):
+        """GET /agents/{id} returns the stored description field."""
+        # Create with explicit description
+        create_resp = requests.post(f"{API_URL}/api/v1/agents", json={
+            "name": f"GetDesc Test {int(time.time())}",
+            "description": "Stored description value",
+            "system_prompt": "Different system prompt content.",
+        }, headers={**api_headers, "Content-Type": "application/json"})
+        assert create_resp.status_code == 201
+        agent_id = create_resp.json()["id"]
+
+        # Fetch detail
+        detail_resp = requests.get(f"{API_URL}/api/v1/agents/{agent_id}", headers=api_headers)
+        assert detail_resp.status_code == 200
+        data = detail_resp.json()
+        assert data["description"] == "Stored description value"
+        assert data["system_prompt"] == "Different system prompt content."
+
+    def test_list_agents_shows_description(self, api_headers):
+        """GET /agents list includes description in summaries."""
+        # Create with explicit description
+        create_resp = requests.post(f"{API_URL}/api/v1/agents", json={
+            "name": f"ListDesc Test {int(time.time())}",
+            "description": "Listed description",
+            "system_prompt": "Some system prompt.",
+        }, headers={**api_headers, "Content-Type": "application/json"})
+        assert create_resp.status_code == 201
+        agent_id = create_resp.json()["id"]
+
+        # List and find our agent
+        list_resp = requests.get(f"{API_URL}/api/v1/agents", headers=api_headers)
+        assert list_resp.status_code == 200
+        agents = list_resp.json()["data"]
+        our_agent = next((a for a in agents if a["id"] == agent_id), None)
+        assert our_agent is not None
+        assert our_agent["description"] == "Listed description"
+
+
+# ============================================================================
 # Client Management (Internal API)
 # ============================================================================
 

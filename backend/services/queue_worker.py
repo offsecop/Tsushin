@@ -24,6 +24,7 @@ class QueueWorker:
     - Polls for pending items every 500ms
     - Manages one processing task per (tenant_id, agent_id) pair
     - For playground: calls PlaygroundService.send_message() and pushes results via WebSocket
+    - For api: calls PlaygroundService.send_message() and persists result for polling (no WebSocket)
     - For WhatsApp/Telegram: calls AgentRouter.route_message()
     - On failure: retries up to max_retries, then dead-letters
     - On startup: resets stale processing items
@@ -167,17 +168,20 @@ class QueueWorker:
                     logger.warning(f"Failed to send processing_started WebSocket notification: {e}")
 
                 try:
+                    result = None
                     if channel == "playground":
-                        await self._process_playground_message(db, item)
+                        result = await self._process_playground_message(db, item)
                     elif channel == "whatsapp":
                         await self._process_whatsapp_message(db, item)
                     elif channel == "telegram":
                         await self._process_telegram_message(db, item)
+                    elif channel == "api":
+                        result = await self._process_api_message(db, item)
                     else:
                         raise ValueError(f"Unknown channel: {channel}")
 
-                    # Mark as completed
-                    service.mark_completed(queue_id)
+                    # Mark as completed, persisting result for poll retrieval
+                    service.mark_completed(queue_id, result=result)
 
                 except Exception as e:
                     error_msg = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
@@ -202,7 +206,7 @@ class QueueWorker:
                 })
 
     async def _process_playground_message(self, db: Session, item):
-        """Process a playground message from the queue."""
+        """Process a playground message from the queue. Returns result dict."""
         from services.playground_service import PlaygroundService
 
         payload = item.payload
@@ -220,25 +224,29 @@ class QueueWorker:
             media_type=media_type,
         )
 
+        result_payload = {
+            "status": result.get("status"),
+            "message": result.get("message"),
+            "agent_name": result.get("agent_name"),
+            "timestamp": result.get("timestamp"),
+            "thread_renamed": result.get("thread_renamed"),
+            "new_thread_title": result.get("new_thread_title"),
+            "kb_used": result.get("kb_used"),
+        }
+
         # Send result via WebSocket to the user
         if user_id:
             from websocket_manager import manager as ws_manager
             await ws_manager.send_to_user(user_id, {
                 "type": "queue_message_completed",
                 "queue_id": item.id,
-                "result": {
-                    "status": result.get("status"),
-                    "message": result.get("message"),
-                    "agent_name": result.get("agent_name"),
-                    "timestamp": result.get("timestamp"),
-                    "thread_renamed": result.get("thread_renamed"),
-                    "new_thread_title": result.get("new_thread_title"),
-                    "kb_used": result.get("kb_used"),
-                },
+                "result": result_payload,
             })
 
         if result.get("status") == "error":
             raise Exception(result.get("error", "Unknown playground error"))
+
+        return result_payload
 
     async def _process_whatsapp_message(self, db: Session, item):
         """Process a WhatsApp message from the queue."""
@@ -316,6 +324,53 @@ class QueueWorker:
             db, config_dict, mcp_reader=None, telegram_instance_id=instance_id
         )
         await agent_router.route_message(message, "queue")
+
+    async def _process_api_message(self, db: Session, item):
+        """
+        Process an API channel message from the queue. Returns result dict.
+        Similar to playground processing but does NOT send WebSocket notifications.
+        The result is persisted in the queue item payload for polling.
+        """
+        from services.playground_service import PlaygroundService
+        from services.playground_thread_service import PlaygroundThreadService
+
+        payload = item.payload
+        user_id = payload.get("user_id", 0)
+        message = payload.get("message", "")
+        thread_id = payload.get("thread_id")
+
+        # Auto-create thread if not specified
+        if not thread_id:
+            thread_service = PlaygroundThreadService(db)
+            thread_data = await thread_service.create_thread(
+                tenant_id=item.tenant_id,
+                user_id=user_id,
+                agent_id=item.agent_id,
+                title=message[:50] + "..." if len(message) > 50 else message,
+            )
+            thread_obj = thread_data.get("thread", {})
+            thread_id = thread_obj.get("id") if thread_obj else None
+
+        service = PlaygroundService(db)
+        result = await service.send_message(
+            user_id=user_id,
+            agent_id=item.agent_id,
+            message_text=message,
+            thread_id=thread_id,
+            tenant_id=item.tenant_id,
+        )
+
+        if result.get("status") == "error":
+            raise Exception(result.get("error", "Unknown API processing error"))
+
+        return {
+            "status": result.get("status", "success"),
+            "message": result.get("message") or result.get("answer"),
+            "agent_name": result.get("agent_name"),
+            "thread_id": thread_id,
+            "timestamp": result.get("timestamp"),
+            "kb_used": result.get("kb_used"),
+        }
 
     @property
     def is_running(self) -> bool:

@@ -71,12 +71,17 @@ class MessageQueueService:
             logger.info(f"Claimed queue item {item.id} for processing")
         return item
 
-    def mark_completed(self, queue_id: int):
-        """Mark a queue item as completed."""
+    def mark_completed(self, queue_id: int, result: dict = None):
+        """Mark a queue item as completed, optionally persisting the result in payload."""
         item = self.db.get(MessageQueue, queue_id)
         if item:
             item.status = "completed"
             item.completed_at = datetime.utcnow()
+            if result is not None:
+                # Reassign payload dict so SQLAlchemy detects the JSON mutation
+                updated_payload = dict(item.payload) if item.payload else {}
+                updated_payload["result"] = result
+                item.payload = updated_payload
             self.db.commit()
             logger.info(f"Queue item {queue_id} completed")
 

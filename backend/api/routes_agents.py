@@ -7,7 +7,7 @@ Provides CRUD operations for agents and tone presets.
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 import sys
 import os
@@ -16,6 +16,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models import Agent, TonePreset, Contact, ContactAgentMapping, Config, AgentSkill, SandboxedTool, AgentSandboxedTool
 from models_rbac import User
 from auth_dependencies import TenantContext, get_tenant_context, require_permission
+from api.sanitizers import strip_html_tags, sanitize_text_field
 
 router = APIRouter()
 
@@ -58,10 +59,16 @@ class TonePresetCreate(BaseModel):
     description: str = Field(..., min_length=1)
     is_system: bool = Field(default=False)
 
+    # TODO: Add HTML sanitization validators for tone preset name/description
+    # once agent sanitization is validated in production
+
 
 class TonePresetUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=50)
     description: Optional[str] = Field(None, min_length=1)
+
+    # TODO: Add HTML sanitization validators for tone preset name/description
+    # once agent sanitization is validated in production
 
 
 # ==================== Agent Schemas ====================
@@ -141,6 +148,11 @@ class AgentCreate(BaseModel):
     is_active: bool = Field(default=True)
     is_default: bool = Field(default=False)
 
+    # TODO: Add HTML sanitization for response_template and custom_tone fields
+    # once agent name sanitization is validated in production.
+    # Note: Agent name comes from Contact.friendly_name (set via routes_contacts.py),
+    # so XSS sanitization for names must also be applied there.
+
 
 class AgentUpdate(BaseModel):
     contact_id: Optional[int] = None
@@ -171,6 +183,9 @@ class AgentUpdate(BaseModel):
 
     is_active: Optional[bool] = None
     is_default: Optional[bool] = None
+
+    # TODO: Add HTML sanitization for response_template and custom_tone fields
+    # once agent name sanitization is validated in production.
 
 
 # ==================== Tone Preset Routes ====================
@@ -596,9 +611,9 @@ def create_agent(
         if not tone:
             raise HTTPException(status_code=404, detail="Tone preset not found")
 
-    # If setting as default, unset other defaults
+    # If setting as default, unset other defaults (scoped to tenant)
     if agent.is_default:
-        db.query(Agent).update({"is_default": False})
+        db.query(Agent).filter(Agent.tenant_id == ctx.tenant_id).update({"is_default": False})
 
     # IMPORTANT: Get model config from Config table to respect user settings
     # Never use hardcoded defaults from Pydantic schema
@@ -664,10 +679,11 @@ def update_agent(
         if contact.role != "agent":
             raise HTTPException(status_code=400, detail="Contact must have role='agent'")
 
-        # Check if another agent already uses this contact
+        # Check if another agent already uses this contact (scoped to tenant)
         existing = db.query(Agent).filter(
             Agent.contact_id == agent.contact_id,
-            Agent.id != agent_id
+            Agent.id != agent_id,
+            Agent.tenant_id == ctx.tenant_id
         ).first()
         if existing:
             raise HTTPException(status_code=400, detail="Agent for this contact already exists")
@@ -678,9 +694,9 @@ def update_agent(
         if not tone:
             raise HTTPException(status_code=404, detail="Tone preset not found")
 
-    # If setting as default, unset other defaults
+    # If setting as default, unset other defaults (scoped to tenant)
     if agent.is_default:
-        db.query(Agent).filter(Agent.id != agent_id).update({"is_default": False})
+        db.query(Agent).filter(Agent.id != agent_id, Agent.tenant_id == ctx.tenant_id).update({"is_default": False})
 
     # Update fields
     update_data = agent.model_dump(exclude_unset=True)
@@ -714,14 +730,14 @@ def delete_agent(
     if not ctx.can_access_resource(agent.tenant_id):
         raise HTTPException(status_code=403, detail="Access denied to this agent")
 
-    # Cannot delete default agent if it's the only one
+    # Cannot delete default agent if it's the only one (scoped to tenant)
     if agent.is_default:
-        total_agents = db.query(Agent).count()
+        total_agents = db.query(Agent).filter(Agent.tenant_id == ctx.tenant_id).count()
         if total_agents == 1:
             raise HTTPException(status_code=400, detail="Cannot delete the only agent")
 
-        # Set another agent as default
-        next_agent = db.query(Agent).filter(Agent.id != agent_id).first()
+        # Set another agent as default (scoped to tenant)
+        next_agent = db.query(Agent).filter(Agent.id != agent_id, Agent.tenant_id == ctx.tenant_id).first()
         if next_agent:
             next_agent.is_default = True
 

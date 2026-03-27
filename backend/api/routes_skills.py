@@ -153,6 +153,8 @@ async def get_agent_skills(
             ],
             "count": len(skills)
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting skills for agent {agent_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

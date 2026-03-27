@@ -263,6 +263,7 @@ class LLMTestResponse(BaseModel):
 
 @router.get("/config", response_model=SentinelConfigResponse)
 async def get_sentinel_config(
+    current_user: User = Depends(require_permission("org.settings.read")),
     ctx: TenantContext = Depends(get_tenant_context),
     db: Session = Depends(get_db),
 ):

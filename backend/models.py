@@ -299,6 +299,7 @@ class Agent(Base):
 
     # Configuration
     system_prompt = Column(Text, nullable=False)  # Can include {{PERSONA}} or {{TONE}} placeholder
+    description = Column(Text, nullable=True)  # Short human-readable description of the agent
     persona_id = Column(Integer, nullable=True)  # FK to Persona (replaces tone_preset_id/custom_tone)
 
     # Legacy tone fields (kept for backward compatibility, will be migrated)
@@ -2924,14 +2925,14 @@ class HostBrowserAuditLog(Base):
 class MessageQueue(Base):
     """
     Message Queue for asynchronous message processing.
-    Supports playground, WhatsApp, and Telegram channels.
+    Supports playground, WhatsApp, Telegram, and API channels.
     Uses SELECT FOR UPDATE SKIP LOCKED for concurrent-safe claim.
     """
     __tablename__ = "message_queue"
 
     id = Column(Integer, primary_key=True)
     tenant_id = Column(String(50), nullable=False, index=True)
-    channel = Column(String(20), nullable=False, index=True)  # "playground"|"whatsapp"|"telegram"
+    channel = Column(String(20), nullable=False, index=True)  # "playground"|"whatsapp"|"telegram"|"api"
     status = Column(String(20), nullable=False, default="pending", index=True)
     # "pending" | "processing" | "completed" | "failed" | "dead_letter"
 
@@ -2942,6 +2943,8 @@ class MessageQueue(Base):
     # Playground: {"user_id": int, "message": str, "thread_id": int|null, "media_type": str|null}
     # WhatsApp:  {"message": dict}
     # Telegram:  {"update": dict, "instance_id": int}
+    # API:       {"user_id": int, "message": str, "thread_id": int|null, "api_client_id": str}
+    # On completion, "result" key is added to payload for poll retrieval
 
     priority = Column(Integer, default=0)
     retry_count = Column(Integer, default=0)

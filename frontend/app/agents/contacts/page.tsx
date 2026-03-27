@@ -254,7 +254,7 @@ export default function ContactsPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg text-gray-600 dark:text-gray-400">Loading contacts...</div>
+        <div className="text-lg text-tsushin-slate">Loading contacts...</div>
       </div>
     )
   }
@@ -407,27 +407,27 @@ export default function ContactsPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-gray-900/50 border border-gray-800 rounded-lg shadow p-5 border-l-4 border-l-tsushin-indigo">
+          <div className="bg-tsushin-surface border border-tsushin-border rounded-lg shadow p-5 border-l-4 border-l-tsushin-indigo">
             <p className="text-sm font-medium text-tsushin-slate">Total Contacts</p>
             <p className="text-2xl font-bold text-white mt-1">{contacts.length}</p>
           </div>
-          <div className="bg-gray-900/50 border border-gray-800 rounded-lg shadow p-5 border-l-4 border-l-blue-500">
+          <div className="bg-tsushin-surface border border-tsushin-border rounded-lg shadow p-5 border-l-4 border-l-blue-500">
             <p className="text-sm font-medium text-tsushin-slate">Users</p>
             <p className="text-2xl font-bold text-white mt-1">{userContacts.length}</p>
           </div>
-          <div className="bg-gray-900/50 border border-gray-800 rounded-lg shadow p-5 border-l-4 border-l-purple-500">
+          <div className="bg-tsushin-surface border border-tsushin-border rounded-lg shadow p-5 border-l-4 border-l-purple-500">
             <p className="text-sm font-medium text-tsushin-slate">Agent Contacts</p>
             <p className="text-2xl font-bold text-white mt-1">{agentContacts.length}</p>
           </div>
-          <div className="bg-gray-900/50 border border-gray-800 rounded-lg shadow p-5 border-l-4 border-l-green-500">
+          <div className="bg-tsushin-surface border border-tsushin-border rounded-lg shadow p-5 border-l-4 border-l-green-500">
             <p className="text-sm font-medium text-tsushin-slate">DM Triggers</p>
             <p className="text-2xl font-bold text-white mt-1">{dmTriggerContacts.length}</p>
           </div>
         </div>
 
         {/* Contact List */}
-        <div className="bg-gray-900/50 border border-gray-800 rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-800">
+        <div className="bg-tsushin-surface border border-tsushin-border rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-tsushin-border">
             <h2 className="text-lg font-semibold text-white">All Contacts</h2>
             <p className="text-sm text-tsushin-slate mt-1">
               Manage users and agent contacts. Contacts can be referenced in conversations.
@@ -445,9 +445,9 @@ export default function ContactsPage() {
               </button>
             </div>
           ) : (
-            <div className="divide-y divide-gray-800">
+            <div className="divide-y divide-tsushin-border">
               {contacts.map((contact) => (
-                <div key={contact.id} className="px-6 py-4 hover:bg-gray-800/30 transition-colors">
+                <div key={contact.id} className="px-6 py-4 hover:bg-white/5 transition-colors">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
@@ -467,7 +467,7 @@ export default function ContactsPage() {
                           </span>
                         )}
                         {!contact.is_active && (
-                          <span className="px-2 py-1 text-xs font-medium bg-gray-500/10 text-gray-400 border border-gray-500/20 rounded-full">
+                          <span className="px-2 py-1 text-xs font-medium bg-gray-500/10 text-tsushin-slate border border-gray-500/20 rounded-full">
                             Inactive
                           </span>
                         )}
@@ -526,8 +526,8 @@ export default function ContactsPage() {
         </div>
 
         {/* Agent Assignments */}
-        <div className="bg-gray-900/50 border border-gray-800 rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-800">
+        <div className="bg-tsushin-surface border border-tsushin-border rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-tsushin-border">
             <h2 className="text-lg font-semibold text-white">Agent Assignments</h2>
             <p className="text-sm text-tsushin-slate mt-1">
               Assign specific agents to contacts for personalized responses in DMs
@@ -538,18 +538,18 @@ export default function ContactsPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b-2 border-gray-700">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">Contact</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">Phone</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-300">Assigned Agent</th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-gray-300">Actions</th>
+                  <tr className="border-b-2 border-tsushin-border">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-tsushin-slate">Contact</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-tsushin-slate">Phone</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-tsushin-slate">Assigned Agent</th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-tsushin-slate">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {userContacts.map((contact) => {
                     const mapping = mappings.find(m => m.contact_id === contact.id)
                     return (
-                      <tr key={contact.id} className="border-b border-gray-800 hover:bg-gray-800/30">
+                      <tr key={contact.id} className="border-b border-tsushin-border hover:bg-white/5">
                         <td className="py-3 px-4">
                           <div className="font-medium text-white">{contact.friendly_name}</div>
                           {contact.is_dm_trigger && (
@@ -568,7 +568,7 @@ export default function ContactsPage() {
                                 handleAssignAgent(contact.id, agentId)
                               }
                             }}
-                            className="px-3 py-1.5 text-sm border border-gray-700 rounded-md bg-gray-800 text-white focus:ring-2 focus:ring-tsushin-indigo"
+                            className="px-3 py-1.5 text-sm border border-tsushin-border rounded-md bg-tsushin-elevated text-white focus:ring-2 focus:ring-tsushin-indigo"
                           >
                             <option value="">Default Agent</option>
                             {agents.filter(a => a.is_active).map(agent => (
@@ -614,7 +614,7 @@ export default function ContactsPage() {
           <div className="flex justify-end gap-2">
             <button
               onClick={cancelEdit}
-              className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 text-sm"
+              className="px-4 py-2 bg-tsushin-muted text-white rounded hover:bg-tsushin-muted/80 text-sm"
             >
               Cancel
             </button>
@@ -630,7 +630,7 @@ export default function ContactsPage() {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-300">
+              <label className="block text-sm font-medium mb-2 text-tsushin-slate">
                 Friendly Name *
               </label>
               <input
@@ -638,18 +638,18 @@ export default function ContactsPage() {
                 value={formData.friendly_name}
                 onChange={(e) => setFormData({ ...formData, friendly_name: e.target.value })}
                 placeholder="e.g., Alice, Agent1"
-                className="w-full px-3 py-2 border border-gray-700 rounded-md bg-gray-800 text-white focus:ring-2 focus:ring-tsushin-indigo"
+                className="w-full px-3 py-2 border border-tsushin-border rounded-md bg-tsushin-elevated text-white focus:ring-2 focus:ring-tsushin-indigo"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-300">
+              <label className="block text-sm font-medium mb-2 text-tsushin-slate">
                 Role *
               </label>
               <select
                 value={formData.role}
                 onChange={(e) => setFormData({ ...formData, role: e.target.value as 'user' | 'agent' })}
-                className="w-full px-3 py-2 border border-gray-700 rounded-md bg-gray-800 text-white focus:ring-2 focus:ring-tsushin-indigo"
+                className="w-full px-3 py-2 border border-tsushin-border rounded-md bg-tsushin-elevated text-white focus:ring-2 focus:ring-tsushin-indigo"
               >
                 <option value="user">User</option>
                 <option value="agent">Agent</option>
@@ -657,7 +657,7 @@ export default function ContactsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-300">
+              <label className="block text-sm font-medium mb-2 text-tsushin-slate">
                 WhatsApp ID
               </label>
               <input
@@ -665,12 +665,12 @@ export default function ContactsPage() {
                 value={formData.whatsapp_id}
                 onChange={(e) => setFormData({ ...formData, whatsapp_id: e.target.value })}
                 placeholder="e.g., 140127703679231"
-                className="w-full px-3 py-2 border border-gray-700 rounded-md bg-gray-800 text-white focus:ring-2 focus:ring-tsushin-indigo"
+                className="w-full px-3 py-2 border border-tsushin-border rounded-md bg-tsushin-elevated text-white focus:ring-2 focus:ring-tsushin-indigo"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-300">
+              <label className="block text-sm font-medium mb-2 text-tsushin-slate">
                 Phone Number
               </label>
               <input
@@ -678,12 +678,12 @@ export default function ContactsPage() {
                 value={formData.phone_number}
                 onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
                 placeholder="e.g., 5500000000001"
-                className="w-full px-3 py-2 border border-gray-700 rounded-md bg-gray-800 text-white focus:ring-2 focus:ring-tsushin-indigo"
+                className="w-full px-3 py-2 border border-tsushin-border rounded-md bg-tsushin-elevated text-white focus:ring-2 focus:ring-tsushin-indigo"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-300">
+              <label className="block text-sm font-medium mb-2 text-tsushin-slate">
                 Telegram ID
               </label>
               <input
@@ -691,12 +691,12 @@ export default function ContactsPage() {
                 value={formData.telegram_id}
                 onChange={(e) => setFormData({ ...formData, telegram_id: e.target.value })}
                 placeholder="e.g., 123456789"
-                className="w-full px-3 py-2 border border-gray-700 rounded-md bg-gray-800 text-white focus:ring-2 focus:ring-tsushin-indigo"
+                className="w-full px-3 py-2 border border-tsushin-border rounded-md bg-tsushin-elevated text-white focus:ring-2 focus:ring-tsushin-indigo"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-300">
+              <label className="block text-sm font-medium mb-2 text-tsushin-slate">
                 Telegram Username
               </label>
               <input
@@ -704,7 +704,7 @@ export default function ContactsPage() {
                 value={formData.telegram_username}
                 onChange={(e) => setFormData({ ...formData, telegram_username: e.target.value })}
                 placeholder="e.g., @johndoe"
-                className="w-full px-3 py-2 border border-gray-700 rounded-md bg-gray-800 text-white focus:ring-2 focus:ring-tsushin-indigo"
+                className="w-full px-3 py-2 border border-tsushin-border rounded-md bg-tsushin-elevated text-white focus:ring-2 focus:ring-tsushin-indigo"
               />
             </div>
           </div>
@@ -716,11 +716,11 @@ export default function ContactsPage() {
                   type="checkbox"
                   checked={formData.is_dm_trigger}
                   onChange={(e) => setFormData({ ...formData, is_dm_trigger: e.target.checked })}
-                  className="mt-1 w-4 h-4 text-tsushin-indigo border-gray-600 rounded"
+                  className="mt-1 w-4 h-4 text-tsushin-indigo border-tsushin-border rounded"
                 />
                 <div>
                   <span className="font-medium text-sm text-white">Enable DM Trigger</span>
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-xs text-tsushin-slate mt-1">
                     Agent will automatically respond to direct messages from this contact
                   </p>
                 </div>
@@ -730,7 +730,7 @@ export default function ContactsPage() {
 
           {formData.role === 'user' && (
             <div className="p-3 bg-indigo-900/20 border border-indigo-700/50 rounded-md">
-              <label className="block text-sm font-medium mb-2 text-gray-300">
+              <label className="block text-sm font-medium mb-2 text-tsushin-slate">
                 Slash Commands
               </label>
               <select
@@ -742,20 +742,20 @@ export default function ContactsPage() {
                     slash_commands_enabled: val === 'default' ? null : val === 'enabled'
                   })
                 }}
-                className="w-full px-3 py-2 border border-gray-700 rounded-md bg-gray-800 text-white focus:ring-2 focus:ring-tsushin-indigo"
+                className="w-full px-3 py-2 border border-tsushin-border rounded-md bg-tsushin-elevated text-white focus:ring-2 focus:ring-tsushin-indigo"
               >
                 <option value="default">Use tenant default</option>
                 <option value="enabled">Enabled</option>
                 <option value="disabled">Disabled</option>
               </select>
-              <p className="text-xs text-gray-400 mt-2">
+              <p className="text-xs text-tsushin-slate mt-2">
                 Control whether this contact can use slash commands (e.g., /help, /tool). Tenant default applies when set to &quot;Use tenant default&quot;.
               </p>
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium mb-2 text-gray-300">
+            <label className="block text-sm font-medium mb-2 text-tsushin-slate">
               Notes
             </label>
             <textarea
@@ -763,14 +763,14 @@ export default function ContactsPage() {
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               placeholder="Optional notes about this contact"
               rows={3}
-              className="w-full px-3 py-2 border border-gray-700 rounded-md bg-gray-800 text-white focus:ring-2 focus:ring-tsushin-indigo"
+              className="w-full px-3 py-2 border border-tsushin-border rounded-md bg-tsushin-elevated text-white focus:ring-2 focus:ring-tsushin-indigo"
             />
           </div>
 
           {/* Linked System User */}
           {teamMembers.length > 0 && (
             <div className="p-3 bg-blue-900/20 border border-blue-700/50 rounded-md">
-              <label className="block text-sm font-medium mb-2 text-gray-300">
+              <label className="block text-sm font-medium mb-2 text-tsushin-slate">
                 Linked System User
               </label>
               <select
@@ -779,7 +779,7 @@ export default function ContactsPage() {
                   ...formData,
                   linked_user_id: e.target.value ? Number(e.target.value) : null
                 })}
-                className="w-full px-3 py-2 border border-gray-700 rounded-md bg-gray-800 text-white focus:ring-2 focus:ring-tsushin-indigo"
+                className="w-full px-3 py-2 border border-tsushin-border rounded-md bg-tsushin-elevated text-white focus:ring-2 focus:ring-tsushin-indigo"
               >
                 <option value="">-- None --</option>
                 {teamMembers.map(user => (
@@ -788,7 +788,7 @@ export default function ContactsPage() {
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-gray-400 mt-2">
+              <p className="text-xs text-tsushin-slate mt-2">
                 Link this contact to a system user for unified identity across WhatsApp and the Playground.
               </p>
             </div>
