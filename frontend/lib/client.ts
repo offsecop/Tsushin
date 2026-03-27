@@ -2083,6 +2083,38 @@ export interface TeamInvitation {
   invitation_link?: string
 }
 
+// Public API v1: API Client types
+export interface ApiClientInfo {
+  id: number
+  tenant_id: string
+  name: string
+  description: string | null
+  client_id: string
+  client_secret_prefix: string
+  role: string
+  custom_scopes: string[] | null
+  is_active: boolean
+  rate_limit_rpm: number
+  expires_at: string | null
+  last_used_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ApiClientCreateResponse extends ApiClientInfo {
+  client_secret: string
+  warning: string
+  scopes: string[]
+}
+
+export interface ApiClientUsageInfo {
+  total_requests: number
+  error_requests: number
+  error_rate: number
+  avg_response_time_ms: number | null
+  last_request_at: string | null
+}
+
 export interface RoleInfo {
   name: string
   display_name: string
@@ -5752,6 +5784,55 @@ export const api = {
       method: 'DELETE',
     })
     if (!res.ok) throw new Error('Failed to cancel queue item')
+    return res.json()
+  },
+
+  // ============================================================================
+  // Public API v1: API Client Management
+  // ============================================================================
+
+  async getApiClients(): Promise<ApiClientInfo[]> {
+    const res = await authenticatedFetch(`${API_URL}/api/clients`)
+    if (!res.ok) await handleApiError(res, 'Failed to fetch API clients')
+    return res.json()
+  },
+
+  async createApiClient(data: { name: string; description?: string; role: string; rate_limit_rpm?: number }): Promise<ApiClientCreateResponse> {
+    const res = await authenticatedFetch(`${API_URL}/api/clients`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+    if (!res.ok) await handleApiError(res, 'Failed to create API client')
+    return res.json()
+  },
+
+  async updateApiClient(clientId: string, data: { name?: string; description?: string; role?: string; rate_limit_rpm?: number }): Promise<ApiClientInfo> {
+    const res = await authenticatedFetch(`${API_URL}/api/clients/${clientId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+    if (!res.ok) await handleApiError(res, 'Failed to update API client')
+    return res.json()
+  },
+
+  async rotateApiClientSecret(clientId: string): Promise<{ client_id: string; client_secret: string }> {
+    const res = await authenticatedFetch(`${API_URL}/api/clients/${clientId}/rotate-secret`, {
+      method: 'POST',
+    })
+    if (!res.ok) await handleApiError(res, 'Failed to rotate API client secret')
+    return res.json()
+  },
+
+  async revokeApiClient(clientId: string): Promise<void> {
+    const res = await authenticatedFetch(`${API_URL}/api/clients/${clientId}`, {
+      method: 'DELETE',
+    })
+    if (!res.ok) await handleApiError(res, 'Failed to revoke API client')
+  },
+
+  async getApiClientUsage(clientId: string): Promise<ApiClientUsageInfo> {
+    const res = await authenticatedFetch(`${API_URL}/api/clients/${clientId}/usage`)
+    if (!res.ok) await handleApiError(res, 'Failed to fetch API client usage')
     return res.json()
   },
 }
