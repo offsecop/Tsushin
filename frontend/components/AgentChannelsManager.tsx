@@ -56,14 +56,26 @@ export default function AgentChannelsManager({ agentId }: Props) {
     }
   }
 
-  const handleChannelToggle = (channelId: string) => {
-    setEnabledChannels(prev => {
-      if (prev.includes(channelId)) {
-        return prev.filter(c => c !== channelId)
-      } else {
-        return [...prev, channelId]
-      }
-    })
+  const handleChannelToggle = async (channelId: string) => {
+    const newChannels = enabledChannels.includes(channelId)
+      ? enabledChannels.filter(c => c !== channelId)
+      : [...enabledChannels, channelId]
+
+    setEnabledChannels(newChannels)
+
+    // Auto-save immediately like Skills tab
+    try {
+      await api.updateAgent(agentId, {
+        enabled_channels: newChannels,
+        whatsapp_integration_id: newChannels.includes('whatsapp') ? whatsappIntegrationId : null,
+        telegram_integration_id: newChannels.includes('telegram') ? telegramIntegrationId : null,
+      })
+      await loadData()
+    } catch (err) {
+      console.error('Failed to save channel toggle:', err)
+      // Revert on failure
+      setEnabledChannels(enabledChannels)
+    }
   }
 
   const handleSave = async () => {
