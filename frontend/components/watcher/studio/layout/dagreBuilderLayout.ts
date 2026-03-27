@@ -97,7 +97,7 @@ export async function calculateDagreBuilderLayout(
       id: `edge-${agentNode.id}-${groupNode.id}`,
       source: agentNode.id,
       target: groupNode.id,
-      type: 'smoothstep',
+      type: 'straight',
       style: EDGE_STYLE,
     })
 
@@ -107,7 +107,7 @@ export async function calculateDagreBuilderLayout(
           id: `edge-${groupNode.id}-${child.id}`,
           source: groupNode.id,
           target: child.id,
-          type: 'smoothstep',
+          type: 'straight',
           style: CHILD_EDGE_STYLE,
         })
       }
@@ -126,7 +126,7 @@ export async function calculateDagreBuilderLayout(
       id: `edge-${agentNode.id}-${node.id}`,
       source: agentNode.id,
       target: node.id,
-      type: 'smoothstep',
+      type: 'straight',
       style: EDGE_STYLE,
     })
   }
@@ -182,7 +182,7 @@ export async function calculateDagreBuilderLayout(
     allNodes.push({
       ...entry.node,
       position: userPos || { x: nodeX, y: nodeY },
-      draggable: !entry.isGroup,
+      draggable: true,
     })
 
     // Position children below

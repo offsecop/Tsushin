@@ -87,13 +87,13 @@ export function calculateRadialLayout(agentNode: Node<BuilderNodeData>, attached
     const firstPositions = positionNodesInSector(firstRing.length, sector.start, sector.end, RADIUS_FIRST)
     for (let i = 0; i < firstRing.length; i++) {
       positionedNodes.push({ ...firstRing[i], position: firstPositions[i] })
-      edges.push({ id: `edge-${agentNode.id}-${firstRing[i].id}`, source: agentNode.id, target: firstRing[i].id, type: 'smoothstep', style: EDGE_STYLE })
+      edges.push({ id: `edge-${agentNode.id}-${firstRing[i].id}`, source: agentNode.id, target: firstRing[i].id, type: 'straight', style: EDGE_STYLE })
     }
     if (overflowRing.length > 0) {
       const overflowPositions = positionNodesInSector(overflowRing.length, sector.start, sector.end, RADIUS_OVERFLOW)
       for (let i = 0; i < overflowRing.length; i++) {
         positionedNodes.push({ ...overflowRing[i], position: overflowPositions[i] })
-        edges.push({ id: `edge-${agentNode.id}-${overflowRing[i].id}`, source: agentNode.id, target: overflowRing[i].id, type: 'smoothstep', style: EDGE_STYLE })
+        edges.push({ id: `edge-${agentNode.id}-${overflowRing[i].id}`, source: agentNode.id, target: overflowRing[i].id, type: 'straight', style: EDGE_STYLE })
       }
     }
   }
@@ -123,15 +123,15 @@ export function calculateGroupedRadialLayout(
     if (!sector) continue
 
     const groupPos = getSectorCenter(sector, RADIUS_FIRST)
-    positionedNodes.push({ ...groupNode, position: groupPos, draggable: false })
-    edges.push({ id: `edge-${agentNode.id}-${groupNode.id}`, source: agentNode.id, target: groupNode.id, type: 'smoothstep', style: EDGE_STYLE })
+    positionedNodes.push({ ...groupNode, position: groupPos, draggable: true })
+    edges.push({ id: `edge-${agentNode.id}-${groupNode.id}`, source: agentNode.id, target: groupNode.id, type: 'straight', style: EDGE_STYLE })
 
     // When expanded, add children in sub-radial around the group node
     if (isExpanded && childNodes.length > 0) {
       const childPositions = positionSubRadial(childNodes.length, groupPos, SUB_RADIAL_RADIUS)
       for (let i = 0; i < childNodes.length; i++) {
         positionedNodes.push({ ...childNodes[i], position: childPositions[i] })
-        edges.push({ id: `edge-${groupNode.id}-${childNodes[i].id}`, source: groupNode.id, target: childNodes[i].id, type: 'smoothstep', style: CHILD_EDGE_STYLE })
+        edges.push({ id: `edge-${groupNode.id}-${childNodes[i].id}`, source: groupNode.id, target: childNodes[i].id, type: 'straight', style: CHILD_EDGE_STYLE })
       }
     }
   }
@@ -152,7 +152,7 @@ export function calculateGroupedRadialLayout(
     const positions = positionNodesInSector(nodes.length, sector.start, sector.end, RADIUS_FIRST)
     for (let i = 0; i < nodes.length; i++) {
       positionedNodes.push({ ...nodes[i], position: positions[i] })
-      edges.push({ id: `edge-${agentNode.id}-${nodes[i].id}`, source: agentNode.id, target: nodes[i].id, type: 'smoothstep', style: EDGE_STYLE })
+      edges.push({ id: `edge-${agentNode.id}-${nodes[i].id}`, source: agentNode.id, target: nodes[i].id, type: 'straight', style: EDGE_STYLE })
     }
   }
 

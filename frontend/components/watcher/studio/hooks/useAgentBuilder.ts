@@ -235,7 +235,7 @@ export function useAgentBuilder(agentId: number | null, studioData: UseStudioDat
           id: providerId, type: 'builder-skill-provider', position: { x: 0, y: 0 },
           data: { type: 'builder-skill-provider', parentSkillType: skill.skillType, providerType: si.provider_type, providerName: si.provider_name || si.provider_type, isConfigured: !!si.integration_id, requiresIntegration: true, integrationId: si.integration_id || undefined } as BuilderSkillProviderData,
         })
-        providerEdges.push({ id: `e-skill-${skill.skillType}-provider-${si.provider_type}`, source: `skill-${skill.skillType}`, target: providerId, type: 'smoothstep', animated: true, style: { stroke: '#2dd4bf', strokeWidth: 1, opacity: 0.5 } })
+        providerEdges.push({ id: `e-skill-${skill.skillType}-provider-${si.provider_type}`, source: `skill-${skill.skillType}`, target: providerId, type: 'straight', animated: true, style: { stroke: '#2dd4bf', strokeWidth: 1, opacity: 0.5 } })
       }
     }
 
@@ -287,8 +287,8 @@ export function useAgentBuilder(agentId: number | null, studioData: UseStudioDat
         id: `group-${catId}`,
         type: 'builder-group',
         position: { x: 0, y: 0 },
-        draggable: false,
-        selectable: false,
+        draggable: true,
+        selectable: true,
         data: {
           type: 'builder-group',
           categoryId: catId,

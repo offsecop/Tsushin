@@ -121,7 +121,7 @@ function StudioCanvasInner({ nodes, edges, onNodesChange, onDrop, onDeleteSelect
       )}
       <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} nodeTypes={builderNodeTypes}
         onNodeDoubleClick={handleNodeDblClick} fitView minZoom={0.2} maxZoom={1.5}
-        defaultEdgeOptions={{ type: 'smoothstep', animated: false, style: { stroke: '#484F58', strokeWidth: 2 } }}
+        defaultEdgeOptions={{ type: 'straight', animated: false, style: { stroke: '#484F58', strokeWidth: 2 } }}
         proOptions={{ hideAttribution: true }} nodesDraggable nodesConnectable={false} elementsSelectable selectNodesOnDrag={false}>
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="rgba(139, 146, 158, 0.15)" />
         <Controls showInteractive={false} />
