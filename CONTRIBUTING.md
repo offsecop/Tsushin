@@ -17,7 +17,7 @@ By participating in this project, you agree to maintain a respectful and inclusi
 
 ### Submitting Pull Requests
 
-1. **Fork the repository** and create your branch from `master`
+1. **Fork the repository** and create your branch from `develop`
 2. **Set up your development environment**:
    ```bash
    git clone https://github.com/your-username/tsushin.git
@@ -110,8 +110,10 @@ Tsushin follows a multi-tenant architecture with these main components:
 
 - **Backend (FastAPI)**: API server, agent runtime, memory system
 - **Frontend (Next.js)**: Web UI for management and playground
-- **Database (SQLite)**: Per-tenant data storage
+- **Database (PostgreSQL 16 + ChromaDB vectors)**: Per-tenant data storage
 - **Docker**: Container orchestration for all services
+
+> `docker compose up -d` spins up PostgreSQL, the backend, and the frontend automatically.
 
 See the main README for detailed architecture diagrams.
 

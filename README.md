@@ -3,7 +3,7 @@
 > **Multi-Tenant Agentic Framework**
 
 [![Status](https://img.shields.io/badge/status-beta-orange)]()
-[![Version](https://img.shields.io/badge/version-v0.5.0--beta-blue)]()
+[![Version](https://img.shields.io/badge/version-v1.5.0-blue)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **Tsushin** (通信 - "Communication" in Japanese) is a multi-tenant agentic messaging framework with RBAC, multi-agent orchestration, semantic memory, autonomous workflows, AI-powered security, and full observability — designed to be an enterprise-grade SaaS in the future.
@@ -75,7 +75,7 @@ OpenRouter provides access to 100+ models through a unified API.
 | Kokoro | Local/self-hosted |
 | OpenAI | Cloud |
 
-### Skills (16 Built-in)
+### Skills (21 Built-in)
 | Skill | Description |
 |-------|-------------|
 | Audio Transcription | Whisper API voice-to-text |
@@ -221,7 +221,7 @@ Interactive agent chat interface for development and testing.
 │                                                                              │
 │  ┌──────────────┐     ┌──────────────────┐     ┌──────────────────────────┐  │
 │  │ Frontend UI  │     │   Backend API    │     │      RBAC Layer          │  │
-│  │  Next.js 14  │◄───►│    FastAPI       │◄───►│  Auth / Tenants / Roles  │  │
+│  │  Next.js 14  │◄───►│ FastAPI + PG 16  │◄───►│  Auth / Tenants / Roles  │  │
 │  └──────────────┘     └────────┬─────────┘     └──────────────────────────┘  │
 │                                │                                             │
 │         ┌──────────────────────┼──────────────────────────┐                  │
@@ -231,7 +231,7 @@ Interactive agent chat interface for development and testing.
 │  │     CORE     │     │      HUB      │     │       STUDIO        │         │
 │  │              │     │               │     │                     │         │
 │  │ Agent Engine │     │ AI Providers  │     │ Agents   Personas   │         │
-│  │ 16 Skills    │     │ Comm Channels │     │ Contacts Projects   │         │
+│  │ 21 Skills    │     │ Comm Channels │     │ Contacts Projects   │         │
 │  │ AI Classifier│     │ Tool APIs     │     │ Tone Presets        │         │
 │  │ Sentinel     │     │ TTS Providers │     │ Knowledge Bases     │         │
 │  └──────┬───────┘     └───────┬───────┘     └─────────────────────┘         │
@@ -298,6 +298,10 @@ Essential environment variables (`.env`):
 ```env
 # Security (Required)
 JWT_SECRET_KEY=your-secret-key
+
+# PostgreSQL Database (Required)
+DATABASE_URL=postgresql+asyncpg://tsushin:<password>@tsushin-postgres:5432/tsushin
+POSTGRES_PASSWORD=your_secure_password_here
 ```
 
 LLM provider API keys are configured per-tenant through the Hub interface, not in environment variables. This allows multi-tenant isolation where each organization manages their own AI provider credentials.
@@ -324,4 +328,4 @@ Tsushin is open source software licensed under the [MIT License](LICENSE).
 
 ---
 
-**Version 0.5.0-beta** | **Last Updated:** February 2026
+**Version 1.5.0** | **Last Updated:** March 2026
