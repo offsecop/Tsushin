@@ -133,6 +133,29 @@ Validation checklist:
 - Git identity: commits as `iamveene`
 - No co-authorship lines in commit messages
 
+## Fast Security Benchmarks
+
+Reusable API-based benchmark scripts for testing security controls (Sentinel + MemGuard) without full LLM response generation overhead:
+
+| Script | Purpose | Runtime |
+|--------|---------|---------|
+| `backend/dev_tests/sentinel_api_benchmark.py` | Aggressiveness delta test: 16 messages × 4 levels via playground API | ~1h (LLM-bound) |
+| `backend/dev_tests/sentinel_fast_benchmark.py` | Direct Sentinel analysis (in-container, no LLM response) | ~10s |
+| `backend/dev_tests/test_sentinel_benchmark.py` | Single-level benchmark: 53 messages via playground API | ~45m |
+
+**When to run:** After any changes to Sentinel detection prompts, aggressiveness levels, MemGuard regex patterns, or security profile logic.
+
+**How to run (API benchmark):**
+```bash
+PYTHONUNBUFFERED=1 python3 backend/dev_tests/sentinel_api_benchmark.py
+```
+
+**How to run (unit tests):**
+```bash
+docker exec tsushin-backend python -m pytest tests/test_memguard.py -v
+docker exec tsushin-backend python -m pytest dev_tests/test_sentinel_memguard_review.py -v
+```
+
 ## Bug Tracking
 
 All bugs found during regression are tracked in `/Users/vinicios/code/tsushin/BUGS.md` via the `/fire_remediation` command. This file is gitignored (working document, not committed).
