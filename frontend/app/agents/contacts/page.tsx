@@ -23,6 +23,7 @@ interface ContactFormData {
   telegram_username: string
   role: 'user' | 'agent'
   is_dm_trigger: boolean
+  slash_commands_enabled: boolean | null
   notes: string
   linked_user_id: number | null
 }
@@ -45,6 +46,7 @@ export default function ContactsPage() {
     telegram_username: '',
     role: 'user',
     is_dm_trigger: true,
+    slash_commands_enabled: null,
     notes: '',
     linked_user_id: null
   })
@@ -90,6 +92,7 @@ export default function ContactsPage() {
         phone_number: formData.phone_number || undefined,
         telegram_id: formData.telegram_id || undefined,
         telegram_username: formData.telegram_username || undefined,
+        slash_commands_enabled: formData.slash_commands_enabled,
         notes: formData.notes || undefined,
         linked_user_id: formData.linked_user_id || undefined
       })
@@ -128,6 +131,7 @@ export default function ContactsPage() {
         phone_number: formData.phone_number || undefined,
         telegram_id: formData.telegram_id || undefined,
         telegram_username: formData.telegram_username || undefined,
+        slash_commands_enabled: formData.slash_commands_enabled,
         notes: formData.notes || undefined,
         linked_user_id: linkedUserIdToSend
       })
@@ -183,6 +187,7 @@ export default function ContactsPage() {
       telegram_username: contact.telegram_username || '',
       role: contact.role as 'user' | 'agent',
       is_dm_trigger: contact.is_dm_trigger || false,
+      slash_commands_enabled: contact.slash_commands_enabled ?? null,
       notes: contact.notes || '',
       linked_user_id: contact.linked_user_id || null
     })
@@ -197,6 +202,7 @@ export default function ContactsPage() {
       telegram_username: '',
       role: 'user',
       is_dm_trigger: true,
+      slash_commands_enabled: null,
       notes: '',
       linked_user_id: null
     })
@@ -465,6 +471,16 @@ export default function ContactsPage() {
                             Inactive
                           </span>
                         )}
+                        {contact.slash_commands_enabled === true && (
+                          <span className="px-2 py-1 text-xs font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full">
+                            Slash Cmds
+                          </span>
+                        )}
+                        {contact.slash_commands_enabled === false && (
+                          <span className="px-2 py-1 text-xs font-medium bg-orange-500/10 text-orange-400 border border-orange-500/20 rounded-full">
+                            No Slash Cmds
+                          </span>
+                        )}
                       </div>
                       <div className="mt-2 flex flex-wrap gap-4 text-sm text-tsushin-slate">
                         {contact.phone_number && <span className="inline-flex items-center gap-1"><SmartphoneIcon size={14} />{contact.phone_number}</span>}
@@ -709,6 +725,32 @@ export default function ContactsPage() {
                   </p>
                 </div>
               </label>
+            </div>
+          )}
+
+          {formData.role === 'user' && (
+            <div className="p-3 bg-indigo-900/20 border border-indigo-700/50 rounded-md">
+              <label className="block text-sm font-medium mb-2 text-gray-300">
+                Slash Commands
+              </label>
+              <select
+                value={formData.slash_commands_enabled === null ? 'default' : formData.slash_commands_enabled ? 'enabled' : 'disabled'}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setFormData({
+                    ...formData,
+                    slash_commands_enabled: val === 'default' ? null : val === 'enabled'
+                  })
+                }}
+                className="w-full px-3 py-2 border border-gray-700 rounded-md bg-gray-800 text-white focus:ring-2 focus:ring-tsushin-indigo"
+              >
+                <option value="default">Use tenant default</option>
+                <option value="enabled">Enabled</option>
+                <option value="disabled">Disabled</option>
+              </select>
+              <p className="text-xs text-gray-400 mt-2">
+                Control whether this contact can use slash commands (e.g., /help, /tool). Tenant default applies when set to &quot;Use tenant default&quot;.
+              </p>
             </div>
           )}
 

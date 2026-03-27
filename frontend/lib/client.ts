@@ -978,6 +978,7 @@ export interface Contact {
   role: string
   is_active: boolean
   is_dm_trigger: boolean
+  slash_commands_enabled?: boolean | null  // Feature #12: null = tenant default, true/false = explicit
   notes?: string
   created_at: string
   updated_at: string

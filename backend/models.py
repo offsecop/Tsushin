@@ -150,6 +150,7 @@ class Contact(Base):
     role = Column(String(20), default="user")  # "user" | "agent"
     is_active = Column(Boolean, default=True)
     is_dm_trigger = Column(Boolean, default=True)  # Phase 4.3: Trigger agent on DM from this contact (default True for fresh installs)
+    slash_commands_enabled = Column(Boolean, nullable=True, default=None)  # Feature #12: NULL = use tenant default, True/False = explicit override
     notes = Column(Text)  # Optional notes about the contact
 
     # Phase 7.6.2: Multi-tenancy support

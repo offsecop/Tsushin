@@ -27,6 +27,7 @@ class Tenant(Base):
     is_active = Column(Boolean, default=True)
     status = Column(String(20), default='active')  # active, suspended, trial
     created_by_global_admin = Column(Integer, ForeignKey('user.id'), nullable=True)
+    slash_commands_default_policy = Column(String(30), default="enabled_for_known")  # Feature #12: disabled | enabled_for_all | enabled_for_known
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     deleted_at = Column(DateTime, nullable=True)

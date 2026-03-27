@@ -110,6 +110,7 @@ def enrich_contact_with_user_info(db: Session, contact: Contact) -> dict:
         "role": contact.role,
         "is_active": contact.is_active,
         "is_dm_trigger": contact.is_dm_trigger,
+        "slash_commands_enabled": contact.slash_commands_enabled,  # Feature #12
         "notes": contact.notes,
         "created_at": contact.created_at,
         "updated_at": contact.updated_at,
@@ -210,6 +211,7 @@ class ContactCreate(BaseModel):
     telegram_username: str | None = Field(None, max_length=50)  # Phase 10.1.1: Telegram @username
     role: str = Field(default="user", pattern="^(user|agent)$")
     is_dm_trigger: bool = Field(default=True)  # Phase 4.3: Default True, user can opt-out during creation
+    slash_commands_enabled: Optional[bool] = Field(None, description="Feature #12: NULL = tenant default, True/False = explicit override")
     notes: str | None = None
     linked_user_id: int | None = Field(None, description="ID of the system user to link this contact to")
 
@@ -223,6 +225,7 @@ class ContactCreate(BaseModel):
                 "telegram_username": "alice_user",
                 "role": "user",
                 "is_dm_trigger": True,
+                "slash_commands_enabled": None,
                 "notes": "Example contact",
                 "linked_user_id": None
             }
@@ -238,6 +241,7 @@ class ContactUpdate(BaseModel):
     role: str | None = Field(None, pattern="^(user|agent)$")
     is_active: bool | None = None
     is_dm_trigger: bool | None = None  # Phase 4.3
+    slash_commands_enabled: Optional[bool] = None  # Feature #12: NULL = tenant default, True/False = explicit override
     notes: str | None = None
     linked_user_id: int | None = Field(None, description="ID of the system user to link this contact to (use -1 to unlink)")
 
@@ -252,6 +256,7 @@ class ContactResponse(BaseModel):
     role: str
     is_active: bool
     is_dm_trigger: bool  # Phase 4.3
+    slash_commands_enabled: Optional[bool] = None  # Feature #12
     notes: str | None
     created_at: datetime
     updated_at: datetime
