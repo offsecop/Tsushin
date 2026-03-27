@@ -860,7 +860,21 @@ async def lifespan(app: FastAPI):
     logging.info("Application shutdown")
 
 # Create app
-app = FastAPI(title="Agentic WhatsApp Bot", lifespan=lifespan)
+app = FastAPI(
+    title="Tsushin Platform API",
+    version="1.0.0",
+    description="Multi-tenant AI agent platform with flows, hub integrations, and studio builder.",
+    openapi_tags=[
+        {"name": "OAuth", "description": "OAuth2 client credentials token exchange"},
+        {"name": "Agents API", "description": "Agent CRUD and configuration management"},
+        {"name": "Chat API", "description": "Synchronous and asynchronous chat with agents"},
+        {"name": "Flows API", "description": "Flow definition CRUD, step management, execution, and run monitoring"},
+        {"name": "Hub API", "description": "Provider-agnostic hub integrations (Asana, Gmail, Calendar)"},
+        {"name": "Studio API", "description": "Agent Studio builder data and atomic save"},
+        {"name": "Resources API", "description": "Read-only listings for skills, tools, personas, and presets"},
+    ],
+    lifespan=lifespan,
+)
 
 # MED-004 FIX: Initialize rate limiter
 # Rate limits: login (5/min), signup (3/hr), password reset (3/hr)
