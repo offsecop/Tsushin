@@ -79,7 +79,6 @@ class PlaygroundWebSocketService:
                 thread_service = PlaygroundThreadService(self.db)
 
                 # Get agent name for default title
-                from models import Contact
                 contact = self.db.query(Contact).filter(Contact.id == agent.contact_id).first() if agent else None
                 agent_name = contact.friendly_name if contact else f"Bot"
                 default_title = f"New Conversation ({agent_name})"
