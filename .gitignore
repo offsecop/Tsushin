@@ -78,6 +78,9 @@ frontend/.next/
 frontend/out/
 frontend/build/
 
+# Build artifacts
+frontend/tsconfig.tsbuildinfo
+
 # Dependencies
 frontend/package-lock.json
 frontend/yarn.lock
@@ -139,6 +142,9 @@ backend/data/workspace/
 backend/data/projects/
 backend/data/*.db*
 backend/data/*_report.json
+backend/data/*.py
+backend/data/*.sql
+backend/data/tester-mcp/store/
 
 # WhatsApp/MCP session data
 **/*.ogg
@@ -164,6 +170,7 @@ backend/dev_tests/
 # (prevents accidental commits of dev test scripts)
 backend/test_*.py
 backend/run_*.py
+backend/run_*.txt
 backend/scripts/test_*.py
 backend/scripts/setup_*_test.py
 
