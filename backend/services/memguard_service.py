@@ -13,7 +13,9 @@ Layer B (Fact validation): Validates extracted facts before SemanticKnowledge st
     - Blocks instruction-topic facts with command patterns
     - Flags contradictions against established high-confidence facts
 
-Both layers are fail-open: errors allow content through.
+Layer B is fail-open: errors allow facts through.
+Layer A is fail-open for low scores and LLM errors, but treats medium-confidence
+(0.3-0.7) pattern matches as threats when LLM escalation fails.
 Bilingual patterns: English + Portuguese.
 """
 
@@ -65,12 +67,12 @@ INSTRUCTION_PLANTING_PATTERNS = [
 
 # Credential/secret injection patterns (EN + PT)
 CREDENTIAL_INJECTION_PATTERNS = [
-    # English
-    r"(?:my|the|our)\s+(?:api\s*key|password|token|secret|credential|private\s*key|access\s*key)\s+(?:is|=|:)\s*\S+",
+    # English — negative lookahead excludes conversational phrases like "password is incorrect"
+    r"(?:my|the|our)\s+(?:api\s*key|password|token|secret|credential|private\s*key|access\s*key)\s+(?:is|=|:)\s*(?!(?:wrong|incorrect|invalid|expired|valid|safe|correct|strong|weak|missing|empty|null|none|broken|compromised|changed|reset|required|needed|working|not)\b)\S{6,}",
     r"(?:remember|memorize|store|save)\s+(?:my|the|this)\s+(?:api\s*key|password|token|secret|credential)",
     r"(?:api[_\s]?key|password|token|secret|credential)[_\s]?(?:is|=|:)\s*['\"]?\S{8,}",
-    # Portuguese
-    r"(?:minha?|a|o)\s+(?:senha|token|chave|segredo|credencial)\s+[eé]\s*:?\s*\S+",
+    # Portuguese — negative lookahead for common descriptive words
+    r"(?:minha?|a|o)\s+(?:senha|token|chave|segredo|credencial)\s+[eé]\s*:?\s*(?!(?:inv[aá]lid[ao]|errad[ao]|frac[ao]|forte|expirad[ao]|corret[ao])\b)\S{6,}",
     r"(?:lembre|memorize|guarde|salve)\s+(?:minha?|meu|a|o)\s+(?:senha|token|chave|segredo|credencial)",
 ]
 
@@ -117,8 +119,8 @@ _CATEGORY_WEIGHTS = {
 # Credential-like values in facts
 CREDENTIAL_VALUE_PATTERNS = [
     re.compile(r"(?:api[_\s]?key|password|token|secret|credential|private[_\s]?key|access[_\s]?key)\s*[:=]\s*\S+", re.IGNORECASE),
-    re.compile(r"^[A-Za-z0-9+/=_\-]{20,}$"),  # Long random strings (tokens/keys)
-    re.compile(r"^(?:sk|pk|ak|Bearer|token)[_\-][A-Za-z0-9]{16,}$", re.IGNORECASE),  # Common key prefixes
+    re.compile(r"^[A-Za-z0-9+/=_\-]{32,}$"),  # Long random strings (tokens/keys) — 32+ chars to avoid false positives on CamelCase words
+    re.compile(r"^(?:sk|pk|ak|ey|Bearer|token|gsk|xai|ghp|glpat|AKIA)[_\-][A-Za-z0-9]{16,}$", re.IGNORECASE),  # Common key prefixes
     re.compile(r"(?:senha|token|chave|segredo)\s*[:=]\s*\S+", re.IGNORECASE),  # Portuguese
 ]
 
@@ -192,6 +194,7 @@ class MemGuardService:
             # High confidence — block immediately, no LLM needed
             detection_mode = getattr(config, "detection_mode", "block")
             blocked = detection_mode == "block"
+            action = "blocked" if blocked else ("warned" if detection_mode == "warn_only" else "detected")
 
             self._log_analysis(
                 agent_id=agent_id,
@@ -200,7 +203,7 @@ class MemGuardService:
                 is_threat=True,
                 score=max_score,
                 reason=matched_reason,
-                action="blocked" if blocked else "detected",
+                action=action,
                 detection_mode=detection_mode,
             )
 
@@ -220,6 +223,7 @@ class MemGuardService:
             # LLM failed — treat pattern match as sufficient at medium confidence
             detection_mode = getattr(config, "detection_mode", "block")
             blocked = detection_mode == "block"
+            action = "blocked" if blocked else ("warned" if detection_mode == "warn_only" else "detected")
 
             self._log_analysis(
                 agent_id=agent_id,
@@ -228,7 +232,7 @@ class MemGuardService:
                 is_threat=True,
                 score=max_score,
                 reason=f"{matched_reason} (LLM escalation failed, using pattern score)",
-                action="blocked" if blocked else "detected",
+                action=action,
                 detection_mode=detection_mode,
             )
 
