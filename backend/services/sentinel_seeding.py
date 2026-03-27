@@ -423,9 +423,12 @@ def create_sentinel_profile_tables(db: Session) -> bool:
         # Create partial unique index for is_default uniqueness per tenant
         # This ensures at most one default profile per tenant (including system scope)
         try:
+            # Use dialect-appropriate boolean literal (PostgreSQL: TRUE, SQLite: 1)
+            dialect = db.get_bind().dialect.name
+            bool_literal = "TRUE" if dialect == "postgresql" else "1"
             db.execute(text(
                 "CREATE UNIQUE INDEX IF NOT EXISTS idx_sentinel_profile_one_default "
-                "ON sentinel_profile(COALESCE(tenant_id, '__system__')) WHERE is_default = 1"
+                f"ON sentinel_profile(COALESCE(tenant_id, '__system__')) WHERE is_default = {bool_literal}"
             ))
             db.commit()
             logger.debug("Created partial unique index idx_sentinel_profile_one_default")

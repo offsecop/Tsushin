@@ -131,12 +131,12 @@ def create_test_users(db: Session):
 
 
 def main():
-    # Get database path from environment or use default
-    db_path = os.getenv("DATABASE_PATH", "/app/data/agent.db")
-    logger.info(f"Using database: {db_path}")
+    # Get database URL from environment
+    import settings
+    logger.info(f"Using database: {settings.DATABASE_URL[:30]}...")
 
     # Initialize database
-    engine = get_engine(db_path)
+    engine = get_engine(settings.DATABASE_URL)
 
     # Create session and create users
     from sqlalchemy.orm import sessionmaker

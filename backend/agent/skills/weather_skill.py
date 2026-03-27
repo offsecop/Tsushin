@@ -104,9 +104,9 @@ class WeatherSkill(BaseSkill):
             if not db:
                 from sqlalchemy.orm import sessionmaker
                 from db import get_engine
-                import os
+                import settings
 
-                engine = get_engine(os.getenv("INTERNAL_DB_PATH", "./data/agent.db"))
+                engine = get_engine(settings.DATABASE_URL)
                 SessionLocal = sessionmaker(bind=engine)
                 db = SessionLocal()
 
@@ -451,9 +451,9 @@ Return JSON only:"""
             if not db:
                 from sqlalchemy.orm import sessionmaker
                 from db import get_engine
-                import os
+                import settings
 
-                engine = get_engine(os.getenv("INTERNAL_DB_PATH", "./data/agent.db"))
+                engine = get_engine(settings.DATABASE_URL)
                 SessionLocal = sessionmaker(bind=engine)
                 db = SessionLocal()
 

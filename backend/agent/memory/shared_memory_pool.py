@@ -16,7 +16,8 @@ import logging
 from typing import Dict, List, Optional, Set
 from datetime import datetime
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, desc
+from sqlalchemy import and_, or_, desc, text, func, cast
+from sqlalchemy.types import Text
 
 from models import SharedMemory, Agent
 
@@ -157,11 +158,14 @@ class SharedMemoryPool:
             # 3. Knowledge where agent is in accessible_to list
             # Note: SQLite doesn't support JSON field access in WHERE clauses like PostgreSQL
             # so we filter access_level="public" in Python after the query
+            # PostgreSQL-compatible JSON comparison:
+            # - JSON == [] doesn't work on PG (no = operator for json type)
+            # - Use cast to text for empty array check, and text() for contains
             query = query.filter(
                 or_(
-                    SharedMemory.accessible_to == [],
+                    cast(SharedMemory.accessible_to, Text) == '[]',
                     SharedMemory.shared_by_agent == agent_id,
-                    SharedMemory.accessible_to.contains([agent_id])
+                    cast(SharedMemory.accessible_to, Text).like(f'%{agent_id}%')
                 )
             )
 

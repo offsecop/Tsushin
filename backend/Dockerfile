@@ -1,7 +1,7 @@
 # Tsushin Backend Dockerfile
 # Phase 9: Application Containerization
 #
-# Multi-stage build for FastAPI backend with SQLite + ChromaDB
+# Multi-stage build for FastAPI backend with PostgreSQL + ChromaDB
 
 # ============================================================================
 # Stage 1: Builder - Install dependencies
@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
     g++ \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Create virtual environment
@@ -44,6 +45,7 @@ ARG TARGETARCH
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     sqlite3 \
+    libpq5 \
     nmap \
     wget \
     unzip \

@@ -144,7 +144,7 @@ async def lifespan(app: FastAPI):
     global engine, watcher, watcher_task, watchers, watcher_tasks, flow_executor_task
 
     # Initialize database
-    engine = get_engine(os.getenv("INTERNAL_DB_PATH"))
+    engine = get_engine(settings.DATABASE_URL)
     init_database(engine)
     set_engine(engine)
 

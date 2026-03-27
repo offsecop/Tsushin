@@ -105,11 +105,6 @@ class Memory(Base):
     messages_json = Column(JSON, default=list)  # [{"role": "user", "content": "...", "timestamp": "..."}]
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Unique constraint: one memory per agent per sender
-    __table_args__ = (
-        {"sqlite_autoincrement": True},
-    )
-
 
 class MessageCache(Base):
     __tablename__ = "message_cache"
@@ -144,7 +139,7 @@ class Contact(Base):
     __tablename__ = "contact"
 
     id = Column(Integer, primary_key=True)
-    friendly_name = Column(String(100), nullable=False, unique=True)  # "Alice", "Bob", "Agent1"
+    friendly_name = Column(String(100), nullable=False)  # "Alice", "Bob", "Agent1"
     whatsapp_id = Column(String(50), nullable=True, index=True)  # WhatsApp internal ID - DEPRECATED: Use channel_mappings
     phone_number = Column(String(20), nullable=True, index=True)  # Phone number - DEPRECATED: Use channel_mappings
 
@@ -166,6 +161,10 @@ class Contact(Base):
 
     # Phase 10.2: Relationship to channel mappings
     channel_mappings = relationship("ContactChannelMapping", back_populates="contact", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        UniqueConstraint('friendly_name', 'tenant_id', name='uq_contact_friendly_name_tenant'),
+    )
 
 
 class ContactChannelMapping(Base):
@@ -402,7 +401,6 @@ class ApiKey(Base):
     # Unique constraint: one key per service per tenant
     __table_args__ = (
         Index('idx_api_key_service_tenant', 'service', 'tenant_id', unique=True),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -502,7 +500,6 @@ class TokenUsage(Base):
         Index('idx_token_usage_agent_created', 'agent_id', 'created_at'),
         Index('idx_token_usage_model_created', 'model_provider', 'model_name', 'created_at'),
         Index('idx_token_usage_operation_created', 'operation_type', 'created_at'),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -544,7 +541,6 @@ class ModelPricing(Base):
     __table_args__ = (
         UniqueConstraint('tenant_id', 'model_provider', 'model_name', name='uix_model_pricing_tenant_model'),
         Index('idx_model_pricing_model', 'model_provider', 'model_name'),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -562,11 +558,6 @@ class AgentSkill(Base):
     config = Column(JSON, default=dict)  # Skill-specific configuration
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Unique constraint: one skill config per agent per skill type
-    __table_args__ = (
-        {"sqlite_autoincrement": True},
-    )
 
 
 class AgentKnowledge(Base):
@@ -832,7 +823,6 @@ class ProjectSemanticMemory(Base):
     __table_args__ = (
         Index('idx_proj_semantic_project', 'project_id'),
         Index('idx_proj_semantic_sender', 'project_id', 'sender_key'),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -860,7 +850,6 @@ class ProjectFactMemory(Base):
         Index('idx_proj_fact_topic', 'project_id', 'topic'),
         Index('idx_proj_fact_sender', 'project_id', 'sender_key'),
         UniqueConstraint('project_id', 'sender_key', 'topic', 'key', name='uq_project_fact'),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -897,7 +886,6 @@ class SlashCommand(Base):
         Index('idx_slash_cmd_tenant', 'tenant_id'),
         Index('idx_slash_cmd_category', 'tenant_id', 'category'),
         UniqueConstraint('tenant_id', 'command_name', 'language_code', name='uq_slash_command'),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -926,7 +914,6 @@ class AgentProjectAccess(Base):
         UniqueConstraint('agent_id', 'project_id', name='uq_agent_project'),
         Index('idx_agent_project_agent', 'agent_id'),
         Index('idx_agent_project_project', 'project_id'),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -960,7 +947,6 @@ class UserProjectSession(Base):
         # One active session per user+agent+channel
         UniqueConstraint('tenant_id', 'sender_key', 'agent_id', 'channel', name='uq_user_project_session'),
         Index('idx_session_lookup', 'tenant_id', 'sender_key', 'channel'),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -992,7 +978,6 @@ class ProjectCommandPattern(Base):
     __table_args__ = (
         UniqueConstraint('tenant_id', 'command_type', 'language_code', name='uq_command_pattern'),
         Index('idx_command_pattern_tenant', 'tenant_id'),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -1165,11 +1150,6 @@ class ScheduledEvent(Base):
     completed_at = Column(DateTime)
     error_message = Column(Text)
 
-    # Indexes for efficient querying
-    __table_args__ = (
-        {"sqlite_autoincrement": True},
-    )
-
 
 class ConversationLog(Base):
     """
@@ -1197,10 +1177,6 @@ class ConversationLog(Base):
     # Analysis (optional, computed by AI)
     sentiment = Column(String(20))  # 'POSITIVE', 'NEUTRAL', 'NEGATIVE'
     topic_alignment = Column(String(20))  # 'ON_TRACK', 'DEVIATING', 'ACHIEVED'
-
-    __table_args__ = (
-        {"sqlite_autoincrement": True},
-    )
 
 
 class FlowDefinition(Base):
@@ -1259,7 +1235,6 @@ class FlowDefinition(Base):
     __table_args__ = (
         Index("idx_flow_execution_method", "execution_method"),
         Index("idx_flow_next_execution", "next_execution_at"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -1316,7 +1291,6 @@ class FlowNode(Base):
 
     __table_args__ = (
         UniqueConstraint('flow_definition_id', 'position', name='uq_flow_node_position'),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -1362,7 +1336,6 @@ class FlowRun(Base):
     __table_args__ = (
         Index("idx_flow_run_status", "status"),
         Index("idx_flow_run_tenant_status", "tenant_id", "status"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -1409,7 +1382,6 @@ class FlowNodeRun(Base):
 
     __table_args__ = (
         Index("idx_step_run_status", "status"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -1475,7 +1447,6 @@ class ConversationThread(Base):
         Index("idx_conversation_thread_active", "status", "recipient"),
         Index("idx_conversation_thread_playground", "tenant_id", "user_id", "agent_id", "thread_type"),
         Index("idx_conversation_thread_archived", "is_archived"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -1529,7 +1500,6 @@ class HubIntegration(Base):
         Index("idx_hub_integration_type_active", "type", "is_active"),
         Index("idx_hub_integration_health", "health_status"),
         Index("idx_hub_integration_tenant", "tenant_id"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -1560,7 +1530,6 @@ class AsanaIntegration(HubIntegration):
     __table_args__ = (
         Index("idx_asana_workspace_gid", "workspace_gid"),
         Index("idx_asana_user_gid", "authorized_by_user_gid"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -1597,10 +1566,6 @@ class AmadeusIntegration(HubIntegration):
     __mapper_args__ = {
         'polymorphic_identity': 'amadeus',
     }
-
-    __table_args__ = (
-        {"sqlite_autoincrement": True},
-    )
 
 
 # ============================================================================
@@ -1686,7 +1651,6 @@ class ShellIntegration(HubIntegration):
     __table_args__ = (
         Index("idx_shell_hostname", "hostname"),
         Index("idx_shell_last_checkin", "last_checkin"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -1765,7 +1729,6 @@ class ShellCommand(Base):
         Index("idx_shell_command_shell_status", "shell_id", "status"),
         Index("idx_shell_command_tenant", "tenant_id"),
         Index("idx_shell_command_queued", "queued_at"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -1818,7 +1781,6 @@ class ShellSecurityPattern(Base):
     __table_args__ = (
         Index("idx_security_pattern_tenant_active", "tenant_id", "is_active"),
         Index("idx_security_pattern_type", "pattern_type", "is_active"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -1918,7 +1880,6 @@ class SentinelConfig(Base):
 
     __table_args__ = (
         UniqueConstraint('tenant_id', name='uq_sentinel_config_tenant'),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -1951,10 +1912,6 @@ class SentinelAgentConfig(Base):
 
     # Relationship
     agent = relationship("Agent", backref="sentinel_agent_config")
-
-    __table_args__ = (
-        {"sqlite_autoincrement": True},
-    )
 
 
 class SentinelAnalysisLog(Base):
@@ -2011,7 +1968,6 @@ class SentinelAnalysisLog(Base):
     __table_args__ = (
         Index("idx_sentinel_log_tenant_threat", "tenant_id", "is_threat_detected", "created_at"),
         Index("idx_sentinel_log_detection_type", "detection_type", "created_at"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -2048,7 +2004,6 @@ class SentinelAnalysisCache(Base):
         UniqueConstraint('tenant_id', 'input_hash', 'analysis_type', 'detection_type',
                          'aggressiveness_level', name='uq_sentinel_cache'),
         Index("idx_sentinel_cache_expires", "expires_at"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -2123,7 +2078,6 @@ class SentinelException(Base):
     __table_args__ = (
         Index("idx_sentinel_exc_tenant_agent", "tenant_id", "agent_id"),
         Index("idx_sentinel_exc_active_priority", "is_active", "priority"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -2220,7 +2174,6 @@ class SentinelProfile(Base):
         UniqueConstraint("tenant_id", "slug", name="uq_sentinel_profile_tenant_slug"),
         Index("idx_sentinel_profile_tenant", "tenant_id"),
         Index("idx_sentinel_profile_system", "is_system"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -2266,7 +2219,6 @@ class SentinelProfileAssignment(Base):
         Index("idx_profile_assign_tenant", "tenant_id"),
         Index("idx_profile_assign_agent", "agent_id"),
         Index("idx_profile_assign_profile", "profile_id"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -2301,7 +2253,6 @@ class OAuthState(Base):
     __table_args__ = (
         Index("idx_oauth_state_token", "state_token"),
         Index("idx_oauth_state_expires", "expires_at"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -2336,7 +2287,6 @@ class OAuthToken(Base):
     __table_args__ = (
         Index("idx_oauth_token_integration", "integration_id"),
         Index("idx_oauth_token_expires", "expires_at"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -2365,7 +2315,6 @@ class UserAgentSession(Base):
 
     __table_args__ = (
         Index("idx_user_agent_session_identifier", "user_identifier"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -2391,7 +2340,6 @@ class UserContactMapping(Base):
     __table_args__ = (
         Index("idx_user_contact_mapping_user", "user_id"),
         Index("idx_user_contact_mapping_contact", "contact_id"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -2467,7 +2415,6 @@ class WhatsAppMCPInstance(Base):
         Index("idx_mcp_instance_tenant", "tenant_id"),
         Index("idx_mcp_instance_status", "status"),
         Index("idx_mcp_instance_port", "mcp_port"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -2515,7 +2462,6 @@ class TelegramBotInstance(Base):
         Index("idx_telegram_instance_tenant", "tenant_id"),
         Index("idx_telegram_instance_status", "status"),
         Index("idx_telegram_instance_username", "bot_username"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -2557,7 +2503,6 @@ class GoogleOAuthCredentials(Base):
 
     __table_args__ = (
         Index("idx_google_oauth_tenant", "tenant_id"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -2598,7 +2543,6 @@ class GmailIntegration(HubIntegration):
 
     __table_args__ = (
         Index("idx_gmail_email", "email_address"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -2646,7 +2590,6 @@ class CalendarIntegration(HubIntegration):
 
     __table_args__ = (
         Index("idx_calendar_email", "email_address"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -2676,10 +2619,6 @@ class GoogleFlightsIntegration(HubIntegration):
     __mapper_args__ = {
         'polymorphic_identity': 'google_flights',
     }
-
-    __table_args__ = (
-        {"sqlite_autoincrement": True},
-    )
 
 
 class BrowserAutomationIntegration(HubIntegration):
@@ -2724,10 +2663,6 @@ class BrowserAutomationIntegration(HubIntegration):
     __mapper_args__ = {
         'polymorphic_identity': 'browser_automation',
     }
-
-    __table_args__ = (
-        {"sqlite_autoincrement": True},
-    )
 
 
 class AgentSkillIntegration(Base):
@@ -2775,7 +2710,6 @@ class AgentSkillIntegration(Base):
     __table_args__ = (
         Index("idx_agent_skill_integration", "agent_id", "skill_type", unique=True),
         Index("idx_skill_integration_type", "skill_type"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -2806,7 +2740,6 @@ class ConversationTag(Base):
 
     __table_args__ = (
         Index("idx_conversation_tag_tenant_user", "tenant_id", "user_id"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -2833,7 +2766,6 @@ class ConversationInsight(Base):
 
     __table_args__ = (
         Index("idx_conversation_insight_tenant_user", "tenant_id", "user_id"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -2861,7 +2793,6 @@ class ConversationLink(Base):
 
     __table_args__ = (
         Index("idx_conversation_link_tenant_user", "tenant_id", "user_id"),
-        {"sqlite_autoincrement": True},
     )
 
 
@@ -2918,7 +2849,6 @@ class HostBrowserAuditLog(Base):
         Index("idx_host_browser_audit_tenant", "tenant_id"),
         Index("idx_host_browser_audit_user", "user_key"),
         Index("idx_host_browser_audit_action", "action"),
-        {"sqlite_autoincrement": True},
     )
 
 

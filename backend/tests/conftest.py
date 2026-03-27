@@ -18,26 +18,35 @@ from tests.fixtures.llm_fixtures import (
     test_agent_openrouter_config,
 )
 
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "")
+
+
 @pytest.fixture(scope="function")
 def test_db():
-    """Create a temporary test database for each test"""
-    # Create temporary database file
-    db_fd, db_path = tempfile.mkstemp(suffix='.db')
+    """Create a temporary test database for each test.
 
-    # Create engine and tables
-    engine = create_engine(f'sqlite:///{db_path}')
-    Base.metadata.create_all(engine)
-
-    # Create session
-    SessionLocal = sessionmaker(bind=engine)
-    session = SessionLocal()
-
-    yield session
-
-    # Cleanup
-    session.close()
-    os.close(db_fd)
-    os.unlink(db_path)
+    Supports PostgreSQL via TEST_DATABASE_URL env var.
+    Falls back to temporary SQLite file for local dev.
+    """
+    if TEST_DATABASE_URL and "postgresql" in TEST_DATABASE_URL:
+        engine = create_engine(TEST_DATABASE_URL)
+        Base.metadata.create_all(engine)
+        SessionLocal = sessionmaker(bind=engine)
+        session = SessionLocal()
+        yield session
+        session.close()
+        Base.metadata.drop_all(engine)
+        engine.dispose()
+    else:
+        db_fd, db_path = tempfile.mkstemp(suffix='.db')
+        engine = create_engine(f'sqlite:///{db_path}')
+        Base.metadata.create_all(engine)
+        SessionLocal = sessionmaker(bind=engine)
+        session = SessionLocal()
+        yield session
+        session.close()
+        os.close(db_fd)
+        os.unlink(db_path)
 
 
 @pytest.fixture(scope="function")
@@ -105,21 +114,23 @@ def integration_db():
     from models import Base
     from db import seed_rbac_defaults
 
-    # Create in-memory database
-    engine = create_engine("sqlite:///:memory:")
-    Base.metadata.create_all(engine)
+    if TEST_DATABASE_URL and "postgresql" in TEST_DATABASE_URL:
+        engine = create_engine(TEST_DATABASE_URL)
+    else:
+        engine = create_engine("sqlite:///:memory:")
 
-    # Create session
+    Base.metadata.create_all(engine)
     SessionLocal = sessionmaker(bind=engine)
     session = SessionLocal()
 
-    # Seed RBAC defaults (roles, permissions)
     seed_rbac_defaults(session)
 
     yield session
 
-    # Cleanup
     session.close()
+    if TEST_DATABASE_URL and "postgresql" in TEST_DATABASE_URL:
+        Base.metadata.drop_all(engine)
+        engine.dispose()
 
 
 @pytest.fixture
