@@ -37,7 +37,7 @@ const INITIAL_STATE: AgentBuilderState = {
   isDirty: false, isSaving: false,
 }
 
-export function useAgentBuilder(agentId: number | null, studioData: UseStudioDataReturn): UseAgentBuilderReturn {
+export function useAgentBuilder(agentId: number | null, studioData: UseStudioDataReturn, onWarning?: (message: string) => void): UseAgentBuilderReturn {
   const [state, setState] = useState<AgentBuilderState>(INITIAL_STATE)
   const [nodes, setNodes, rawOnNodesChange] = useNodesState<Node<BuilderNodeData>>([])
   const [edges, setEdges] = useState<Edge[]>([])
@@ -202,6 +202,40 @@ export function useAgentBuilder(agentId: number | null, studioData: UseStudioDat
        state.attachedPersonaId, state.attachedSentinelProfileId, state.attachedKnowledgeDocs,
        expandedCategories, expandedSkills, expandedKnowledge])
 
+  const attachProfile = useCallback((categoryId: ProfileCategoryId, item: PaletteItemData) => {
+    setState(prev => {
+      const next = { ...prev, isDirty: true }
+      switch (categoryId) {
+        case 'persona': next.attachedPersonaId = item.id as number; break
+        case 'channels': if (!next.attachedChannels.includes(item.id as string)) next.attachedChannels = [...next.attachedChannels, item.id as string]; break
+        case 'skills': { const st = item.id as string; if (!next.attachedSkills.some(s => s.skillType === st)) next.attachedSkills = [...next.attachedSkills, { skillType: st, skillId: (item.metadata.skillId as number) || 0 }]; break }
+        case 'tools': { const tid = item.id as number; if (!next.attachedTools.includes(tid)) next.attachedTools = [...next.attachedTools, tid]; break }
+        case 'security': next.attachedSentinelProfileId = item.id as number; break
+        case 'knowledge': { const did = item.id as number; if (!next.attachedKnowledgeDocs.includes(did)) next.attachedKnowledgeDocs = [...next.attachedKnowledgeDocs, did]; break }
+      }
+      return next
+    })
+  }, [])
+
+  const detachProfile = useCallback((categoryId: ProfileCategoryId, itemId: string | number) => {
+    setState(prev => {
+      const next = { ...prev, isDirty: true }
+      switch (categoryId) {
+        case 'persona': next.attachedPersonaId = null; break
+        case 'channels': {
+          next.attachedChannels = next.attachedChannels.filter(ch => ch !== itemId)
+          if (next.attachedChannels.length === 0) onWarning?.('No channels attached — agent won\'t receive messages')
+          break
+        }
+        case 'skills': next.attachedSkills = next.attachedSkills.filter(s => s.skillType !== itemId); break
+        case 'tools': next.attachedTools = next.attachedTools.filter(id => id !== itemId); break
+        case 'security': next.attachedSentinelProfileId = null; next.attachedSentinelAssignmentId = null; break
+        case 'knowledge': next.attachedKnowledgeDocs = next.attachedKnowledgeDocs.filter(id => id !== itemId); break
+      }
+      return next
+    })
+  }, [onWarning])
+
   // Generate nodes/edges from state — only re-layout when structural fingerprint changes
   useEffect(() => {
     if (!state.agentId || !state.agent) return
@@ -224,7 +258,7 @@ export function useAgentBuilder(agentId: number | null, studioData: UseStudioDat
 
     // Channels (grouped)
     for (const ch of state.attachedChannels) {
-      channelNodes.push({ id: `channel-${ch}`, type: 'builder-channel', position: { x: 0, y: 0 }, data: { type: 'builder-channel', channelType: ch as BuilderChannelData['channelType'], label: ch.charAt(0).toUpperCase() + ch.slice(1) } as BuilderChannelData })
+      channelNodes.push({ id: `channel-${ch}`, type: 'builder-channel', position: { x: 0, y: 0 }, data: { type: 'builder-channel', channelType: ch as BuilderChannelData['channelType'], label: ch.charAt(0).toUpperCase() + ch.slice(1), onDetach: () => detachProfile('channels', ch) } as BuilderChannelData })
     }
 
     // Skills (grouped) — with provider expansion support
@@ -234,7 +268,7 @@ export function useAgentBuilder(agentId: number | null, studioData: UseStudioDat
       const si = studioData.skills.find(s => s.skill_type === skill.skillType)
       const hasProviders = !!(si?.provider_type)
       const isSkillExpanded = expandedSkills.has(skill.skillType)
-      skillNodes.push({ id: `skill-${skill.skillType}`, type: 'builder-skill', position: { x: 0, y: 0 }, data: { type: 'builder-skill', skillId: skill.skillId, skillType: skill.skillType, skillName: si?.skill_name || skill.skillType, category: si?.category, providerName: si?.provider_name || undefined, providerType: si?.provider_type || undefined, isEnabled: true, config: skill.config, hasProviders, isExpanded: isSkillExpanded, onToggleExpand: toggleSkillExpand } as BuilderSkillData })
+      skillNodes.push({ id: `skill-${skill.skillType}`, type: 'builder-skill', position: { x: 0, y: 0 }, data: { type: 'builder-skill', skillId: skill.skillId, skillType: skill.skillType, skillName: si?.skill_name || skill.skillType, category: si?.category, providerName: si?.provider_name || undefined, providerType: si?.provider_type || undefined, isEnabled: true, config: skill.config, hasProviders, isExpanded: isSkillExpanded, onToggleExpand: toggleSkillExpand, onDetach: () => detachProfile('skills', skill.skillType) } as BuilderSkillData })
 
       // Generate provider sub-nodes when skill is expanded
       if (isSkillExpanded && si?.provider_type) {
@@ -252,24 +286,24 @@ export function useAgentBuilder(agentId: number | null, studioData: UseStudioDat
       const tool = studioData.tools.find(t => t.id === toolId)
       if (tool) {
         const isEnabled = state.toolEnabledOverrides[toolId] !== undefined ? state.toolEnabledOverrides[toolId] : tool.is_enabled
-        toolNodes.push({ id: `tool-${toolId}`, type: 'builder-tool', position: { x: 0, y: 0 }, data: { type: 'builder-tool', toolId: tool.id, name: tool.name, toolType: tool.tool_type, isEnabled } as BuilderToolData })
+        toolNodes.push({ id: `tool-${toolId}`, type: 'builder-tool', position: { x: 0, y: 0 }, data: { type: 'builder-tool', toolId: tool.id, name: tool.name, toolType: tool.tool_type, isEnabled, onDetach: () => detachProfile('tools', toolId) } as BuilderToolData })
       }
     }
 
     // Knowledge (grouped) — with inline expand support
     for (const docId of state.attachedKnowledgeDocs) {
       const doc = studioData.knowledge.find(k => k.id === docId)
-      if (doc) knowledgeNodes.push({ id: `knowledge-${docId}`, type: 'builder-knowledge', position: { x: 0, y: 0 }, data: { type: 'builder-knowledge', docId: doc.id, filename: doc.document_name, contentType: doc.document_type, fileSize: doc.file_size_bytes, status: doc.status, chunkCount: doc.num_chunks, uploadDate: doc.upload_date, isExpanded: expandedKnowledge.has(docId), onToggleExpand: toggleKnowledgeExpand } as BuilderKnowledgeData })
+      if (doc) knowledgeNodes.push({ id: `knowledge-${docId}`, type: 'builder-knowledge', position: { x: 0, y: 0 }, data: { type: 'builder-knowledge', docId: doc.id, filename: doc.document_name, contentType: doc.document_type, fileSize: doc.file_size_bytes, status: doc.status, chunkCount: doc.num_chunks, uploadDate: doc.upload_date, isExpanded: expandedKnowledge.has(docId), onToggleExpand: toggleKnowledgeExpand, onDetach: () => detachProfile('knowledge', docId) } as BuilderKnowledgeData })
     }
 
     // Direct nodes: persona, security, memory
     if (state.attachedPersonaId) {
       const persona = studioData.personas.find(p => p.id === state.attachedPersonaId)
-      if (persona) directNodes.push({ id: `persona-${persona.id}`, type: 'builder-persona', position: { x: 0, y: 0 }, data: { type: 'builder-persona', personaId: persona.id, name: persona.name, role: persona.role_description, personalityTraits: persona.personality_traits, isActive: persona.is_active } as BuilderPersonaData })
+      if (persona) directNodes.push({ id: `persona-${persona.id}`, type: 'builder-persona', position: { x: 0, y: 0 }, data: { type: 'builder-persona', personaId: persona.id, name: persona.name, role: persona.role_description, personalityTraits: persona.personality_traits, isActive: persona.is_active, onDetach: () => detachProfile('persona', persona.id) } as BuilderPersonaData })
     }
     if (state.attachedSentinelProfileId) {
       const profile = studioData.sentinelProfiles.find(p => p.id === state.attachedSentinelProfileId)
-      if (profile) directNodes.push({ id: `sentinel-${profile.id}`, type: 'builder-sentinel', position: { x: 0, y: 0 }, data: { type: 'builder-sentinel', profileId: profile.id, name: profile.name, mode: profile.detection_mode, isSystem: profile.is_system } as BuilderSentinelData })
+      if (profile) directNodes.push({ id: `sentinel-${profile.id}`, type: 'builder-sentinel', position: { x: 0, y: 0 }, data: { type: 'builder-sentinel', profileId: profile.id, name: profile.name, mode: profile.detection_mode, isSystem: profile.is_system, onDetach: () => detachProfile('security', profile.id) } as BuilderSentinelData })
     }
     if (state.agent) {
       directNodes.push({ id: 'memory-config', type: 'builder-memory', position: { x: 0, y: 0 }, data: { type: 'builder-memory', isolationMode: state.agent.memoryIsolationMode, memorySize: state.agent.memorySize, enableSemanticSearch: state.agent.enableSemanticSearch } as BuilderMemoryData })
@@ -372,7 +406,7 @@ export function useAgentBuilder(agentId: number | null, studioData: UseStudioDat
       })
 
     return () => { cancelled = true }
-  }, [currentFingerprint, state, studioData.personas, studioData.skills, studioData.tools, studioData.sentinelProfiles, studioData.knowledge, setNodes, expandedCategories, expandedSkills, expandedKnowledge, toggleCategoryExpand, toggleSkillExpand, toggleKnowledgeExpand, updateAvatar])
+  }, [currentFingerprint, state, studioData.personas, studioData.skills, studioData.tools, studioData.sentinelProfiles, studioData.knowledge, setNodes, expandedCategories, expandedSkills, expandedKnowledge, toggleCategoryExpand, toggleSkillExpand, toggleKnowledgeExpand, updateAvatar, detachProfile])
 
   const isDirty = useMemo(() => {
     if (!state.agentId || !savedSnapshot.current) return false
@@ -385,36 +419,6 @@ export function useAgentBuilder(agentId: number | null, studioData: UseStudioDat
       avatar: state.agent?.avatar || null,
     }) !== savedSnapshot.current
   }, [state])
-
-  const attachProfile = useCallback((categoryId: ProfileCategoryId, item: PaletteItemData) => {
-    setState(prev => {
-      const next = { ...prev, isDirty: true }
-      switch (categoryId) {
-        case 'persona': next.attachedPersonaId = item.id as number; break
-        case 'channels': if (!next.attachedChannels.includes(item.id as string)) next.attachedChannels = [...next.attachedChannels, item.id as string]; break
-        case 'skills': { const st = item.id as string; if (!next.attachedSkills.some(s => s.skillType === st)) next.attachedSkills = [...next.attachedSkills, { skillType: st, skillId: (item.metadata.skillId as number) || 0 }]; break }
-        case 'tools': { const tid = item.id as number; if (!next.attachedTools.includes(tid)) next.attachedTools = [...next.attachedTools, tid]; break }
-        case 'security': next.attachedSentinelProfileId = item.id as number; break
-        case 'knowledge': { const did = item.id as number; if (!next.attachedKnowledgeDocs.includes(did)) next.attachedKnowledgeDocs = [...next.attachedKnowledgeDocs, did]; break }
-      }
-      return next
-    })
-  }, [])
-
-  const detachProfile = useCallback((categoryId: ProfileCategoryId, itemId: string | number) => {
-    setState(prev => {
-      const next = { ...prev, isDirty: true }
-      switch (categoryId) {
-        case 'persona': next.attachedPersonaId = null; break
-        case 'channels': next.attachedChannels = next.attachedChannels.filter(ch => ch !== itemId); break
-        case 'skills': next.attachedSkills = next.attachedSkills.filter(s => s.skillType !== itemId); break
-        case 'tools': next.attachedTools = next.attachedTools.filter(id => id !== itemId); break
-        case 'security': next.attachedSentinelProfileId = null; next.attachedSentinelAssignmentId = null; break
-        case 'knowledge': next.attachedKnowledgeDocs = next.attachedKnowledgeDocs.filter(id => id !== itemId); break
-      }
-      return next
-    })
-  }, [])
 
   const updateNodeConfig = useCallback((nodeType: string, nodeId: string, config: Record<string, unknown>) => {
     setState(prev => {

@@ -15,7 +15,11 @@
 .studio-canvas .react-flow__node.dragging { z-index: 1000 !important; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); }
 
 /* Builder Node Accents */
-.builder-node { transition: all 0.2s ease; }
+.builder-node { transition: all 0.2s ease; position: relative; }
+
+/* Node Remove Button — visible on hover via Tailwind group-hover + CSS fallback */
+.builder-node .node-remove-btn { opacity: 0; transition: opacity 0.15s ease; }
+.builder-node:hover .node-remove-btn { opacity: 1; }
 .builder-node-agent { min-width: 260px; min-height: 120px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3); }
 .builder-group-node { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
 .builder-node-persona { border-left: 3px solid rgba(168, 85, 247, 0.6) !important; }

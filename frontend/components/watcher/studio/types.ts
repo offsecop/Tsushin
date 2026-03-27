@@ -93,6 +93,7 @@ export interface BuilderPersonaData {
   role?: string
   personalityTraits?: string
   isActive: boolean
+  onDetach?: () => void
 }
 
 export interface BuilderChannelData {
@@ -104,6 +105,7 @@ export interface BuilderChannelData {
   phoneNumber?: string
   botUsername?: string
   status?: string
+  onDetach?: () => void
 }
 
 export interface BuilderSkillData {
@@ -120,6 +122,7 @@ export interface BuilderSkillData {
   hasProviders?: boolean
   isExpanded?: boolean
   onToggleExpand?: (skillType: string) => void
+  onDetach?: () => void
 }
 
 export interface BuilderSkillProviderData {
@@ -140,6 +143,7 @@ export interface BuilderToolData {
   name: string
   toolType: string
   isEnabled: boolean
+  onDetach?: () => void
 }
 
 export interface BuilderSentinelData {
@@ -149,6 +153,7 @@ export interface BuilderSentinelData {
   name: string
   mode: string
   isSystem: boolean
+  onDetach?: () => void
 }
 
 export interface BuilderKnowledgeData {
@@ -163,6 +168,7 @@ export interface BuilderKnowledgeData {
   uploadDate?: string
   isExpanded?: boolean
   onToggleExpand?: (docId: number) => void
+  onDetach?: () => void
 }
 
 export interface BuilderMemoryData {

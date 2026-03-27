@@ -229,3 +229,93 @@
   animation: agent-fade-glow 3s ease-out forwards;
   border-color: #3C5AFE !important;
 }
+
+/* ============================================
+   Phase 8b: Active Chain Edge Glow
+   Edges glow when connected nodes are active,
+   creating a visual flow through the processing chain.
+   ============================================ */
+
+/* --- Edge active pulse animations (SVG-compatible via filter) --- */
+
+/* Cyan: Channel → Agent edges */
+@keyframes edge-glow-pulse-cyan {
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(0, 217, 255, 0.8)); stroke-opacity: 1; }
+  50% { filter: drop-shadow(0 0 8px rgba(0, 217, 255, 0.4)); stroke-opacity: 0.7; }
+}
+.react-flow__edge.edge-active-cyan .react-flow__edge-path {
+  stroke: #00D9FF !important;
+  stroke-width: 2.5 !important;
+  animation: edge-glow-pulse-cyan 1.5s ease-in-out infinite;
+}
+
+/* Blue: Agent → child edges */
+@keyframes edge-glow-pulse-blue {
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(60, 90, 254, 0.8)); stroke-opacity: 1; }
+  50% { filter: drop-shadow(0 0 8px rgba(60, 90, 254, 0.4)); stroke-opacity: 0.7; }
+}
+.react-flow__edge.edge-active-blue .react-flow__edge-path {
+  stroke: #3C5AFE !important;
+  stroke-width: 2.5 !important;
+  animation: edge-glow-pulse-blue 1.5s ease-in-out infinite;
+}
+
+/* Teal: Skill chain edges */
+@keyframes edge-glow-pulse-teal {
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(20, 184, 166, 0.8)); stroke-opacity: 1; }
+  50% { filter: drop-shadow(0 0 8px rgba(20, 184, 166, 0.4)); stroke-opacity: 0.7; }
+}
+.react-flow__edge.edge-active-teal .react-flow__edge-path {
+  stroke: #14B8A6 !important;
+  stroke-width: 2.5 !important;
+  animation: edge-glow-pulse-teal 1.5s ease-in-out infinite;
+}
+
+/* Violet: KB edges */
+@keyframes edge-glow-pulse-violet {
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(168, 85, 247, 0.8)); stroke-opacity: 1; }
+  50% { filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.4)); stroke-opacity: 0.7; }
+}
+.react-flow__edge.edge-active-violet .react-flow__edge-path {
+  stroke: #A855F7 !important;
+  stroke-width: 2.5 !important;
+  animation: edge-glow-pulse-violet 1.5s ease-in-out infinite;
+}
+
+/* --- Edge fade-out animations (coordinated with node fade) --- */
+
+@keyframes edge-glow-fade-cyan {
+  0% { filter: drop-shadow(0 0 4px rgba(0, 217, 255, 0.8)); stroke: #00D9FF; }
+  100% { filter: drop-shadow(0 0 0 rgba(0, 217, 255, 0)); stroke: #484F58; }
+}
+.react-flow__edge.edge-fading-cyan .react-flow__edge-path {
+  animation: edge-glow-fade-cyan 3s ease-out forwards;
+  stroke-width: 2.5 !important;
+}
+
+@keyframes edge-glow-fade-blue {
+  0% { filter: drop-shadow(0 0 4px rgba(60, 90, 254, 0.8)); stroke: #3C5AFE; }
+  100% { filter: drop-shadow(0 0 0 rgba(60, 90, 254, 0)); stroke: #484F58; }
+}
+.react-flow__edge.edge-fading-blue .react-flow__edge-path {
+  animation: edge-glow-fade-blue 3s ease-out forwards;
+  stroke-width: 2.5 !important;
+}
+
+@keyframes edge-glow-fade-teal {
+  0% { filter: drop-shadow(0 0 4px rgba(20, 184, 166, 0.8)); stroke: #14B8A6; }
+  100% { filter: drop-shadow(0 0 0 rgba(20, 184, 166, 0)); stroke: #484F58; }
+}
+.react-flow__edge.edge-fading-teal .react-flow__edge-path {
+  animation: edge-glow-fade-teal 3s ease-out forwards;
+  stroke-width: 2.5 !important;
+}
+
+@keyframes edge-glow-fade-violet {
+  0% { filter: drop-shadow(0 0 4px rgba(168, 85, 247, 0.8)); stroke: #A855F7; }
+  100% { filter: drop-shadow(0 0 0 rgba(168, 85, 247, 0)); stroke: #484F58; }
+}
+.react-flow__edge.edge-fading-violet .react-flow__edge-path {
+  animation: edge-glow-fade-violet 3s ease-out forwards;
+  stroke-width: 2.5 !important;
+}

@@ -48,13 +48,13 @@ const MinimizeIcon = ({ className }: { className?: string }) => (
 export default function AgentStudioTab() {
   const [selectedAgentId, setSelectedAgentId] = useState<number | null>(null)
   const [isMaximized, setIsMaximized] = useState(false)
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [toast, setToast] = useState<{ type: 'success' | 'error' | 'warning'; message: string } | null>(null)
   const [configPanel, setConfigPanel] = useState<ConfigPanelTarget | null>(null)
   const [skillDefinitions, setSkillDefinitions] = useState<SkillDefinition[]>([])
   const canvasRef = useRef<StudioCanvasRef | null>(null)
 
   const studioData = useStudioData(selectedAgentId)
-  const builder = useAgentBuilder(selectedAgentId, studioData)
+  const builder = useAgentBuilder(selectedAgentId, studioData, (msg) => setToast({ type: 'warning', message: msg }))
 
   // Auto-select default agent on initial load or after refresh if selected agent is gone
   useEffect(() => {
@@ -144,7 +144,7 @@ export default function AgentStudioTab() {
   const handleDeleteSelected = useCallback((nodeIds: string[]) => {
     for (const nodeId of nodeIds) {
       const node = builder.nodes.find(n => n.id === nodeId)
-      if (!node || node.data.type === 'builder-agent' || node.data.type === 'builder-group') continue
+      if (!node || node.data.type === 'builder-agent' || node.data.type === 'builder-group' || node.data.type === 'builder-memory') continue
       const data = node.data
       let categoryId: string | undefined
       let itemId: string | number | undefined
@@ -234,7 +234,7 @@ export default function AgentStudioTab() {
       </div>
 
       {toast && (
-        <div className={`fixed bottom-6 right-6 z-[80] px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in ${toast.type === 'success' ? 'bg-green-500/20 border border-green-500/30 text-green-300' : 'bg-red-500/20 border border-red-500/30 text-red-300'}`}>
+        <div className={`fixed bottom-6 right-6 z-[80] px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-fade-in ${toast.type === 'success' ? 'bg-green-500/20 border border-green-500/30 text-green-300' : toast.type === 'warning' ? 'bg-yellow-500/20 border border-yellow-500/30 text-yellow-300' : 'bg-red-500/20 border border-red-500/30 text-red-300'}`}>
           <span className="text-sm">{toast.message}</span>
           <button onClick={() => setToast(null)} className="ml-2 text-current opacity-60 hover:opacity-100">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>

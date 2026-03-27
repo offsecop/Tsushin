@@ -985,7 +985,85 @@ const GraphCanvasInner = forwardRef<GraphCanvasRef, GraphCanvasProps>(
 
         return node
       }))
-    }, [activityState, setNodes])
+
+      // Phase 8b: Update edges for active chain glow
+      // Edges connecting active nodes glow with color matching the target node type
+      setEdges(prev => prev.map(edge => {
+        // Skip security view edges (they have custom styles)
+        if (edge.id.includes('security')) return edge
+
+        let className = ''
+        const { source, target } = edge
+
+        // Helper: extract channel type from node ID (e.g., "channel-playground", "channel-whatsapp-3")
+        const getChannelType = (id: string): string | null => {
+          if (id === 'channel-playground') return 'playground'
+          if (id.startsWith('channel-whatsapp')) return 'whatsapp'
+          if (id.startsWith('channel-telegram')) return 'telegram'
+          return null
+        }
+
+        // Helper: extract agent ID from "agent-{id}" format
+        const getAgentId = (id: string): number | null => {
+          const m = id.match(/^agent-(\d+)$/)
+          return m ? parseInt(m[1]) : null
+        }
+
+        // Helper: extract parent agent ID from child node IDs
+        const getParentAgentId = (id: string): number | null => {
+          const m = id.match(/(?:skill-category|skill|knowledge-summary)-(\d+)/)
+          return m ? parseInt(m[1]) : null
+        }
+
+        // Channel → Agent edges (cyan glow)
+        const channelType = getChannelType(source)
+        const targetAgentId = getAgentId(target)
+        if (channelType && targetAgentId !== null) {
+          const isActive = activityState.activeChannels.has(channelType) || activityState.processingAgents.has(targetAgentId)
+          const isFading = activityState.fadingChannels.has(channelType) || activityState.fadingAgents.has(targetAgentId)
+          if (isActive && !isFading) className = 'edge-active-cyan'
+          else if (isFading) className = 'edge-fading-cyan'
+        }
+
+        // Agent → child edges
+        const sourceAgentId = getAgentId(source)
+        if (sourceAgentId !== null && (activityState.processingAgents.has(sourceAgentId) || activityState.fadingAgents.has(sourceAgentId))) {
+          const isFading = activityState.fadingAgents.has(sourceAgentId)
+          if (target.startsWith('skill-category-') || (target.startsWith('skill-') && !target.startsWith('skill-provider-'))) {
+            className = isFading ? 'edge-fading-teal' : 'edge-active-teal'
+          } else if (target.startsWith('knowledge-summary-')) {
+            const hasKbUse = activityState.recentKbUse.has(sourceAgentId)
+            if (hasKbUse) className = isFading ? 'edge-fading-violet' : 'edge-active-violet'
+            else className = isFading ? 'edge-fading-blue' : 'edge-active-blue'
+          }
+        }
+
+        // Category → Skill edges (teal glow when agent has active skill)
+        if (source.startsWith('skill-category-')) {
+          const agentId = getParentAgentId(source)
+          if (agentId !== null && activityState.recentSkillUse.has(agentId)) {
+            const isFading = activityState.fadingAgents.has(agentId)
+            className = isFading ? 'edge-fading-teal' : 'edge-active-teal'
+          }
+        }
+
+        // Skill → Provider edges (teal glow when skill is active)
+        if (source.match(/^skill-\d+-\d+$/) && target.startsWith('skill-provider-')) {
+          const agentId = getParentAgentId(source)
+          if (agentId !== null && activityState.recentSkillUse.has(agentId)) {
+            const isFading = activityState.fadingAgents.has(agentId)
+            className = isFading ? 'edge-fading-teal' : 'edge-active-teal'
+          }
+        }
+
+        // Only create new object if className changed
+        const prevClass = edge.className || ''
+        if (className !== prevClass) {
+          return { ...edge, className: className || undefined }
+        }
+        return edge
+      }))
+    }, [activityState, setNodes, setEdges])
 
     // Fit view when autoFit is toggled on
     useEffect(() => {

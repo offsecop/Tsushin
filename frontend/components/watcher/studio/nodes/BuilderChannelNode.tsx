@@ -2,6 +2,7 @@
 import { memo } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { BuilderChannelData } from '../types'
+import NodeRemoveButton from './NodeRemoveButton'
 
 const CHANNEL_CONFIG: Record<string, { color: string; bgColor: string; label: string; nodeClass: string }> = {
   whatsapp: { color: 'text-green-400', bgColor: 'bg-green-500/20', label: 'WhatsApp', nodeClass: 'builder-node-channel-whatsapp' },
@@ -18,8 +19,9 @@ function BuilderChannelNode({ data, selected }: NodeProps) {
   const config = CHANNEL_CONFIG[d.channelType] || CHANNEL_CONFIG.playground
   return (
     <div role="group" aria-label={`Channel: ${d.label}`}
-      className={`builder-node ${config.nodeClass} px-4 py-3 rounded-xl border transition-all duration-200 ${selected ? 'border-cyan-400 shadow-glow-sm' : 'border-tsushin-border hover:border-tsushin-muted'} bg-tsushin-surface`}>
+      className={`group builder-node ${config.nodeClass} px-4 py-3 rounded-xl border transition-all duration-200 ${selected ? 'border-cyan-400 shadow-glow-sm' : 'border-tsushin-border hover:border-tsushin-muted'} bg-tsushin-surface`}>
       <Handle type="target" position={Position.Top} className="!bg-cyan-400 !border-tsushin-surface !w-3 !h-3" />
+      {d.onDetach && <NodeRemoveButton onDetach={d.onDetach} label={`Remove ${config.label} channel`} />}
       <div className="flex items-center gap-2.5">
         <div className={`w-8 h-8 rounded-lg ${config.bgColor} flex items-center justify-center flex-shrink-0`}>
           <svg className={`w-4 h-4 ${config.color}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
