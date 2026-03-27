@@ -1,10 +1,12 @@
-# Tsushin — Think, Secure, Build
+<p align="center">
+  <img src="images/tsushin-banner.png" alt="Tsushin Banner" width="100%">
+</p>
 
-> **Multi-Tenant Agentic Framework**
-
-[![Status](https://img.shields.io/badge/status-beta-orange)]()
-[![Version](https://img.shields.io/badge/version-v1.5.0-blue)]()
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+<p align="center">
+  <a href=""><img src="https://img.shields.io/badge/status-beta-orange" alt="Status"></a>
+  <a href=""><img src="https://img.shields.io/badge/version-v1.5.0-blue" alt="Version"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+</p>
 
 **Tsushin** (通信 - "Communication" in Japanese) is a multi-tenant agentic messaging framework with RBAC, multi-agent orchestration, semantic memory, autonomous workflows, AI-powered security, and full observability — designed to be an enterprise-grade SaaS in the future.
 

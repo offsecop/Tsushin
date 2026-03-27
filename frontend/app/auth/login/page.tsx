@@ -6,6 +6,7 @@
  */
 
 import React, { Suspense, useState, useEffect } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
@@ -94,25 +95,18 @@ function LoginContent() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        {/* Header with Logo */}
-        <div className="flex flex-col items-center">
-          {/* Logo */}
-          <div className="flex items-center space-x-3">
-            <div className="relative flex items-center justify-center w-12 h-12 rounded-xl overflow-hidden shadow-lg">
-              {/* Gradient background - matches Tsushin brand blue palette */}
-              <div className="absolute inset-0 bg-gradient-to-br from-[#3C5AFE] via-[#6B7FFF] to-[#00D9FF] opacity-90"></div>
-              <span className="relative text-white font-bold text-2xl">通</span>
-            </div>
-            <div className="flex flex-col items-center">
-              <span className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                TSUSHIN
-              </span>
-              <span className="text-xs text-gray-500 dark:text-gray-400 -mt-0.5 tracking-wide uppercase">
-                Think, Secure, Build
-              </span>
-            </div>
-          </div>
+      <div className="max-w-lg w-full space-y-6">
+        {/* Banner */}
+        <div className="relative w-full overflow-hidden rounded-xl shadow-2xl">
+          <Image
+            src="/images/tsushin-banner.png"
+            alt="Tsushin - Think. Secure. Build."
+            width={1280}
+            height={640}
+            priority
+            className="w-full h-auto"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-gray-900/40 to-transparent pointer-events-none rounded-xl" />
         </div>
 
         {/* Login Form */}
