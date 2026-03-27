@@ -267,6 +267,39 @@ class TsushinInstaller:
 
         print()
 
+        # Additional AI Providers (optional)
+        print(f"{Colors.BOLD}Additional AI Providers (optional){Colors.ENDC}")
+        print_info("These can also be configured later via Settings > Integrations.\n")
+
+        groq_key = self.prompt_with_validation(
+            "Enter Groq API Key (optional, ultra-fast inference): ",
+            validator=lambda x: len(x) >= 20 if x else True,
+            error_msg="API key must be at least 20 characters",
+            optional=True,
+            mask=True
+        )
+        self.config['GROQ_API_KEY'] = groq_key or ""
+
+        grok_key = self.prompt_with_validation(
+            "Enter Grok/xAI API Key (optional): ",
+            validator=lambda x: len(x) >= 20 if x else True,
+            error_msg="API key must be at least 20 characters",
+            optional=True,
+            mask=True
+        )
+        self.config['GROK_API_KEY'] = grok_key or ""
+
+        elevenlabs_key = self.prompt_with_validation(
+            "Enter ElevenLabs API Key (optional, voice synthesis): ",
+            validator=lambda x: len(x) >= 20 if x else True,
+            error_msg="API key must be at least 20 characters",
+            optional=True,
+            mask=True
+        )
+        self.config['ELEVENLABS_API_KEY'] = elevenlabs_key or ""
+
+        print()
+
         # Network Configuration
         print(f"{Colors.BOLD}Network Configuration{Colors.ENDC}\n")
 
@@ -811,6 +844,9 @@ GEMINI_API_KEY={self.config['GEMINI_API_KEY']}
 GOOGLE_API_KEY={self.config['GEMINI_API_KEY']}
 OPENAI_API_KEY={self.config['OPENAI_API_KEY']}
 ANTHROPIC_API_KEY={self.config['ANTHROPIC_API_KEY']}
+GROQ_API_KEY={self.config.get('GROQ_API_KEY', '')}
+GROK_API_KEY={self.config.get('GROK_API_KEY', '')}
+ELEVENLABS_API_KEY={self.config.get('ELEVENLABS_API_KEY', '')}
 OLLAMA_BASE_URL=http://host.docker.internal:11434
 
 # Security (auto-generated)

@@ -86,7 +86,7 @@ def seed_default_agents(
         tenant_id: Tenant ID to assign agents to
         user_id: User ID who created the tenant (owner)
         db: Database session
-        model_provider: AI provider (gemini, openai, anthropic)
+        model_provider: AI provider (gemini, openai, anthropic, groq, grok)
         model_name: Model name to use for agents
 
     Returns:

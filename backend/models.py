@@ -20,7 +20,7 @@ class Config(Base):
     number_filters = Column(JSON, default=list)  # ["+5500000000001"]
 
     # Model Configuration
-    model_provider = Column(String(20), default="gemini")  # "openai" | "anthropic" | "gemini"
+    model_provider = Column(String(20), default="gemini")  # "openai" | "anthropic" | "gemini" | "groq" | "grok"
     model_name = Column(Text, default="gemini-2.5-pro")
 
     # Memory Configuration
@@ -312,7 +312,7 @@ class Agent(Base):
     # enabled_tools removed - use AgentSkill table for skills like web_search, weather, web_scraping
 
     # Model configuration
-    model_provider = Column(String(20), default="gemini")  # "openai" | "anthropic" | "gemini"
+    model_provider = Column(String(20), default="gemini")  # "openai" | "anthropic" | "gemini" | "groq" | "grok"
     model_name = Column(String(100), default="gemini-2.5-pro")
 
     # Response formatting
