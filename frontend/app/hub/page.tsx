@@ -4,7 +4,7 @@
  * Integration Hub - Consolidated Single Page
  *
  * Manages all integrations organized by category:
- * - AI Providers: Ollama, Gemini, OpenAI, Anthropic, Groq (coming soon)
+ * - AI Providers: Ollama, Gemini, OpenAI, Anthropic, Groq, Grok, ElevenLabs
  * - Communication: WhatsApp, Telegram, Discord, Slack, Email (coming soon)
  * - Productivity: Asana, Google Calendar, Notion (coming soon)
  * - Developer Tools: Shell, GitHub (coming soon)
@@ -170,8 +170,9 @@ const AI_PROVIDERS: { value: string; label: string; Icon: React.FC<IconProps>; d
   { value: 'openai', label: 'OpenAI (GPT)', Icon: OpenAIIcon, description: 'GPT-4, ChatGPT models', status: 'available' },
   { value: 'anthropic', label: 'Anthropic Claude', Icon: AnthropicIcon, description: 'Claude 3.5, reasoning models', status: 'available' },
   { value: 'openrouter', label: 'OpenRouter', Icon: GlobeIcon, description: '100+ models via single API', status: 'available' },
-  { value: 'groq', label: 'Groq', Icon: LightningIcon, description: 'Ultra-fast inference', status: 'coming_soon' },
-  { value: 'elevenlabs', label: 'ElevenLabs', Icon: MicrophoneIcon, description: 'Voice AI & TTS synthesis', status: 'coming_soon' },
+  { value: 'groq', label: 'Groq', Icon: LightningIcon, description: 'Ultra-fast inference', status: 'available' },
+  { value: 'grok', label: 'Grok (xAI)', Icon: LightningIcon, description: 'xAI Grok models', status: 'available' },
+  { value: 'elevenlabs', label: 'ElevenLabs', Icon: MicrophoneIcon, description: 'Voice AI & TTS synthesis', status: 'available' },
 ]
 
 const COMMUNICATION_CHANNELS: { value: string; label: string; Icon: React.FC<IconProps>; description: string; status: string }[] = [
@@ -1411,7 +1412,7 @@ export default function HubPage() {
                   </h3>
                   <p className="text-xs text-tsushin-slate">
                     Configure API keys for cloud AI providers, use Ollama for free local LLM inference, or Kokoro for free text-to-speech.
-                    Groq offers ultra-fast inference, and ElevenLabs provides premium voice AI synthesis - both coming soon!
+                    Groq offers ultra-fast inference, Grok (xAI) provides cutting-edge reasoning, and ElevenLabs delivers premium voice AI synthesis.
                   </p>
                 </div>
               </div>
