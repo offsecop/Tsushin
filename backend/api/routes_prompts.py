@@ -243,7 +243,7 @@ def list_tone_presets(
     query = db.query(TonePreset)
 
     # Apply tenant filtering - include tenant's presets AND shared (NULL tenant_id)
-    query = ctx.filter_by_tenant(query, TonePreset.tenant_id)
+    query = ctx.filter_by_tenant(query, TonePreset.tenant_id, include_shared=True)
 
     # Apply search filter
     if search:

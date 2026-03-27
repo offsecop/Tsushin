@@ -13,52 +13,51 @@ from services.tone_preset_seeding import seed_default_tone_presets
 from services.shell_pattern_seeding import seed_default_security_patterns
 
 
-def get_engine(db_path: str):
-    """Create SQLAlchemy engine for SQLite with connection pooling (Phase 6.11.1)
+def get_engine(database_url: str):
+    """Create SQLAlchemy engine. Supports PostgreSQL and SQLite (fallback).
 
-    IMPORTANT: Configured for WAL mode and proper transaction visibility
-    across sessions. This is critical for the shell C2 architecture where
-    one session queues commands and another session (beacon checkin) reads them.
+    PostgreSQL: Used in production (via DATABASE_URL env var).
+    SQLite: Used for local dev or legacy fallback (via INTERNAL_DB_PATH).
     """
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    is_postgres = database_url.startswith("postgresql")
 
-    engine = create_engine(
-        f"sqlite:///{db_path}",
-        connect_args={
-            "check_same_thread": False,
-            "timeout": 30,
-        },
-        # Phase 6.11.1: Connection pooling configuration
-        poolclass=QueuePool,
-        pool_size=10,          # 10 connections in pool
-        max_overflow=20,       # Up to 30 total connections
-        pool_pre_ping=True,    # Verify connections before use
-        pool_recycle=3600      # Recycle connections after 1 hour
-    )
+    if is_postgres:
+        engine = create_engine(
+            database_url,
+            poolclass=QueuePool,
+            pool_size=20,
+            max_overflow=30,
+            pool_pre_ping=True,
+            pool_recycle=1800,
+        )
+    else:
+        # SQLite fallback (local dev / legacy)
+        db_path = database_url.replace("sqlite:///", "")
+        if db_path:
+            os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
 
-    # Set up SQLite PRAGMAs on every new connection
-    @event.listens_for(engine, "connect")
-    def set_sqlite_pragma(dbapi_connection, connection_record):
-        """Configure SQLite for optimal concurrent access.
+        engine = create_engine(
+            database_url,
+            connect_args={
+                "check_same_thread": False,
+                "timeout": 30,
+            },
+            poolclass=QueuePool,
+            pool_size=10,
+            max_overflow=20,
+            pool_pre_ping=True,
+            pool_recycle=3600,
+        )
 
-        FIX (2026-01-30): Changed from WAL mode to DELETE mode for the shell C2 architecture.
-        WAL mode causes session isolation issues where commands queued by one session
-        aren't immediately visible to the beacon checkin session. DELETE mode ensures
-        all committed changes are immediately visible to all connections.
-        """
-        cursor = dbapi_connection.cursor()
-        # Use DELETE mode (classic mode) for immediate visibility across sessions
-        # WAL mode causes session isolation issues in C2 architecture
-        cursor.execute("PRAGMA journal_mode=DELETE")
-        # Use NORMAL synchronous mode (good balance of safety and speed)
-        cursor.execute("PRAGMA synchronous=NORMAL")
-        # Enable foreign keys
-        cursor.execute("PRAGMA foreign_keys=ON")
-        # Increase cache size for better performance (negative = KB)
-        cursor.execute("PRAGMA cache_size=-64000")  # 64MB
-        # Increase busy timeout for concurrent access
-        cursor.execute("PRAGMA busy_timeout=30000")  # 30 seconds
-        cursor.close()
+        @event.listens_for(engine, "connect")
+        def set_sqlite_pragma(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA journal_mode=DELETE")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.execute("PRAGMA cache_size=-64000")
+            cursor.execute("PRAGMA busy_timeout=30000")
+            cursor.close()
 
     return engine
 
@@ -847,34 +846,62 @@ def seed_slash_commands(session):
 
 
 def init_database(engine):
-    """Initialize all tables and default config"""
-    Base.metadata.create_all(engine)
+    """Initialize all tables and default config.
 
-    # Phase 14.5: Initialize FTS5 search index for conversation search
-    # This is a virtual table that must be created separately from SQLAlchemy ORM
-    try:
-        from migrations.create_conversation_search_fts5 import upgrade as create_fts5
-        db_path = engine.url.database
-        if db_path:
-            create_fts5(db_path)
-    except Exception as e:
-        print(f"[FTS5] Initialization skipped or already exists: {e}")
+    For PostgreSQL: Alembic handles schema creation (alembic upgrade head).
+    For SQLite (dev fallback): create_all handles schema + legacy inline migrations.
+    """
+    is_postgres = str(engine.url).startswith("postgresql")
 
-    # Phase 20: Add sentinel_protected column to existing shell_integration tables
-    try:
-        from migrations.add_sentinel_protected_column import upgrade_from_engine
-        upgrade_from_engine(engine)
-    except Exception as e:
-        print(f"[Sentinel Migration] Warning: {e}")
+    if is_postgres:
+        # On PostgreSQL, run Alembic migrations for schema management
+        try:
+            from alembic.config import Config as AlembicConfig
+            from alembic import command
+            import os
+            alembic_ini = os.path.join(os.path.dirname(__file__), "alembic.ini")
+            if os.path.exists(alembic_ini):
+                alembic_cfg = AlembicConfig(alembic_ini)
+                alembic_cfg.set_main_option("sqlalchemy.url", str(engine.url))
+                command.upgrade(alembic_cfg, "head")
+                print("[DB] Alembic migrations applied successfully")
+            else:
+                # Fallback: create tables from ORM metadata
+                Base.metadata.create_all(engine)
+                print("[DB] Tables created from ORM metadata (no alembic.ini found)")
+        except ImportError:
+            # Alembic not installed — fallback to ORM metadata
+            print("[DB] Alembic not available, creating tables from ORM metadata")
+            Base.metadata.create_all(engine)
+        except Exception as e:
+            print(f"[DB] FATAL: Alembic migration failed: {e}")
+            raise
+    else:
+        # SQLite: use legacy create_all + inline migrations
+        Base.metadata.create_all(engine)
 
-    # Phase Security-1: Add MCP API secret columns for SSRF prevention
-    try:
-        from migrations.add_mcp_api_secret import upgrade as upgrade_mcp_auth
-        db_path = engine.url.database
-        if db_path:
-            upgrade_mcp_auth(db_path)
-    except Exception as e:
-        print(f"[MCP Auth Migration] Warning: {e}")
+        # Legacy SQLite-only migrations (skipped on PostgreSQL)
+        try:
+            from migrations.create_conversation_search_fts5 import upgrade as create_fts5
+            db_path = engine.url.database
+            if db_path:
+                create_fts5(db_path)
+        except Exception as e:
+            print(f"[FTS5] Initialization skipped or already exists: {e}")
+
+        try:
+            from migrations.add_sentinel_protected_column import upgrade_from_engine
+            upgrade_from_engine(engine)
+        except Exception as e:
+            print(f"[Sentinel Migration] Warning: {e}")
+
+        try:
+            from migrations.add_mcp_api_secret import upgrade as upgrade_mcp_auth
+            db_path = engine.url.database
+            if db_path:
+                upgrade_mcp_auth(db_path)
+        except Exception as e:
+            print(f"[MCP Auth Migration] Warning: {e}")
 
     # Create default config if not exists
     SessionLocal = sessionmaker(bind=engine)

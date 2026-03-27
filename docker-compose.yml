@@ -17,6 +17,27 @@
 
 services:
   # ==========================================================================
+  # PostgreSQL Database
+  # ==========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: tsushin-postgres
+    environment:
+      POSTGRES_DB: tsushin
+      POSTGRES_USER: tsushin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tsushin_dev}
+    volumes:
+      - tsushin-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tsushin -d tsushin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - tsushin-network
+
+  # ==========================================================================
   # Backend Service - FastAPI Application
   # ==========================================================================
   backend:
@@ -30,17 +51,19 @@ services:
       - "${TSN_APP_PORT:-8081}:8081"
     volumes:
       # Persistent data storage
-      - ./backend/data:/app/data
+      - ./backend/data:/app/data:Z
       # Logs (optional - for debugging)
-      - ./logs/backend:/app/logs
+      - ./logs/backend:/app/logs:Z
       # Docker socket for MCP container management
       - /var/run/docker.sock:/var/run/docker.sock
       # Shared audio directory for TTS (shared with MCP containers)
-      - tsushin-audio:/tmp/tsushin_audio
+      - tsushin-audio:/tmp/tsushin_audio:z
       # Shared screenshots directory for browser automation (shared with MCP containers)
-      - tsushin-screenshots:/tmp/tsushin_screenshots
+      - tsushin-screenshots:/tmp/tsushin_screenshots:z
       # Shared images directory for ImageSkill (shared with MCP containers)
-      - tsushin-images:/tmp/tsushin_images
+      - tsushin-images:/tmp/tsushin_images:z
+    security_opt:
+      - label:disable
     environment:
       # Application
       - TSN_APP_HOST=0.0.0.0
@@ -53,7 +76,9 @@ services:
       - TSN_FRONTEND_URL=${TSN_FRONTEND_URL:-http://localhost:3030}
       - TSN_GOOGLE_OAUTH_REDIRECT_URI=${TSN_GOOGLE_OAUTH_REDIRECT_URI:-http://localhost:8081/api/hub/google/oauth/callback}
 
-      # Database paths (inside container)
+      # Database
+      - DATABASE_URL=postgresql://tsushin:${POSTGRES_PASSWORD:-tsushin_dev}@postgres:5432/tsushin
+      # Legacy SQLite path (kept for MCP reader and rollback)
       - INTERNAL_DB_PATH=/app/data/agent.db
       - TSN_CHROMA_DIR=/app/data/chroma
       - TSN_WORKSPACE_DIR=/app/data/workspace
@@ -96,6 +121,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - tsushin-network
@@ -182,6 +210,9 @@ volumes:
     name: kokoro-models
   kokoro-audio:
     name: kokoro-audio
+  # PostgreSQL persistent data
+  tsushin-postgres-data:
+    name: tsushin-postgres-data
 
 # ==========================================================================
 # Optional: Additional volumes if you prefer Docker-managed volumes

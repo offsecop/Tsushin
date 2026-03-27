@@ -11,18 +11,19 @@ This guide covers deploying Tsushin using Docker containers.
 │                    Docker Compose Stack                      │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │   backend   │  │  frontend   │  │  tester-mcp         │  │
-│  │  FastAPI    │  │  Next.js    │  │  (QA Profile)       │  │
-│  │  Port 8081  │  │  Port 3030  │  │  Port 8088          │  │
-│  └──────┬──────┘  └──────┬──────┘  └──────────┬──────────┘  │
-│         │                │                     │             │
-│         ▼                ▼                     ▼             │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │              Persistent Volumes                       │   │
-│  │  ./backend/data → SQLite + ChromaDB + MCP data       │   │
-│  │  ./logs → Application logs                            │   │
-│  └──────────────────────────────────────────────────────┘   │
+│  ┌─────────────┐  ┌─────────────┐  ┌──────────┐  ┌─────────────────────┐  │
+│  │   backend   │  │  frontend   │  │ postgres │  │  tester-mcp         │  │
+│  │  FastAPI    │  │  Next.js    │  │ PG 16    │  │  (QA Profile)       │  │
+│  │  Port 8081  │  │  Port 3030  │  │ Port 5432│  │  Port 8088          │  │
+│  └──────┬──────┘  └──────┬──────┘  └────┬─────┘  └──────────┬──────────┘  │
+│         │                │               │                   │             │
+│         ▼                ▼               ▼                   ▼             │
+│  ┌──────────────────────────────────────────────────────────────────┐      │
+│  │              Persistent Volumes                                   │      │
+│  │  ./backend/data → ChromaDB + MCP data                            │      │
+│  │  tsushin-postgres-data → PostgreSQL relational data              │      │
+│  │  ./logs → Application logs                                       │      │
+│  └──────────────────────────────────────────────────────────────────┘      │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -81,7 +82,7 @@ docker compose logs -f
 ### Backend (tsushin-backend)
 
 FastAPI application with:
-- SQLite database
+- PostgreSQL database (via tsushin-postgres container)
 - ChromaDB vector store
 - Scheduler worker
 - WebSocket support
@@ -182,11 +183,11 @@ docker inspect tsushin-backend --format='{{.State.Health.Status}}'
 
 ## Data Persistence
 
-All data is stored in bind-mounted volumes:
+Data is stored in bind-mounted volumes and named Docker volumes:
 
-| Host Path | Container Path | Description |
-|-----------|----------------|-------------|
-| `./backend/data/agent.db` | `/app/data/agent.db` | SQLite database |
+| Host Path / Volume | Container Path | Description |
+|---------------------|----------------|-------------|
+| `tsushin-postgres-data` (named volume) | `/var/lib/postgresql/data` | PostgreSQL relational data |
 | `./backend/data/chroma/` | `/app/data/chroma/` | Vector embeddings |
 | `./backend/data/mcp/` | `/app/data/mcp/` | MCP instance data |
 | `./logs/backend/` | `/app/logs/` | Application logs |
@@ -194,10 +195,10 @@ All data is stored in bind-mounted volumes:
 ### Backup
 
 ```bash
-# Backup database
-cp backend/data/agent.db backups/agent.db.$(date +%Y%m%d)
+# Backup PostgreSQL database
+docker exec tsushin-postgres pg_dump -U tsushin tsushin > backups/tsushin-$(date +%Y%m%d).sql
 
-# Full data backup
+# Full data backup (ChromaDB, MCP data, logs)
 tar -czvf backups/tsushin-data-$(date +%Y%m%d).tar.gz backend/data/
 ```
 
@@ -229,6 +230,31 @@ networks:
         - subnet: 172.28.0.0/16
 ```
 
+## Database Configuration
+
+### Required Environment Variables
+
+The PostgreSQL container requires these variables in your `.env`:
+
+```bash
+# PostgreSQL connection string (used by the backend)
+DATABASE_URL=postgresql+asyncpg://tsushin:your_secure_password_here@tsushin-postgres:5432/tsushin
+
+# PostgreSQL password (used by the postgres container)
+POSTGRES_PASSWORD=your_secure_password_here
+```
+
+> Both values must use the same password. The installer sets these automatically.
+
+### Rollback to SQLite
+
+If you need to revert to SQLite (e.g., for local development without PostgreSQL):
+
+1. Remove `DATABASE_URL` from your `.env` (or comment it out)
+2. Restart the backend: `docker compose restart backend`
+
+The backend will automatically fall back to the SQLite database at `backend/data/agent.db`.
+
 ## Troubleshooting
 
 ### Container Won't Start
@@ -248,11 +274,11 @@ docker compose up -d --build
 ### Database Issues
 
 ```bash
-# Enter container
-docker exec -it tsushin-backend bash
+# Check PostgreSQL tables
+docker exec -it tsushin-postgres psql -U tsushin -d tsushin -c "\dt"
 
-# Check database
-sqlite3 /app/data/agent.db ".tables"
+# Enter PostgreSQL shell
+docker exec -it tsushin-postgres psql -U tsushin -d tsushin
 ```
 
 ### Memory Issues

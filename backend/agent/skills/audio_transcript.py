@@ -112,7 +112,7 @@ class AudioTranscriptSkill(BaseSkill):
             from db import get_engine
             import settings
 
-            engine = get_engine(settings.INTERNAL_DB_PATH)
+            engine = get_engine(settings.DATABASE_URL)
             SessionLocal = sessionmaker(bind=engine)
             db = SessionLocal()
 

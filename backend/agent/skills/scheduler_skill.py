@@ -226,9 +226,9 @@ class SchedulerSkill(BaseSkill):
         from models import Agent
         from sqlalchemy.orm import sessionmaker
         from db import get_engine
-        import os
+        import settings
 
-        engine = get_engine(os.getenv("INTERNAL_DB_PATH", "./data/agent.db"))
+        engine = get_engine(settings.DATABASE_URL)
         SessionLocal = sessionmaker(bind=engine)
         db = SessionLocal()
 
@@ -307,9 +307,9 @@ Respond ONLY with: CREATE or LIST (no explanation, no punctuation)"""
             from scheduler.scheduler_service import SchedulerService
             from sqlalchemy.orm import sessionmaker
             from db import get_engine
-            import os
+            import settings
 
-            engine = get_engine(os.getenv("INTERNAL_DB_PATH", "./data/agent.db"))
+            engine = get_engine(settings.DATABASE_URL)
             SessionLocal = sessionmaker(bind=engine)
             db = SessionLocal()
 
@@ -359,10 +359,10 @@ Respond ONLY with: CREATE or LIST (no explanation, no punctuation)"""
         from sqlalchemy.orm import sessionmaker
         from db import get_engine
         from models import ScheduledEvent
-        import os
+        import settings
         import pytz
 
-        engine = get_engine(os.getenv("INTERNAL_DB_PATH", "./data/agent.db"))
+        engine = get_engine(settings.DATABASE_URL)
         SessionLocal = sessionmaker(bind=engine)
         db = SessionLocal()
 
@@ -669,9 +669,9 @@ Respond ONLY with: CREATE or LIST (no explanation, no punctuation)"""
             from models import Agent
             from sqlalchemy.orm import sessionmaker
             from db import get_engine
-            import os
+            import settings
 
-            engine = get_engine(os.getenv("INTERNAL_DB_PATH", "./data/agent.db"))
+            engine = get_engine(settings.DATABASE_URL)
             SessionLocal = sessionmaker(bind=engine)
             db = SessionLocal()
 
@@ -790,9 +790,9 @@ If you cannot determine the date/time, respond with: {{"error": "cannot parse"}}
             from models import Agent
             from sqlalchemy.orm import sessionmaker
             from db import get_engine
-            import os
+            import settings
 
-            engine = get_engine(os.getenv("INTERNAL_DB_PATH", "./data/agent.db"))
+            engine = get_engine(settings.DATABASE_URL)
             SessionLocal = sessionmaker(bind=engine)
             db = SessionLocal()
 

@@ -34,7 +34,8 @@ logging.basicConfig(
     handlers=[
         logging.FileHandler(settings.LOG_FILE, encoding='utf-8'),
         logging.StreamHandler()
-    ]
+    ],
+    force=True  # Ensure config is applied even if root logger was initialized by imports
 )
 
 logger = logging.getLogger(__name__)
@@ -144,7 +145,7 @@ async def lifespan(app: FastAPI):
     global engine, watcher, watcher_task, watchers, watcher_tasks, flow_executor_task
 
     # Initialize database
-    engine = get_engine(os.getenv("INTERNAL_DB_PATH"))
+    engine = get_engine(settings.DATABASE_URL)
     init_database(engine)
     set_engine(engine)
 

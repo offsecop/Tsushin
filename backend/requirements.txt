@@ -5,7 +5,8 @@ python-multipart>=0.0.6  # Required for file uploads
 
 # Database
 sqlalchemy>=2.0.25
-aiosqlite>=0.19.0
+psycopg2-binary>=2.9.9
+alembic>=1.13.0
 
 # Pydantic (flexible for MCP compatibility)
 pydantic>=2.7.0

@@ -436,7 +436,8 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # Initialize database
-    engine = get_engine()
+    import settings
+    engine = get_engine(settings.DATABASE_URL)
     SessionLocal = sessionmaker(bind=engine)
     db = SessionLocal()
 

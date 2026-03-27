@@ -67,8 +67,9 @@ GOOGLE_SSO_REDIRECT_URI = get_env(
     f"{BACKEND_URL}/api/auth/google/callback"
 )
 
-# Database Paths
+# Database
 INTERNAL_DB_PATH = get_env("TSN_INTERNAL_DB_PATH", "INTERNAL_DB_PATH", "./data/agent.db")
+DATABASE_URL = get_env("DATABASE_URL", None, f"sqlite:///{INTERNAL_DB_PATH}")
 MCP_MESSAGES_DB_PATH = get_env("TSN_MCP_MESSAGES_DB_PATH", "MCP_MESSAGES_DB_PATH")
 
 # Data Storage Paths (Phase 4.1 & 6.1)
