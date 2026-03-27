@@ -125,11 +125,12 @@ CREDENTIAL_VALUE_PATTERNS = [
 ]
 
 # Command-like patterns in instruction facts
+# Negative lookaheads exclude legitimate user preferences (language, format, tone)
 INSTRUCTION_COMMAND_PATTERNS = [
-    re.compile(r"(?:always|never|must|should)\s+(?:respond|reply|answer|say|do|ignore|skip|bypass|mention|reveal|tell|disclose|share)", re.IGNORECASE),
+    re.compile(r"(?:always|never|must|should)\s+(?:respond|reply|answer|say|do|ignore|skip|bypass|mention|reveal|tell|disclose|share)\s+(?!in\s+(?:english|portuguese|spanish|french|german|japanese|chinese|korean|italian|dutch|russian|arabic|hindi|hebrew)\b)(?!(?:politely|concisely|briefly|formally|informally|professionally)\b)", re.IGNORECASE),
     re.compile(r"(?:don'?t|do\s+not)\s+(?:verify|check|validate|authenticate|mention|reveal)", re.IGNORECASE),
     re.compile(r"(?:when\s+.+\s+(?:say|ask|type)s?\s*,?\s*(?:respond|reply|answer))", re.IGNORECASE),
-    re.compile(r"(?:sempre|nunca|deve)\s+(?:responda|diga|ignore|pule|evite|mencione|revele)", re.IGNORECASE),
+    re.compile(r"(?:sempre|nunca|deve)\s+(?:responda|diga|ignore|pule|evite|mencione|revele)\s+(?!em\s+(?:português|inglês|espanhol|francês)\b)", re.IGNORECASE),
 ]
 
 
