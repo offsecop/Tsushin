@@ -14,6 +14,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@/contexts/ToastContext'
 import { api, WhatsAppMCPInstance, MCPHealthStatus, QRCodeResponse, TelegramBotInstance, TelegramHealthStatus, Config } from '@/lib/client'
 import Modal from '@/components/ui/Modal'
 import TelegramBotModal from '@/components/TelegramBotModal'
@@ -202,6 +203,7 @@ const TOOL_APIS: { value: string; label: string; Icon: React.FC<IconProps>; desc
 const NOTIFICATION_SERVICES: { value: string; label: string; Icon: React.FC<IconProps>; description: string; status: string }[] = []
 
 export default function HubPage() {
+  const toast = useToast()
   const { isGlobalAdmin, hasPermission } = useAuth()
   const [activeTab, setActiveTab] = useState<TabType>('ai-providers')
 
@@ -669,7 +671,7 @@ export default function HubPage() {
 
   const saveAPIKey = async () => {
     if (!modalData.service || !modalData.api_key) {
-      alert('Please select a service and provide the API key')
+      toast.warning('Validation', 'Please select a service and provide the API key')
       return
     }
 
@@ -968,9 +970,9 @@ export default function HubPage() {
       window.location.href = data.authorization_url
     } catch (err: any) {
       if (err.message?.includes('ASANA_ENCRYPTION_KEY')) {
-        alert('Asana OAuth not configured. Required: ASANA_ENCRYPTION_KEY in backend/.env')
+        toast.error('Asana Configuration', 'Asana OAuth not configured. Required: ASANA_ENCRYPTION_KEY in backend/.env')
       } else {
-        alert(`Failed to connect: ${err.message}`)
+        toast.error('Connection Failed', `Failed to connect: ${err.message}`)
       }
     }
   }

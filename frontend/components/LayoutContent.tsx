@@ -5,6 +5,7 @@
  * Premium UI with animated navigation, glass effects, and polished interactions
  */
 
+import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import RefreshButton from '@/components/RefreshButton'
@@ -25,6 +26,26 @@ export default function LayoutContent({ children }: { children: React.ReactNode 
   const pathname = usePathname()
   const { logout, isGlobalAdmin } = useAuth()
   const { startTour } = useOnboarding()
+
+  // Mobile menu state
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setIsMobileMenuOpen(false)
+  }, [pathname])
+
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [isMobileMenuOpen])
 
   // Hide header/footer on auth pages
   const isAuthPage = pathname?.startsWith('/auth')
@@ -69,6 +90,20 @@ export default function LayoutContent({ children }: { children: React.ReactNode 
       <header className="flex-shrink-0 z-50 glass-card border-t-0 border-x-0 rounded-none">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-3">
+              {/* Hamburger menu button - mobile only */}
+              {!isPlaygroundPage && (
+                <button
+                  onClick={() => setIsMobileMenuOpen(true)}
+                  className="md:hidden p-2 rounded-lg text-tsushin-slate hover:text-white hover:bg-tsushin-surface/50 transition-colors"
+                  aria-label="Open navigation menu"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
+              )}
+
             {/* Logo with hover animation */}
             <Link
               href="/"
@@ -95,6 +130,7 @@ export default function LayoutContent({ children }: { children: React.ReactNode 
                 </span>
               </div>
             </Link>
+            </div>
 
             {/* Navigation with active indicators */}
             <nav className="hidden md:flex items-center space-x-1">
@@ -186,6 +222,116 @@ export default function LayoutContent({ children }: { children: React.ReactNode 
           </div>
         </div>
       </header>
+
+      {/* Mobile Navigation Drawer */}
+      {!isPlaygroundPage && (
+        <>
+          {/* Backdrop overlay */}
+          <div
+            className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
+              isMobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            }`}
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+
+          {/* Drawer panel */}
+          <div
+            className={`fixed top-0 left-0 z-40 h-full w-72 bg-tsushin-surface border-r border-tsushin-border transform transition-transform duration-300 ease-in-out md:hidden ${
+              isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+            }`}
+          >
+            <div className="flex flex-col h-full">
+              {/* Drawer header with logo and close button */}
+              <div className="flex items-center justify-between p-4 border-b border-tsushin-border/50">
+                <Link
+                  href="/"
+                  className="group flex items-center space-x-3"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <div className="relative flex items-center justify-center w-9 h-9 rounded-lg overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-primary opacity-90"></div>
+                    <span className="relative text-white font-bold text-lg">通</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-lg font-display font-bold tracking-tight text-white">
+                      TSUSHIN
+                    </span>
+                    <span className="text-[10px] text-tsushin-slate -mt-0.5 tracking-wide uppercase">
+                      Think, Secure, Build
+                    </span>
+                  </div>
+                </Link>
+                <button
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="p-2 rounded-lg text-tsushin-slate hover:text-white hover:bg-tsushin-surface/50 transition-colors"
+                  aria-label="Close navigation menu"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Navigation links */}
+              <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
+                {navItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={`relative flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200
+                      ${isActive(item.href)
+                        ? 'text-white bg-tsushin-surface/80 border border-tsushin-border/50'
+                        : 'text-tsushin-slate hover:text-white hover:bg-tsushin-surface/50'
+                      }`}
+                  >
+                    <span>{item.label}</span>
+                    {/* Active teal accent */}
+                    {isActive(item.href) && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 rounded-full bg-gradient-to-b from-teal-500 to-cyan-400" />
+                    )}
+                  </Link>
+                ))}
+              </nav>
+
+              {/* User info section at bottom */}
+              <div className="border-t border-tsushin-border/50 p-4">
+                <div className="flex items-center space-x-3 mb-3">
+                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-teal-500 to-cyan-400">
+                    <span className="text-white text-sm font-bold">
+                      {(user.full_name || user.email || 'U').charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-white truncate">
+                      {user.full_name || user.email}
+                    </div>
+                    <div className="text-xs text-tsushin-slate">
+                      {isGlobalAdmin ? (
+                        <span className="text-purple-400 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+                          Global Admin
+                        </span>
+                      ) : (
+                        <span className="truncate block">{user.tenant_id}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsMobileMenuOpen(false)
+                    logout()
+                  }}
+                  className="w-full btn-ghost text-sm py-2 px-3 rounded-lg text-tsushin-slate hover:text-white hover:bg-tsushin-surface/50 transition-colors text-center"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Main Content */}
       <main className={`flex-1 flex flex-col min-h-0 ${isPlaygroundPage ? 'overflow-hidden' : 'overflow-y-auto scroll-smooth'}`}>

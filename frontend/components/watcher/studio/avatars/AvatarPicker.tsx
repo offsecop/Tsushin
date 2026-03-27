@@ -29,7 +29,7 @@ function AvatarPickerInner({ selected, onSelect, anchor, onClose }: AvatarPicker
   }, [onClose])
 
   return (
-    <div ref={ref} className="fixed z-[200] bg-tsushin-deep border border-tsushin-border rounded-xl shadow-2xl p-3 w-[280px] animate-fade-in"
+    <div ref={ref} className="fixed z-[60] bg-tsushin-deep border border-tsushin-border rounded-xl shadow-2xl p-3 w-[280px] animate-fade-in"
       style={{ left: anchor.x, top: anchor.y }}
       onClick={(e) => e.stopPropagation()}>
       <div className="text-xs font-medium text-tsushin-slate mb-2">Choose Avatar</div>

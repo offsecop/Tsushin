@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { api, Persona, TonePreset } from '@/lib/client'
+import { useToast } from '@/contexts/ToastContext'
 
 interface PersonaFormData {
   name: string
@@ -26,6 +27,7 @@ interface PersonaFormData {
 }
 
 export default function PersonasPage() {
+  const toast = useToast()
   const pathname = usePathname()
   const [personas, setPersonas] = useState<Persona[]>([])
   const [tonePresets, setTonePresets] = useState<TonePreset[]>([])
@@ -125,7 +127,7 @@ export default function PersonasPage() {
     e.preventDefault()
 
     if (!formData.name.trim() || !formData.description.trim()) {
-      alert('Name and description are required')
+      toast.warning('Validation', 'Name and description are required')
       return
     }
 
@@ -162,7 +164,7 @@ export default function PersonasPage() {
       resetForm()
       await loadData()
     } catch (err: any) {
-      alert(err.message || `Failed to ${editingPersona ? 'update' : 'create'} persona`)
+      toast.error('Save Failed', err.message || `Failed to ${editingPersona ? 'update' : 'create'} persona`)
     } finally {
       setSaving(false)
     }
@@ -175,7 +177,7 @@ export default function PersonasPage() {
       await api.deletePersona(id)
       await loadData()
     } catch (err: any) {
-      alert(err.message || 'Failed to delete persona')
+      toast.error('Delete Failed', err.message || 'Failed to delete persona')
     }
   }
 

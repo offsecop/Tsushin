@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { api, Agent, Contact, ContactAgentMapping, TeamMember } from '@/lib/client'
 import Modal from '@/components/ui/Modal'
+import { useToast } from '@/contexts/ToastContext'
 import { SmartphoneIcon, WhatsAppIcon, TelegramIcon, UserIcon, FileTextIcon, RefreshIcon } from '@/components/ui/icons'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'
@@ -27,6 +28,7 @@ interface ContactFormData {
 }
 
 export default function ContactsPage() {
+  const toast = useToast()
   const pathname = usePathname()
   const [contacts, setContacts] = useState<Contact[]>([])
   const [agents, setAgents] = useState<Agent[]>([])
@@ -97,7 +99,7 @@ export default function ContactsPage() {
       resetForm()
     } catch (err) {
       console.error('Failed to create contact:', err)
-      alert(err instanceof Error ? err.message : 'Failed to create contact')
+      toast.error('Creation Failed', err instanceof Error ? err.message : 'Failed to create contact')
     }
   }
 
@@ -135,7 +137,7 @@ export default function ContactsPage() {
       resetForm()
     } catch (err) {
       console.error('Failed to update contact:', err)
-      alert(err instanceof Error ? err.message : 'Failed to update contact')
+      toast.error('Update Failed', err instanceof Error ? err.message : 'Failed to update contact')
     }
   }
 
@@ -147,7 +149,7 @@ export default function ContactsPage() {
       await loadData()
     } catch (err) {
       console.error('Failed to delete contact:', err)
-      alert(err instanceof Error ? err.message : 'Failed to delete contact')
+      toast.error('Delete Failed', err instanceof Error ? err.message : 'Failed to delete contact')
     }
   }
 
@@ -156,7 +158,7 @@ export default function ContactsPage() {
       await api.setContactAgentMapping(contactId, agentId)
       await loadData()
     } catch (err: any) {
-      alert(err.message || 'Failed to assign agent')
+      toast.error('Assignment Failed', err.message || 'Failed to assign agent')
     }
   }
 
@@ -167,7 +169,7 @@ export default function ContactsPage() {
       await api.deleteContactAgentMapping(contactId)
       await loadData()
     } catch (err: any) {
-      alert(err.message || 'Failed to remove mapping')
+      toast.error('Removal Failed', err.message || 'Failed to remove mapping')
     }
   }
 
@@ -205,14 +207,14 @@ export default function ContactsPage() {
     try {
       const result = await api.resolveContactWhatsApp(contactId, true)
       if (result.success) {
-        alert(result.message)
+        toast.success('WhatsApp Resolved', result.message)
         await loadData()
       } else {
-        alert(result.message)
+        toast.warning('Resolution Failed', result.message)
       }
     } catch (err) {
       console.error('Failed to resolve WhatsApp ID:', err)
-      alert(err instanceof Error ? err.message : 'Failed to resolve WhatsApp ID')
+      toast.error('Resolution Failed', err instanceof Error ? err.message : 'Failed to resolve WhatsApp ID')
     } finally {
       setResolvingWhatsApp(null)
     }
@@ -223,11 +225,11 @@ export default function ContactsPage() {
     setResolvingAll(true)
     try {
       const result = await api.resolveAllContactsWhatsApp()
-      alert(`Resolved: ${result.resolved}, Failed: ${result.failed}, Skipped: ${result.skipped}`)
+      toast.success('Bulk Resolution Complete', `Resolved: ${result.resolved}, Failed: ${result.failed}, Skipped: ${result.skipped}`)
       await loadData()
     } catch (err) {
       console.error('Failed to resolve all WhatsApp IDs:', err)
-      alert(err instanceof Error ? err.message : 'Failed to resolve WhatsApp IDs')
+      toast.error('Resolution Failed', err instanceof Error ? err.message : 'Failed to resolve WhatsApp IDs')
     } finally {
       setResolvingAll(false)
     }

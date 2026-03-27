@@ -314,7 +314,7 @@ export default function MemoryInspector({ agentId, senderKey }: MemoryInspectorP
   ) || []
 
   return (
-    <div className="h-full flex flex-col bg-[#0d0d14]">
+    <div className="h-full flex flex-col bg-tsushin-deep">
       {/* Header with Stats */}
       <div className="px-4 py-3 border-b border-white/[0.06]">
         <div className="flex items-center justify-between mb-3">

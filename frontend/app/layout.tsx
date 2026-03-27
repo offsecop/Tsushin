@@ -2,8 +2,10 @@ import './globals.css'
 import { DM_Sans, Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { OnboardingProvider } from '@/contexts/OnboardingContext'
+import { ToastProvider } from '@/contexts/ToastContext'
 import LayoutContent from '@/components/LayoutContent'
 import OnboardingWizard from '@/components/OnboardingWizard'
+import ToastContainer from '@/components/ui/ToastContainer'
 
 // Primary body font - clean and modern
 const dmSans = DM_Sans({
@@ -41,8 +43,11 @@ export default function RootLayout({
       <body className={`${dmSans.variable} ${plusJakartaSans.variable} ${jetbrainsMono.variable} font-sans bg-tsushin-ink text-gray-100 antialiased`}>
         <AuthProvider>
           <OnboardingProvider>
-            <LayoutContent>{children}</LayoutContent>
-            <OnboardingWizard />
+            <ToastProvider>
+              <LayoutContent>{children}</LayoutContent>
+              <OnboardingWizard />
+              <ToastContainer />
+            </ToastProvider>
           </OnboardingProvider>
         </AuthProvider>
       </body>

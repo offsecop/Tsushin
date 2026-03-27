@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { api, Agent, TonePreset, Contact, Persona, SkillIntegration } from '@/lib/client'
+import { useToast } from '@/contexts/ToastContext'
 import {
   IconProps,
   CalendarIcon,
@@ -130,6 +131,7 @@ const getProviderDisplayName = (provider: string): string => {
 }
 
 export default function AgentsPage() {
+  const toast = useToast()
   const pathname = usePathname()
   const [agents, setAgents] = useState<Agent[]>([])
   const [tones, setTones] = useState<TonePreset[]>([])
@@ -274,7 +276,7 @@ export default function AgentsPage() {
       await api.deleteAgent(id)
       await loadData()
     } catch (err: any) {
-      alert(err.message || 'Failed to delete agent')
+      toast.error('Delete Failed', err.message || 'Failed to delete agent')
     }
   }
 
@@ -283,7 +285,7 @@ export default function AgentsPage() {
       await api.updateAgent(agent.id, { is_active: !agent.is_active })
       await loadData()
     } catch (err: any) {
-      alert(err.message || 'Failed to update agent')
+      toast.error('Update Failed', err.message || 'Failed to update agent')
     }
   }
 
@@ -293,7 +295,7 @@ export default function AgentsPage() {
       await api.updateAgent(agent.id, { is_default: true })
       await loadData()
     } catch (err: any) {
-      alert(err.message || 'Failed to set default agent')
+      toast.error('Update Failed', err.message || 'Failed to set default agent')
     }
   }
 
@@ -309,7 +311,7 @@ export default function AgentsPage() {
 
   const handleSaveRename = async (agent: Agent) => {
     if (!editingAgentName.trim()) {
-      alert('Agent name cannot be empty')
+      toast.warning('Validation', 'Agent name cannot be empty')
       return
     }
     try {
@@ -321,7 +323,7 @@ export default function AgentsPage() {
       setEditingAgentName('')
       await loadData()
     } catch (err: any) {
-      alert(err.message || 'Failed to rename agent')
+      toast.error('Rename Failed', err.message || 'Failed to rename agent')
     }
   }
 
@@ -357,19 +359,19 @@ export default function AgentsPage() {
     e.preventDefault()
 
     if (!formData.agent_name) {
-      alert('Please provide agent name')
+      toast.warning('Validation', 'Please provide agent name')
       return
     }
 
     if (formData.model_provider === 'ollama' && !ollamaAvailable) {
-      alert('Ollama service is not running. Please start Ollama or choose a different provider.')
+      toast.warning('Ollama Unavailable', 'Ollama service is not running. Please start Ollama or choose a different provider.')
       return
     }
 
     if (formData.agent_phone && formData.agent_phone.trim()) {
       const phoneRegex = /^\+?\d{10,15}$/
       if (!phoneRegex.test(formData.agent_phone.replace(/\s/g, ''))) {
-        alert('Invalid phone number format. Please use 10-15 digits.')
+        toast.warning('Validation', 'Invalid phone number format. Please use 10-15 digits.')
         return
       }
     }
@@ -417,7 +419,7 @@ export default function AgentsPage() {
       resetForm()
       await loadData()
     } catch (err: any) {
-      alert(err.message || 'Failed to create agent')
+      toast.error('Creation Failed', err.message || 'Failed to create agent')
     } finally {
       setSaving(false)
     }

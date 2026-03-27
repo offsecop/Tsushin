@@ -14,6 +14,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { useToast } from '@/contexts/ToastContext'
 import {
   api,
   type FlowDefinition,
@@ -136,6 +137,7 @@ type SortDirection = 'asc' | 'desc'
 // ==================== MAIN PAGE ====================
 
 export default function FlowsPage() {
+  const toast = useToast()
   const router = useRouter()
   const [allFlows, setAllFlows] = useState<FlowDefinition[]>([])
   const [runs, setRuns] = useState<FlowRun[]>([])
@@ -328,11 +330,11 @@ export default function FlowsPage() {
             await loadData()
           } catch (forceError: any) {
             console.error('Failed to force delete flow:', forceError)
-            alert(`Failed to delete flow: ${forceError?.message || 'Unknown error'}`)
+            toast.error('Delete Failed', `Failed to delete flow: ${forceError?.message || 'Unknown error'}`)
           }
         }
       } else {
-        alert(`Failed to delete flow: ${errorMessage}`)
+        toast.error('Delete Failed', `Failed to delete flow: ${errorMessage}`)
       }
     }
   }
@@ -344,7 +346,7 @@ export default function FlowsPage() {
       await loadData()
     } catch (error) {
       console.error('Failed to run flow:', error)
-      alert('Failed to run flow')
+      toast.error('Execution Failed', 'Failed to run flow')
     }
   }
 
@@ -354,7 +356,7 @@ export default function FlowsPage() {
       await loadData()
     } catch (error) {
       console.error('Failed to toggle flow status:', error)
-      alert('Failed to toggle flow status')
+      toast.error('Toggle Failed', 'Failed to toggle flow status')
     }
   }
 
@@ -365,7 +367,7 @@ export default function FlowsPage() {
       await loadData()
     } catch (error) {
       console.error('Failed to cancel run:', error)
-      alert('Failed to cancel run')
+      toast.error('Cancel Failed', 'Failed to cancel run')
     }
   }
 
@@ -402,11 +404,11 @@ export default function FlowsPage() {
         const data = await response.json()
         setEmergencyStop(data.emergency_stop || false)
       } else {
-        alert('Failed to toggle emergency stop')
+        toast.error('Emergency Stop', 'Failed to toggle emergency stop')
       }
     } catch (error) {
       console.error('Failed to toggle emergency stop:', error)
-      alert('Failed to toggle emergency stop')
+      toast.error('Emergency Stop', 'Failed to toggle emergency stop')
     } finally {
       setCheckingEmergencyStop(false)
     }
@@ -1167,6 +1169,7 @@ function CreateFlowModal({ agents, contacts, personas, customTools, onClose, onS
   onClose: () => void
   onSuccess: () => void
 }) {
+  const toast = useToast()
   const [step, setStep] = useState<'config' | 'steps'>('config')
   const [flowData, setFlowData] = useState<CreateFlowData>({
     name: '',
@@ -1179,11 +1182,11 @@ function CreateFlowModal({ agents, contacts, personas, customTools, onClose, onS
 
   async function handleSubmit() {
     if (!flowData.name.trim()) {
-      alert('Please provide a flow name')
+      toast.warning('Validation', 'Please provide a flow name')
       return
     }
     if ((flowData.steps?.length || 0) === 0) {
-      alert('Please add at least one step to your flow')
+      toast.warning('Validation', 'Please add at least one step to your flow')
       return
     }
 
@@ -1193,7 +1196,7 @@ function CreateFlowModal({ agents, contacts, personas, customTools, onClose, onS
       onSuccess()
     } catch (error) {
       console.error('Failed to create flow:', error)
-      alert('Failed to create flow')
+      toast.error('Creation Failed', 'Failed to create flow')
     } finally {
       setSubmitting(false)
     }
@@ -2391,6 +2394,7 @@ function EditableStepBuilder({
   customTools: CustomTool[]
   onStepsChange: (steps: EditableStepData[]) => void
 }) {
+  const toast = useToast()
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [showAddStep, setShowAddStep] = useState(steps.length === 0)
   const [savingSteps, setSavingSteps] = useState<Set<number>>(new Set())
@@ -2425,7 +2429,7 @@ function EditableStepBuilder({
       console.error('Failed to create step:', error)
       // Remove the temp step on error
       onStepsChange(steps)
-      alert('Failed to create step')
+      toast.error('Step Error', 'Failed to create step')
     }
   }
 
@@ -2497,7 +2501,7 @@ function EditableStepBuilder({
       console.error('Failed to delete step:', error)
       // Restore on error
       onStepsChange(steps)
-      alert('Failed to delete step')
+      toast.error('Step Error', 'Failed to delete step')
     }
   }
 
@@ -3305,6 +3309,7 @@ function EditFlowModal({ flowId, agents, contacts, personas, customTools, onClos
   onClose: () => void
   onSuccess: () => void
 }) {
+  const toast = useToast()
   const [flow, setFlow] = useState<FlowDefinition | null>(null)
   const [steps, setSteps] = useState<EditableStepData[]>([])
   const [loading, setLoading] = useState(true)
@@ -3330,7 +3335,7 @@ function EditFlowModal({ flowId, agents, contacts, personas, customTools, onClos
       setSteps(editableSteps)
     } catch (error) {
       console.error('Failed to load flow:', error)
-      alert('Failed to load flow')
+      toast.error('Load Failed', 'Failed to load flow')
       onClose()
     } finally {
       setLoading(false)
@@ -3342,7 +3347,7 @@ function EditFlowModal({ flowId, agents, contacts, personas, customTools, onClos
       const result = await api.validateFlow(flowId)
       if (result.valid) {
         setValidationErrors([])
-        alert('Flow is valid!')
+        toast.success('Validation', 'Flow is valid!')
       } else {
         setValidationErrors(result.errors || ['Validation failed'])
       }
@@ -3367,7 +3372,7 @@ function EditFlowModal({ flowId, agents, contacts, personas, customTools, onClos
       onSuccess()
     } catch (error) {
       console.error('Failed to save flow:', error)
-      alert('Failed to save flow')
+      toast.error('Save Failed', 'Failed to save flow')
     } finally {
       setSaving(false)
     }
