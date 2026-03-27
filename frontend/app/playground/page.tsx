@@ -166,6 +166,58 @@ export default function PlaygroundPage() {
         setError(error)
         setStreamingMessage(null)
       },
+      // Message Queue handlers
+      onQueueProcessingStarted: (queueId) => {
+        console.log('[Playground] Queue processing started for:', queueId)
+        // Update the placeholder message to show "Processing..."
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.message_id === `queue_${queueId}`
+              ? { ...msg, content: 'Processing your message...' }
+              : msg
+          )
+        )
+      },
+      onQueueMessageCompleted: (queueId, result) => {
+        console.log('[Playground] Queue message completed:', queueId, result)
+        if (result?.status === 'success' && result?.message) {
+          // Replace the placeholder queue message with the actual response
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.message_id === `queue_${queueId}`
+                ? {
+                    ...msg,
+                    content: result.message,
+                    timestamp: result.timestamp || msg.timestamp,
+                    message_id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                  }
+                : msg
+            )
+          )
+          // Refresh thread to get proper message IDs from backend
+          if (activeThreadId) {
+            api.getThread(activeThreadId).then(threadData => {
+              setMessages(threadData.messages || [])
+            }).catch(err => {
+              console.error('Failed to refresh thread after queue completion:', err)
+            })
+          }
+          // Check for thread rename
+          if (result.thread_renamed && result.new_thread_title) {
+            setActiveThread(prev => prev ? { ...prev, title: result.new_thread_title } : null)
+            if (selectedAgentId) {
+              loadThreads(selectedAgentId)
+            }
+          }
+        } else {
+          // Remove the placeholder on error
+          setMessages((prev) => prev.filter((msg) => msg.message_id !== `queue_${queueId}`))
+          if (result?.error) {
+            setError(result.error)
+          }
+        }
+        setIsSending(false)
+      },
     }
   )
 
@@ -991,7 +1043,23 @@ export default function PlaygroundPage() {
             activeThreadId || undefined  // Phase 14.1: Thread-specific messaging
           )
 
-          if (response.status === 'success' && response.message) {
+          if (response.status === 'queued' && response.queue_id) {
+            // Message Queue: message was enqueued for async processing
+            console.log('[Playground] Message queued:', response.queue_id, 'position:', response.position)
+            // Show a queued indicator as a temporary assistant message
+            const queueMsgId = `queue_${response.queue_id}`
+            const queueMsg: PlaygroundMessage = {
+              role: 'assistant',
+              content: response.position && response.position > 0
+                ? `Queued (position ${response.position + 1})... Processing will begin shortly.`
+                : 'Processing your message...',
+              timestamp: response.timestamp,
+              message_id: queueMsgId,
+            }
+            setMessages((prev) => [...prev, queueMsg])
+            // The queue worker will send the actual response via WebSocket
+            // (queue_message_completed event) which will replace this placeholder
+          } else if (response.status === 'success' && response.message) {
           // Phase 14.2 FIX: Refresh messages from backend to get correct message_ids
           // This ensures edit/regenerate operations use the IDs stored in the database
           if (activeThreadId) {

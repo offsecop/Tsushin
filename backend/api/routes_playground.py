@@ -142,9 +142,10 @@ async def get_available_agents(
         raise HTTPException(status_code=500, detail=f"Failed to fetch agents: {str(e)}")
 
 
-@router.post("/api/playground/chat", response_model=PlaygroundChatResponse)
+@router.post("/api/playground/chat")
 async def send_chat_message(
     request: PlaygroundChatRequest,
+    sync: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user_required)
 ):
@@ -152,6 +153,9 @@ async def send_chat_message(
     Send a message to an agent and get a response.
     Messages are stored in agent memory for consistency with WhatsApp.
     Supports project commands (/list, /enter, /exit, /help) when integrated with Skill Projects.
+
+    By default, messages are enqueued for async processing (returns queue_id).
+    Use ?sync=true for synchronous processing (backward compatibility / health checks).
     """
     try:
         # Phase 15: Check for project commands first
@@ -262,6 +266,33 @@ async def send_chat_message(
                 )
 
         # Not a project command, proceed with normal message handling
+        # Async mode (default): enqueue the message for background processing
+        if not sync:
+            from services.message_queue_service import MessageQueueService
+            queue_service = MessageQueueService(db)
+            queue_item = queue_service.enqueue(
+                channel="playground",
+                tenant_id=tenant_id,
+                agent_id=request.agent_id,
+                sender_key=sender_key,
+                payload={
+                    "user_id": current_user.id,
+                    "message": request.message,
+                    "thread_id": request.thread_id,
+                    "media_type": None,
+                },
+            )
+            position = queue_service.get_position(queue_item.id)
+            return {
+                "status": "queued",
+                "queue_id": queue_item.id,
+                "position": position,
+                "message": None,
+                "agent_name": agent_name,
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+            }
+
+        # Sync mode (?sync=true): process synchronously for backward compatibility
         # Initialize playground service
         service = PlaygroundService(db)
 

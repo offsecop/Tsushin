@@ -2853,6 +2853,48 @@ class HostBrowserAuditLog(Base):
 
 
 # ============================================================================
+# Message Queue System
+# Async message processing with priority, retry, and dead-letter support.
+# ============================================================================
+
+class MessageQueue(Base):
+    """
+    Message Queue for asynchronous message processing.
+    Supports playground, WhatsApp, and Telegram channels.
+    Uses SELECT FOR UPDATE SKIP LOCKED for concurrent-safe claim.
+    """
+    __tablename__ = "message_queue"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(String(50), nullable=False, index=True)
+    channel = Column(String(20), nullable=False, index=True)  # "playground"|"whatsapp"|"telegram"
+    status = Column(String(20), nullable=False, default="pending", index=True)
+    # "pending" | "processing" | "completed" | "failed" | "dead_letter"
+
+    agent_id = Column(Integer, ForeignKey("agent.id"), nullable=False, index=True)
+    sender_key = Column(String(255), nullable=False)
+
+    payload = Column(JSON, nullable=False)
+    # Playground: {"user_id": int, "message": str, "thread_id": int|null, "media_type": str|null}
+    # WhatsApp:  {"message": dict}
+    # Telegram:  {"update": dict, "instance_id": int}
+
+    priority = Column(Integer, default=0)
+    retry_count = Column(Integer, default=0)
+    max_retries = Column(Integer, default=3)
+    error_message = Column(Text, nullable=True)
+
+    queued_at = Column(DateTime, default=datetime.utcnow, index=True)
+    processing_started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (
+        Index("ix_mq_tenant_agent_status", "tenant_id", "agent_id", "status"),
+        Index("ix_mq_pending_priority", "status", "priority", "queued_at"),
+    )
+
+
+# ============================================================================
 # Backward Compatibility Aliases (deprecated - use Sandboxed* names instead)
 # Skills-as-Tools Phase 6: CustomTools renamed to SandboxedTools
 # ============================================================================

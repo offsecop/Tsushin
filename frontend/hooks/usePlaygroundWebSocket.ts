@@ -14,6 +14,9 @@ interface UsePlaygroundWebSocketOptions {
   onMessageComplete: (message: PlaygroundMessage) => void
   onThreadCreated?: (threadId: number, title: string) => void
   onError: (error: string) => void
+  // Message Queue event handlers
+  onQueueProcessingStarted?: (queueId: number) => void
+  onQueueMessageCompleted?: (queueId: number, result: any) => void
 }
 
 export function usePlaygroundWebSocket(
@@ -125,6 +128,21 @@ export function usePlaygroundWebSocket(
 
     ws.on('pong', () => {
       // Heartbeat response - no action needed
+    })
+
+    // Message Queue events
+    ws.on('queue_processing_started', (message: any) => {
+      console.log('[WebSocket Hook] Queue processing started:', message.queue_id)
+      if (options.onQueueProcessingStarted) {
+        options.onQueueProcessingStarted(message.queue_id)
+      }
+    })
+
+    ws.on('queue_message_completed', (message: any) => {
+      console.log('[WebSocket Hook] Queue message completed:', message.queue_id)
+      if (options.onQueueMessageCompleted) {
+        options.onQueueMessageCompleted(message.queue_id, message.result)
+      }
     })
 
     // Connect

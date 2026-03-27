@@ -1613,7 +1613,7 @@ export interface KBUsageItem {
 }
 
 export interface PlaygroundChatResponse {
-  status: string
+  status: string  // "success" | "error" | "queued"
   message: string | null
   error: string | null
   tool_used: string | null
@@ -1623,6 +1623,25 @@ export interface PlaygroundChatResponse {
   thread_renamed?: boolean
   new_thread_title?: string
   kb_used?: KBUsageItem[]  // KB usage tracking
+  // Message Queue fields (returned when status="queued")
+  queue_id?: number
+  position?: number
+}
+
+// Message Queue types
+export interface QueueItem {
+  id: number
+  status: string  // "pending" | "processing" | "completed" | "failed" | "dead_letter"
+  channel: string
+  agent_id: number
+  sender_key: string
+  priority: number
+  retry_count: number
+  queued_at: string | null
+  processing_started_at: string | null
+  error_message?: string | null
+  completed_at?: string | null
+  position?: number
 }
 
 export interface PlaygroundMessage {
@@ -5711,6 +5730,28 @@ export const api = {
   async getSentinelHierarchy(): Promise<SentinelHierarchy> {
     const res = await authenticatedFetch(`${API_URL}/api/sentinel/profiles/hierarchy`)
     if (!res.ok) await handleApiError(res, 'Failed to fetch security hierarchy')
+    return res.json()
+  },
+
+  // Message Queue
+  async getQueueStatus(agentId?: number): Promise<{ items: QueueItem[] }> {
+    const params = agentId ? `?agent_id=${agentId}` : ''
+    const res = await authenticatedFetch(`${API_URL}/api/queue/status${params}`)
+    if (!res.ok) throw new Error('Failed to fetch queue status')
+    return res.json()
+  },
+
+  async getQueueItem(queueId: number): Promise<QueueItem> {
+    const res = await authenticatedFetch(`${API_URL}/api/queue/item/${queueId}`)
+    if (!res.ok) throw new Error('Failed to fetch queue item')
+    return res.json()
+  },
+
+  async cancelQueueItem(queueId: number): Promise<{ success: boolean }> {
+    const res = await authenticatedFetch(`${API_URL}/api/queue/item/${queueId}`, {
+      method: 'DELETE',
+    })
+    if (!res.ok) throw new Error('Failed to cancel queue item')
     return res.json()
   },
 }

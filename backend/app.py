@@ -127,6 +127,9 @@ from api.routes_sentinel import router as sentinel_router, set_engine as set_sen
 from api.routes_sentinel_exceptions import router as sentinel_exceptions_router, set_engine as set_sentinel_exceptions_engine
 # v1.6.0: Sentinel Security Profiles
 from api.routes_sentinel_profiles import router as sentinel_profiles_router, set_engine as set_sentinel_profiles_engine
+# Message Queue System
+from api.routes_queue import router as queue_router
+from services.queue_worker import start_queue_worker, stop_queue_worker
 # MCP Health Monitor Service (auto-recovery for keepalive timeouts)
 from services.mcp_health_monitor import MCPHealthMonitorService
 from services.mcp_container_manager import MCPContainerManager
@@ -749,6 +752,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logging.error(f"Error starting Beacon Connection Service: {e}", exc_info=True)
 
+    # Message Queue Worker (async message processing)
+    try:
+        await start_queue_worker(engine, poll_interval_ms=500)
+        logging.info("Message Queue Worker started (polling every 500ms)")
+    except Exception as e:
+        logging.error(f"Error starting Message Queue Worker: {e}", exc_info=True)
+
     yield
 
     # Shutdown
@@ -832,6 +842,13 @@ async def lifespan(app: FastAPI):
         logging.info("Stale Flow Cleanup Service stopped")
     except Exception as e:
         logging.error(f"Error stopping stale flow cleanup service: {e}", exc_info=True)
+
+    # Stop Message Queue Worker
+    try:
+        await stop_queue_worker()
+        logging.info("Message Queue Worker stopped")
+    except Exception as e:
+        logging.error(f"Error stopping Message Queue Worker: {e}", exc_info=True)
 
     session.close()
     logging.info("Application shutdown")
@@ -969,6 +986,7 @@ app.include_router(system_ai_router)  # Phase 17: System AI Configuration
 app.include_router(sentinel_router, prefix="/api")  # Phase 20: Sentinel Security Agent
 app.include_router(sentinel_exceptions_router, prefix="/api")  # Phase 20 Enhancement: Sentinel Exceptions
 app.include_router(sentinel_profiles_router, prefix="/api")  # v1.6.0: Sentinel Security Profiles
+app.include_router(queue_router)  # Message Queue System
 
 # Phase 6.11.2: WebSocket endpoint for real-time updates
 @app.websocket("/ws")
