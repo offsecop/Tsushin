@@ -39,9 +39,35 @@
 .palette-item:active { cursor: grabbing; opacity: 0.6; }
 .palette-item.attached { background: rgba(60, 90, 254, 0.06); }
 .palette-item.disabled { cursor: not-allowed; opacity: 0.4; }
+.palette-item.dragging { opacity: 0.4; cursor: grabbing; }
+
+/* Drag Handle (grip dots) */
+.drag-grip { opacity: 0; transition: opacity 0.15s ease; color: rgba(139, 146, 158, 0.5); flex-shrink: 0; cursor: grab; }
+.palette-item:hover .drag-grip { opacity: 1; }
+.palette-item.dragging .drag-grip { opacity: 0.3; }
 
 /* Canvas Drop Zone */
-.studio-canvas.drag-over { outline: 2px dashed rgba(60, 90, 254, 0.5); outline-offset: -2px; background: rgba(60, 90, 254, 0.03); }
+.studio-canvas.drag-over {
+  outline: 2px dashed rgba(60, 90, 254, 0.6);
+  outline-offset: -2px;
+  background: rgba(60, 90, 254, 0.04);
+}
+.studio-canvas.drag-over::after {
+  content: 'Drop to add';
+  position: absolute;
+  bottom: 3rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(60, 90, 254, 0.15);
+  border: 1px solid rgba(60, 90, 254, 0.4);
+  border-radius: 9999px;
+  padding: 0.25rem 0.875rem;
+  font-size: 0.75rem;
+  color: rgba(99, 131, 255, 0.9);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 10;
+}
 
 /* Builder Group Node */
 .builder-group-node { transition: all 0.2s ease; cursor: grab; }
@@ -52,6 +78,42 @@
 .builder-group-node.group-knowledge { border-left: 3px solid rgba(139, 92, 246, 0.6) !important; }
 .builder-group-node.expanded { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); }
 .builder-group-node .expand-button { transition: transform 0.2s ease; }
+
+/* Group Node Drop Target States */
+.builder-group-node.group-drop-target {
+  box-shadow: 0 0 0 2px rgba(60, 90, 254, 0.35);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.builder-group-node.group-drop-active {
+  box-shadow: 0 0 0 3px rgba(60, 90, 254, 0.7), 0 4px 20px rgba(60, 90, 254, 0.25);
+  transform: scale(1.03);
+  z-index: 50;
+}
+.builder-group-node.group-drop-incompatible {
+  opacity: 0.4;
+  filter: grayscale(0.3);
+  transition: opacity 0.15s ease, filter 0.15s ease;
+}
+/* Prevent child pointer events from triggering dragLeave flicker */
+.builder-group-node.group-drop-target * { pointer-events: none; }
+
+/* Category-specific ring colors */
+.builder-group-node.group-channels.group-drop-target { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5); }
+.builder-group-node.group-channels.group-drop-active { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.8), 0 4px 20px rgba(59, 130, 246, 0.25); }
+.builder-group-node.group-skills.group-drop-target { box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.5); }
+.builder-group-node.group-skills.group-drop-active { box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.8), 0 4px 20px rgba(20, 184, 166, 0.25); }
+.builder-group-node.group-tools.group-drop-target { box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.5); }
+.builder-group-node.group-tools.group-drop-active { box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.8), 0 4px 20px rgba(249, 115, 22, 0.25); }
+.builder-group-node.group-knowledge.group-drop-target { box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.5); }
+.builder-group-node.group-knowledge.group-drop-active { box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.8), 0 4px 20px rgba(139, 92, 246, 0.25); }
+
+/* Node drop-in animation */
+@keyframes node-drop-in {
+  0%   { opacity: 0; transform: scale(0.85); }
+  60%  { opacity: 1; transform: scale(1.04); }
+  100% { opacity: 1; transform: scale(1.0); }
+}
+.builder-node.drop-flash { animation: node-drop-in 0.25s ease-out forwards; }
 
 /* Group count badge */
 .group-count-badge { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 9999px; line-height: 1.4; }

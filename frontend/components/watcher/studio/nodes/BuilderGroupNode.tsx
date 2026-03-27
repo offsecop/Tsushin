@@ -1,9 +1,10 @@
 'use client'
 
-import { memo, useCallback } from 'react'
+import { memo, useCallback, useState } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
-import type { BuilderGroupData, ProfileCategoryId } from '../types'
+import type { BuilderGroupData, ProfileCategoryId, DragTransferData } from '../types'
 import { CATEGORY_DISPLAY } from '../types'
+import { useDragContext } from '../context/DragContext'
 
 const categoryIcons: Record<ProfileCategoryId, JSX.Element> = {
   channels: (
@@ -55,6 +56,10 @@ function BuilderGroupNode({ data, selected }: NodeProps<BuilderGroupData>) {
   const display = CATEGORY_DISPLAY[data.categoryId]
   const icon = categoryIcons[data.categoryId]
   const handleColor = handleColors[display.color] || '#8B929E'
+  const { activeDrag } = useDragContext()
+  const [isDragOver, setIsDragOver] = useState(false)
+
+  const isCompatible = activeDrag !== null && activeDrag.categoryId === data.categoryId
 
   const handleExpandClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -65,10 +70,45 @@ function BuilderGroupNode({ data, selected }: NodeProps<BuilderGroupData>) {
     }
   }, [data])
 
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (!isCompatible) return
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'copy'
+    setIsDragOver(true)
+  }, [isCompatible])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    // Only trigger if leaving the node itself, not moving between children
+    const relatedTarget = e.relatedTarget as HTMLElement | null
+    if (relatedTarget && (e.currentTarget as HTMLElement).contains(relatedTarget)) return
+    setIsDragOver(false)
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+    if (!isCompatible || !data.onDragGroupDrop) return
+    const raw = e.dataTransfer.getData('application/studio-palette')
+    if (!raw) return
+    try {
+      const parsed = JSON.parse(raw) as DragTransferData
+      data.onDragGroupDrop(data.categoryId, parsed)
+    } catch { /* ignore parse errors */ }
+  }, [isCompatible, data])
+
+  // Determine drop-target CSS classes
+  const dropClasses = activeDrag
+    ? isCompatible
+      ? isDragOver ? 'group-drop-target group-drop-active' : 'group-drop-target'
+      : 'group-drop-incompatible'
+    : ''
+
   return (
     <div
       className={`
-        builder-group-node group-${data.categoryId}
+        builder-group-node group-${data.categoryId} ${dropClasses}
         relative px-3 py-2.5 rounded-lg border min-w-[160px]
         transition-all duration-200
         ${selected
@@ -77,6 +117,9 @@ function BuilderGroupNode({ data, selected }: NodeProps<BuilderGroupData>) {
         }
         ${data.isExpanded ? 'expanded shadow-md' : ''}
       `}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       {/* Target handle (from agent above) */}
       <Handle

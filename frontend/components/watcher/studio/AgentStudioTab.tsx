@@ -15,6 +15,7 @@ import { useStudioData } from './hooks/useStudioData'
 import { api, type SkillDefinition } from '@/lib/client'
 import type { StudioCanvasRef } from './StudioCanvas'
 import type { DragTransferData, BuilderNodeData, BuilderNodeType, ConfigPanelTarget } from './types'
+import { DragProvider } from './context/DragContext'
 import './studio.css'
 
 const StudioCanvasComponent = dynamic(() => import('./StudioCanvas'), {
@@ -135,7 +136,10 @@ export default function AgentStudioTab() {
       id: data.itemId, name: data.itemName, categoryId: data.categoryId,
       nodeType: data.nodeType, isAttached: false, metadata: data.metadata,
     })
-  }, [builder.attachProfile])
+    if (data.dropPosition) {
+      builder.queueDropPosition(data.itemId, data.dropPosition)
+    }
+  }, [builder.attachProfile, builder.queueDropPosition])
 
   const handleDeleteSelected = useCallback((nodeIds: string[]) => {
     for (const nodeId of nodeIds) {
@@ -176,6 +180,7 @@ export default function AgentStudioTab() {
   }
 
   return (
+    <DragProvider>
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center justify-between">
         <StudioAgentSelector agents={studioData.agents} selectedAgentId={selectedAgentId} onAgentSelect={setSelectedAgentId} onAgentCreated={handleAgentCreated} />
@@ -237,5 +242,6 @@ export default function AgentStudioTab() {
         </div>
       )}
     </div>
+    </DragProvider>
   )
 }

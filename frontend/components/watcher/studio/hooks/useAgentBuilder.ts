@@ -10,7 +10,7 @@ import type {
   AgentBuilderState, BuilderNodeData, PaletteItemData, ProfileCategoryId,
   BuilderAgentData, BuilderPersonaData, BuilderChannelData, BuilderSkillData,
   BuilderSkillProviderData, BuilderToolData, BuilderSentinelData, BuilderKnowledgeData,
-  BuilderMemoryData, BuilderGroupData,
+  BuilderMemoryData, BuilderGroupData, DragTransferData,
 } from '../types'
 import { GROUPED_CATEGORIES, CATEGORY_DISPLAY } from '../types'
 import type { UseStudioDataReturn } from './useStudioData'
@@ -28,6 +28,7 @@ export interface UseAgentBuilderReturn {
   expandAll: () => void
   collapseAll: () => void
   resetLayout: () => void
+  queueDropPosition: (itemId: string | number, pos?: { x: number; y: number }) => void
 }
 
 const INITIAL_STATE: AgentBuilderState = {
@@ -49,6 +50,13 @@ export function useAgentBuilder(agentId: number | null, studioData: UseStudioDat
   const userPositions = useRef<Map<string, { x: number; y: number }>>(new Map())
   const structuralFingerprint = useRef<string>('')
   const layoutVersion = useRef(0)
+
+  // DnD: Queue drop positions so newly dropped nodes appear near cursor
+  const pendingDropPositions = useRef<Map<string | number, { x: number; y: number }>>(new Map())
+
+  const queueDropPosition = useCallback((itemId: string | number, pos?: { x: number; y: number }) => {
+    if (pos) pendingDropPositions.current.set(itemId, pos)
+  }, [])
 
   // Wrapped onNodesChange: intercept drag-end to store user positions
   const onNodesChange: OnNodesChange<Node<BuilderNodeData>> = useCallback((changes: NodeChange<Node<BuilderNodeData>>[]) => {
@@ -298,6 +306,16 @@ export function useAgentBuilder(agentId: number | null, studioData: UseStudioDat
           isExpanded,
           onExpand: toggleCategoryExpand,
           onCollapse: toggleCategoryExpand,
+          onDragGroupDrop: (dropCatId: ProfileCategoryId, dragData: DragTransferData) => {
+            attachProfile(dropCatId, {
+              id: dragData.itemId, name: dragData.itemName, categoryId: dropCatId,
+              nodeType: dragData.nodeType, isAttached: false, metadata: dragData.metadata,
+            })
+            // Auto-expand the group if collapsed
+            if (!expandedCategories.has(dropCatId)) {
+              toggleCategoryExpand(dropCatId)
+            }
+          },
         } as BuilderGroupData,
       }
 
@@ -321,6 +339,22 @@ export function useAgentBuilder(agentId: number | null, studioData: UseStudioDat
     for (const key of userPositions.current.keys()) {
       if (!allNodeIds.has(key)) userPositions.current.delete(key)
     }
+
+    // Consume pending drop positions — pre-populate userPositions for newly dropped nodes
+    for (const [itemId, pos] of pendingDropPositions.current.entries()) {
+      // Map itemId to the node id format used by the layout
+      const candidates = [
+        `channel-${itemId}`, `skill-${itemId}`, `tool-${itemId}`,
+        `knowledge-${itemId}`, `persona-${itemId}`, `sentinel-${itemId}`,
+      ]
+      for (const cand of candidates) {
+        if (allNodeIds.has(cand)) {
+          userPositions.current.set(cand, pos)
+          break
+        }
+      }
+    }
+    pendingDropPositions.current.clear()
 
     // Always use tree layout (top-down) for consistent TB handle routing
     let cancelled = false
@@ -485,5 +519,5 @@ export function useAgentBuilder(agentId: number | null, studioData: UseStudioDat
     } catch (err) { setState(prev => ({ ...prev, isSaving: false })); throw err }
   }, [state, studioData.skills, studioData.sentinelAssignments, studioData.agentToolMappings])
 
-  return { state, nodes, edges, onNodesChange, attachProfile, detachProfile, updateNodeConfig, updateAvatar, save, isDirty, isSaving: state.isSaving, expandedCategories, toggleCategoryExpand, expandAll, collapseAll, resetLayout }
+  return { state, nodes, edges, onNodesChange, attachProfile, detachProfile, updateNodeConfig, updateAvatar, save, isDirty, isSaving: state.isSaving, expandedCategories, toggleCategoryExpand, expandAll, collapseAll, resetLayout, queueDropPosition }
 }

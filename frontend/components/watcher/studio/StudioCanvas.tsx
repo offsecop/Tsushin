@@ -30,7 +30,7 @@ interface StudioCanvasProps {
 }
 
 function StudioCanvasInner({ nodes, edges, onNodesChange, onDrop, onDeleteSelected, onNodeDoubleClick, onReady, onExpandAll, onCollapseAll, onResetLayout, hasAnyExpanded }: StudioCanvasProps) {
-  const { fitView } = useReactFlow()
+  const { fitView, screenToFlowPosition } = useReactFlow()
   const [isDragOver, setIsDragOver] = useState(false)
 
   const refMethods: StudioCanvasRef = useMemo(() => ({
@@ -66,8 +66,12 @@ function StudioCanvasInner({ nodes, edges, onNodesChange, onDrop, onDeleteSelect
     e.preventDefault(); setIsDragOver(false)
     const raw = e.dataTransfer.getData('application/studio-palette')
     if (!raw) return
-    try { onDrop(JSON.parse(raw) as DragTransferData) } catch { console.error('[StudioCanvas] Failed to parse drop data') }
-  }, [onDrop])
+    try {
+      const parsed = JSON.parse(raw) as DragTransferData
+      const flowPos = screenToFlowPosition({ x: e.clientX, y: e.clientY })
+      onDrop({ ...parsed, dropPosition: flowPos })
+    } catch { console.error('[StudioCanvas] Failed to parse drop data') }
+  }, [onDrop, screenToFlowPosition])
 
   const handleNodeDblClick = useCallback((_event: React.MouseEvent, node: Node<BuilderNodeData>) => {
     if (node.data.type === 'builder-agent' || node.data.type === 'builder-group') return

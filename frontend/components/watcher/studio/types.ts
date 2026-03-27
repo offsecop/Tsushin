@@ -183,6 +183,7 @@ export interface BuilderGroupData {
   isExpanded: boolean
   onExpand: (categoryId: ProfileCategoryId) => void
   onCollapse: (categoryId: ProfileCategoryId) => void
+  onDragGroupDrop?: (categoryId: ProfileCategoryId, data: DragTransferData) => void
 }
 
 // Union of all builder node data
@@ -251,6 +252,7 @@ export interface DragTransferData {
   itemId: string | number
   itemName: string
   metadata: Record<string, unknown>
+  dropPosition?: { x: number; y: number }
 }
 
 // Config panel target (for inline editing)
