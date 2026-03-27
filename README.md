@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href=""><img src="https://img.shields.io/badge/status-beta-orange" alt="Status"></a>
-  <a href=""><img src="https://img.shields.io/badge/version-v1.5.0-blue" alt="Version"></a>
+  <a href=""><img src="https://img.shields.io/badge/version-v0.6.0-blue" alt="Version"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
@@ -60,22 +60,23 @@ The installer will guide you through configuration, deploy Docker containers, an
 4. **Shared Memory Pool** - Cross-agent knowledge sharing
 
 ### Multi-Provider AI
-| Provider | Local | API Key |
-|----------|:-----:|:-------:|
-| Google Gemini | No | Required |
-| Anthropic Claude | No | Required |
-| OpenAI | No | Required |
-| Ollama | Yes | Not needed |
-| OpenRouter | No | Required |
-
-OpenRouter provides access to 100+ models through a unified API.
+| Provider | Local | API Key | Notes |
+|----------|:-----:|:-------:|-------|
+| Google Gemini | No | Required | Default provider |
+| Anthropic Claude | No | Required | Claude 3.5+ |
+| OpenAI | No | Required | GPT-4, GPT-4 Turbo |
+| Groq | No | Required | Ultra-fast inference (Llama, Mixtral) |
+| Grok (xAI) | No | Required | Grok 3, Grok 3 Mini |
+| Ollama | Yes | Not needed | 100% local, free |
+| OpenRouter | No | Required | 100+ models via single API |
 
 **TTS Providers:**
 
-| Provider | Type |
-|----------|------|
-| Kokoro | Local/self-hosted |
-| OpenAI | Cloud |
+| Provider | Type | Notes |
+|----------|------|-------|
+| Kokoro | Local/self-hosted | Free, PTBR support |
+| OpenAI | Cloud | Premium voices |
+| ElevenLabs | Cloud | Neural TTS, voice cloning, 25+ languages |
 
 ### Skills (21 Built-in)
 | Skill | Description |
@@ -106,7 +107,10 @@ AI-powered threat detection using LLM-based semantic analysis.
 | Agent Takeover | Detects identity hijacking and impersonation |
 | Poisoning | Detects gradual manipulation attacks |
 | Shell Malicious | Detects malicious intent in shell commands |
+| Memory Poisoning (MemGuard) | Pre-storage regex + fact validation gate |
 
+- **Security Profiles**: Granular per-tenant/agent/skill profiles (Off, Permissive, Moderate, Aggressive)
+- Hierarchical inheritance with per-scope overrides
 - Configurable modes: **block**, **warn**, **detect_only**
 - Aggressiveness levels (0-3: Off, Moderate, Aggressive, Extra Aggressive)
 - Exception and allowlist management (network targets, patterns, tools)
@@ -180,12 +184,12 @@ Real-time monitoring and analytics platform.
 ### Hub Integrations
 | Category | Integrations |
 |----------|-------------|
-| AI Providers | Gemini, Claude, OpenAI, Ollama, OpenRouter |
+| AI Providers | Gemini, Claude, OpenAI, Groq, Grok, Ollama, OpenRouter |
 | Communication | WhatsApp, Telegram |
 | Productivity | Asana, Google Calendar |
 | Developer Tools | Shell, Browser Automation |
 | Tool APIs | Brave Search, SerpAPI, Amadeus, OpenWeather |
-| TTS Providers | Kokoro, OpenAI |
+| TTS Providers | Kokoro, OpenAI, ElevenLabs |
 
 ### Playground
 Interactive agent chat interface for development and testing.
@@ -196,7 +200,10 @@ Interactive agent chat interface for development and testing.
 - Command palette with slash commands
 - Knowledge panel and memory inspector
 - Tool sandbox for testing tool invocations
-- Streaming messages via WebSocket
+- Token-by-token streaming via WebSocket with auto-reconnect
+- Async message queuing with dead-letter retry
+- Auto-save drafts per thread (restored on switch)
+- Smart paste: auto-detects JSON/code and wraps in markdown fences
 - Project session support
 
 ### Knowledge Management
@@ -206,10 +213,35 @@ Interactive agent chat interface for development and testing.
 - Knowledge sharing across agents
 - Automatic chunking and embedding
 
+### Public API v1
+Programmatic REST API for external applications.
+- OAuth2 Client Credentials + Direct API Key authentication
+- 32 endpoints: Agents CRUD, Chat (sync/async/SSE streaming), Threads, Flows, Hub, Studio
+- Rate limiting with `X-RateLimit-*` headers
+- 5 API roles with granular permission scopes
+- OpenAPI documentation at `/docs` (Swagger UI)
+- Per-client request audit logging
+
+### Agent Studio (Visual Builder)
+- React Flow canvas with drag-and-drop agent configuration
+- Attach/detach: Personas, Channels, Skills, Tools, Security Profiles, Knowledge
+- Atomic batch save with inline config editing
+- Agent cloning for quick duplication
+
+### Slash Command Access Control
+- Per-contact slash command permissions (enabled/disabled/tenant default)
+- Tenant-level default policy: `enabled_for_known`, `enabled_for_all`, `disabled`
+- `@agent /command` support in WhatsApp/Telegram groups
+
+### SSL/HTTPS
+- Caddy reverse proxy with 3 modes: Let's Encrypt, manual certs, self-signed
+- Automatic HTTP→HTTPS redirect and WSS auto-detection
+- Built into installer with domain validation
+
 ### Multi-Tenancy & RBAC
 - Organization isolation with complete data separation
 - Role-based access control (Owner, Admin, Member, Read-only)
-- 50+ granular permissions with visual permission matrix
+- 64+ granular permissions with visual permission matrix
 - Team management
 
 ---
@@ -330,4 +362,4 @@ Tsushin is open source software licensed under the [MIT License](LICENSE).
 
 ---
 
-**Version 1.5.0** | **Last Updated:** March 2026
+**Version 0.6.0** | **Last Updated:** March 2026

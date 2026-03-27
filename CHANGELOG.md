@@ -199,6 +199,8 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Fixed OAuth token expiration with retry, re-auth, and privacy page
 - Fixed API v1 `create_thread` async await and `thread_id` extraction
 - Fixed installer port configuration to actually take effect
+- Fixed Alembic migrations 0003/0004 DuplicateTable on fresh PostgreSQL installs (idempotent table creation)
+- Fixed Hub provider cards for Groq/Grok/ElevenLabs showing "Coming Soon" instead of "Available"
 
 ### Changed
 
