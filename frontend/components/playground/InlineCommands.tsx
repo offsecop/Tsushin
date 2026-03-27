@@ -202,7 +202,7 @@ export default function InlineCommands({
   return (
     <div
       ref={listRef}
-      className="absolute bottom-full left-0 right-0 mb-2 bg-[#14141f] border border-white/10 rounded-xl overflow-hidden shadow-2xl max-h-[300px] overflow-y-auto animate-slide-up z-50"
+      className="absolute bottom-full left-0 right-0 mb-2 bg-tsushin-ink border border-white/10 rounded-xl overflow-hidden shadow-2xl max-h-[300px] overflow-y-auto animate-slide-up z-50"
     >
       {/* Header */}
       <div className="px-4 py-2 border-b border-white/10 flex items-center justify-between">
@@ -247,7 +247,7 @@ export default function InlineCommands({
 
                 {isSelected && (
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-white/30 bg-[#0a0a0f] px-1.5 py-0.5 rounded">Tab</span>
+                    <span className="text-xs text-white/30 bg-tsushin-ink px-1.5 py-0.5 rounded">Tab</span>
                   </div>
                 )}
               </div>
@@ -290,7 +290,7 @@ export default function InlineCommands({
 
                 {isSelected && (
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-white/30 bg-[#0a0a0f] px-1.5 py-0.5 rounded">Tab</span>
+                    <span className="text-xs text-white/30 bg-tsushin-ink px-1.5 py-0.5 rounded">Tab</span>
                   </div>
                 )}
               </div>
@@ -333,7 +333,7 @@ export default function InlineCommands({
 
                 {isSelected && (
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-white/30 bg-[#0a0a0f] px-1.5 py-0.5 rounded">Tab</span>
+                    <span className="text-xs text-white/30 bg-tsushin-ink px-1.5 py-0.5 rounded">Tab</span>
                   </div>
                 )}
               </div>
@@ -383,7 +383,7 @@ export default function InlineCommands({
 
                 {isSelected && (
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-white/30 bg-[#0a0a0f] px-1.5 py-0.5 rounded">Tab</span>
+                    <span className="text-xs text-white/30 bg-tsushin-ink px-1.5 py-0.5 rounded">Tab</span>
                   </div>
                 )}
               </div>

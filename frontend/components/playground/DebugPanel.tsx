@@ -136,7 +136,7 @@ export default function DebugPanel({ agentId }: DebugPanelProps) {
   }
 
   return (
-    <div className="h-full flex flex-col bg-[#0d0d14]">
+    <div className="h-full flex flex-col bg-tsushin-deep">
       {/* Header */}
       <div className="px-4 py-3 border-b border-white/[0.06]">
         <div className="flex items-center justify-between">

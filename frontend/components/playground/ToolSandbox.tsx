@@ -156,7 +156,7 @@ export default function ToolSandbox({ agentId, isOpen, onClose }: ToolSandboxPro
   if (!isOpen) return null
 
   return (
-    <div className="h-full flex flex-col bg-[#0a0a0f] border-t border-white/[0.06]">
+    <div className="h-full flex flex-col bg-tsushin-ink border-t border-white/[0.06]">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
         <div className="flex items-center gap-3">

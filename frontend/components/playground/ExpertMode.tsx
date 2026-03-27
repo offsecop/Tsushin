@@ -1202,16 +1202,14 @@ export default function ExpertMode({
       {threadContextMenu && (
         <>
           <div
-            className="fixed inset-0"
-            style={{ zIndex: 9998 }}
+            className="fixed inset-0 z-30"
             onClick={() => setThreadContextMenu(null)}
           />
           <div
-            className="fixed border border-[var(--pg-border)] rounded-lg shadow-2xl overflow-hidden"
+            className="fixed z-30 border border-[var(--pg-border)] rounded-lg shadow-2xl overflow-hidden"
             style={{
               left: threadContextMenu.x,
               top: threadContextMenu.y,
-              zIndex: 9999,
               minWidth: '180px',
               background: '#0D1117',
               opacity: 1
@@ -1266,13 +1264,12 @@ export default function ExpertMode({
       {renamingThreadId && (
         <>
           <div
-            className="fixed inset-0"
-            style={{ zIndex: 10000, backgroundColor: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
+            className="fixed inset-0 z-50"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
             onClick={handleCancelRename}
           />
           <div
-            className="fixed inset-0 flex items-center justify-center p-4"
-            style={{ zIndex: 10001 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
             <div
               className="border rounded-lg p-6 max-w-md w-full shadow-xl"
