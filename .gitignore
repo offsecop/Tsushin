@@ -158,6 +158,12 @@ backend/data/tester-mcp/store/
 hub/amadeus/env.*
 !hub/amadeus/env.example
 
+# SSL certificates and generated Caddy config
+caddy/Caddyfile
+caddy/certs/*.crt
+caddy/certs/*.key
+caddy/certs/*.pem
+
 # Test data
 test_data/
 temp/

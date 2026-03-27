@@ -1,5 +1,6 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -877,6 +878,11 @@ app.add_middleware(
     allow_headers=["*"],
     max_age=86400,  # Cache preflight for 24 hours
 )
+
+# Proxy headers — reads X-Forwarded-For/Proto from reverse proxy (Caddy/Nginx)
+# Ensures get_remote_address returns real client IP for rate limiting behind proxy.
+# No-op when running without a proxy.
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 
 # Public API v1: Rate limiting middleware
 app.add_middleware(ApiV1RateLimitMiddleware)

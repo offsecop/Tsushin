@@ -18,6 +18,7 @@ Requirements:
 import os
 import sys
 import re
+import shutil
 import socket
 import secrets
 import subprocess
@@ -306,13 +307,25 @@ class TsushinInstaller:
                 validator=lambda x: len(x) > 0 and ('.' in x or ':' in x),
                 error_msg="Please enter a valid hostname or IP address"
             )
-
-            # Configure frontend API URL for remote access
-            self.config['NEXT_PUBLIC_API_URL'] = f"http://{public_host}:{backend_port}"
-            print_success(f"Frontend will connect to backend at: {self.config['NEXT_PUBLIC_API_URL']}")
         else:
-            # Local installation - use localhost
-            self.config['NEXT_PUBLIC_API_URL'] = f"http://localhost:{backend_port}"
+            public_host = "localhost"
+
+        print()
+
+        # SSL/HTTPS Configuration
+        self.prompt_ssl_configuration(access_type, public_host, backend_port)
+
+        # Set final URLs based on SSL mode
+        ssl_mode = self.config.get('SSL_MODE', 'disabled')
+        if ssl_mode != 'disabled':
+            domain = self.config['SSL_DOMAIN']
+            self.config['NEXT_PUBLIC_API_URL'] = f"https://{domain}"
+            print_success(f"Frontend will connect via HTTPS: {self.config['NEXT_PUBLIC_API_URL']}")
+        else:
+            if access_type == "remote":
+                self.config['NEXT_PUBLIC_API_URL'] = f"http://{public_host}:{backend_port}"
+            else:
+                self.config['NEXT_PUBLIC_API_URL'] = f"http://localhost:{backend_port}"
             print_info(f"Frontend will connect to backend at: {self.config['NEXT_PUBLIC_API_URL']}")
 
         print()
@@ -455,6 +468,258 @@ class TsushinInstaller:
             else:
                 return value
 
+    def prompt_ssl_configuration(self, access_type: str, public_host: str, backend_port: str):
+        """Prompt for SSL/HTTPS configuration"""
+        print(f"{Colors.BOLD}SSL/HTTPS Configuration{Colors.ENDC}\n")
+
+        # Determine available SSL modes based on access type
+        if access_type == "localhost":
+            print_info("SSL modes available for localhost installations:")
+            print("  1. No SSL (HTTP only) — development/internal use [default]")
+            print("  2. Self-signed certificate — HTTPS for local development")
+            print()
+            choice = input(f"{Colors.BOLD}SSL Mode [1]:{Colors.ENDC} ").strip() or "1"
+            mode_map = {"1": "disabled", "2": "selfsigned"}
+        else:
+            print_info("SSL modes available for remote installations:")
+            print("  1. No SSL (HTTP only) — development/internal use [default]")
+            print("  2. Auto HTTPS (Let's Encrypt) — free, requires domain + ports 80/443")
+            print("  3. Manual certificates — provide your own .crt and .key files")
+            print("  4. Self-signed certificate — HTTPS for development/testing")
+            print()
+            choice = input(f"{Colors.BOLD}SSL Mode [1]:{Colors.ENDC} ").strip() or "1"
+            mode_map = {"1": "disabled", "2": "letsencrypt", "3": "manual", "4": "selfsigned"}
+
+        ssl_mode = mode_map.get(choice, "disabled")
+        self.config['SSL_MODE'] = ssl_mode
+
+        if ssl_mode == "disabled":
+            print_info("SSL disabled. Services will be accessible via HTTP only.")
+            return
+
+        # Domain/hostname prompt
+        if ssl_mode == "letsencrypt":
+            self._prompt_letsencrypt(public_host)
+        elif ssl_mode == "manual":
+            self._prompt_manual_certs(public_host)
+        elif ssl_mode == "selfsigned":
+            self._prompt_selfsigned(public_host)
+
+        print_success(f"SSL mode: {ssl_mode} (domain: {self.config.get('SSL_DOMAIN', 'N/A')})")
+
+    def _prompt_letsencrypt(self, public_host: str):
+        """Prompt for Let's Encrypt configuration"""
+        print()
+        print_info("Let's Encrypt auto-provisions free SSL certificates.")
+        print_info("Requirements: domain name pointing to this server, ports 80 and 443 open.")
+        print()
+
+        # Domain
+        default_domain = public_host if '.' in public_host and not self._is_ip(public_host) else ""
+        domain_prompt = f"Enter domain name for SSL certificate"
+        if default_domain:
+            domain_prompt += f" [{default_domain}]"
+        domain_prompt += ": "
+
+        domain = self.prompt_with_validation(
+            domain_prompt,
+            default=default_domain,
+            validator=lambda x: '.' in x and not self._is_ip(x),
+            error_msg="Must be a valid domain name (e.g., app.example.com), not an IP address"
+        )
+        self.config['SSL_DOMAIN'] = domain
+
+        # Email for Let's Encrypt
+        email = self.prompt_with_validation(
+            "Enter email for Let's Encrypt notifications: ",
+            validator=lambda x: re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', x) is not None,
+            error_msg="Please enter a valid email address"
+        )
+        self.config['SSL_EMAIL'] = email
+
+        # Port availability check
+        for port in [80, 443]:
+            if self.check_port_in_use(port):
+                print_warning(f"Port {port} is currently in use!")
+                print_info("Let's Encrypt requires ports 80 and 443 to be available.")
+                confirm = input(f"{Colors.BOLD}Continue anyway? [y/N]:{Colors.ENDC} ").strip().lower()
+                if confirm != 'y':
+                    print_info("Switching to disabled SSL mode.")
+                    self.config['SSL_MODE'] = 'disabled'
+                    return
+
+        # DNS validation
+        self._validate_domain_dns(domain)
+
+    def _prompt_manual_certs(self, public_host: str):
+        """Prompt for manual certificate configuration"""
+        print()
+        print_info("Provide paths to your existing SSL certificate and private key.")
+        print()
+
+        domain = self.prompt_with_validation(
+            f"Enter domain name [{public_host}]: ",
+            default=public_host,
+            validator=lambda x: len(x) > 0,
+            error_msg="Domain name is required"
+        )
+        self.config['SSL_DOMAIN'] = domain
+
+        cert_path = self.prompt_with_validation(
+            "Path to SSL certificate (.crt or .pem): ",
+            validator=lambda x: Path(x).expanduser().exists() and Path(x).expanduser().is_file(),
+            error_msg="File not found. Please provide a valid path to the certificate file."
+        )
+        self.config['SSL_CERT_PATH'] = str(Path(cert_path).expanduser().resolve())
+
+        key_path = self.prompt_with_validation(
+            "Path to SSL private key (.key or .pem): ",
+            validator=lambda x: Path(x).expanduser().exists() and Path(x).expanduser().is_file(),
+            error_msg="File not found. Please provide a valid path to the key file."
+        )
+        self.config['SSL_KEY_PATH'] = str(Path(key_path).expanduser().resolve())
+
+    def _prompt_selfsigned(self, public_host: str):
+        """Prompt for self-signed certificate configuration"""
+        print()
+        print_info("A self-signed certificate will be generated for development/testing.")
+        print_warning("Browsers will show a security warning with self-signed certificates.")
+        print()
+
+        domain = self.prompt_with_validation(
+            f"Enter hostname for certificate [{public_host}]: ",
+            default=public_host,
+            validator=lambda x: len(x) > 0,
+            error_msg="Hostname is required"
+        )
+        self.config['SSL_DOMAIN'] = domain
+
+    def _is_ip(self, value: str) -> bool:
+        """Check if a string looks like an IP address"""
+        try:
+            socket.inet_pton(socket.AF_INET, value)
+            return True
+        except socket.error:
+            pass
+        try:
+            socket.inet_pton(socket.AF_INET6, value)
+            return True
+        except socket.error:
+            return False
+
+    def _validate_domain_dns(self, domain: str):
+        """Validate that a domain resolves via DNS"""
+        try:
+            resolved = socket.getaddrinfo(domain, None)
+            resolved_ips = set(addr[4][0] for addr in resolved)
+            print_success(f"Domain {domain} resolves to: {', '.join(resolved_ips)}")
+        except socket.gaierror:
+            print_warning(f"Domain {domain} does not resolve (DNS lookup failed).")
+            print_warning("Let's Encrypt will fail if the domain doesn't point to this server.")
+            confirm = input(f"{Colors.BOLD}Continue anyway? [y/N]:{Colors.ENDC} ").strip().lower()
+            if confirm != 'y':
+                print_info("Switching to disabled SSL mode.")
+                self.config['SSL_MODE'] = 'disabled'
+
+    def generate_caddyfile(self):
+        """Generate Caddy reverse proxy configuration based on SSL mode"""
+        ssl_mode = self.config.get('SSL_MODE', 'disabled')
+        if ssl_mode == 'disabled':
+            return
+
+        caddyfile_path = self.root_dir / "caddy" / "Caddyfile"
+        domain = self.config.get('SSL_DOMAIN', 'localhost')
+
+        # Build Caddyfile based on SSL mode
+        routing_block = f"""    handle /api/* {{
+        reverse_proxy backend:8081
+    }}
+    handle /ws/* {{
+        reverse_proxy backend:8081
+    }}
+    handle {{
+        reverse_proxy frontend:3030
+    }}"""
+
+        if ssl_mode == 'letsencrypt':
+            email = self.config.get('SSL_EMAIL', '')
+            caddyfile_content = f"""{{\n    email {email}\n}}\n\n{domain} {{\n{routing_block}\n}}\n"""
+
+        elif ssl_mode == 'manual':
+            caddyfile_content = f"""{domain} {{\n    tls /etc/caddy/certs/cert.pem /etc/caddy/certs/key.pem\n{routing_block}\n}}\n"""
+
+        elif ssl_mode == 'selfsigned':
+            caddyfile_content = f"""{domain} {{\n    tls internal\n{routing_block}\n}}\n"""
+
+        else:
+            return
+
+        # Ensure caddy directory exists
+        caddyfile_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(caddyfile_path, 'w') as f:
+            f.write(caddyfile_content)
+
+        print_success(f"Caddy configuration generated: {caddyfile_path.relative_to(self.root_dir)}")
+
+    def generate_self_signed_cert(self):
+        """Generate self-signed SSL certificate for development"""
+        ssl_mode = self.config.get('SSL_MODE', 'disabled')
+        if ssl_mode != 'selfsigned':
+            return
+
+        certs_dir = self.root_dir / "caddy" / "certs"
+        cert_path = certs_dir / "selfsigned.crt"
+        key_path = certs_dir / "selfsigned.key"
+        domain = self.config.get('SSL_DOMAIN', 'localhost')
+
+        if cert_path.exists() and key_path.exists():
+            print_info("Self-signed certificates already exist, skipping generation.")
+            return
+
+        certs_dir.mkdir(parents=True, exist_ok=True)
+
+        # Check for openssl
+        try:
+            subprocess.run(["openssl", "version"], capture_output=True, text=True, check=True)
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            print_warning("OpenSSL not found. Caddy will generate its own self-signed certificate.")
+            print_info("Using Caddy's 'tls internal' directive instead.")
+            return
+
+        cmd = [
+            "openssl", "req", "-x509", "-nodes",
+            "-days", "365",
+            "-newkey", "rsa:2048",
+            "-keyout", str(key_path),
+            "-out", str(cert_path),
+            "-subj", f"/CN={domain}/O=Tsushin Dev/C=US",
+            "-addext", f"subjectAltName=DNS:{domain},DNS:localhost,IP:127.0.0.1"
+        ]
+
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode == 0:
+            print_success("Self-signed certificate generated")
+        else:
+            print_warning(f"Could not generate certificate: {result.stderr}")
+            print_info("Caddy will generate its own self-signed certificate using 'tls internal'.")
+
+    def copy_manual_certs(self):
+        """Copy user-provided certificates into caddy/certs/"""
+        ssl_mode = self.config.get('SSL_MODE', 'disabled')
+        if ssl_mode != 'manual':
+            return
+
+        certs_dir = self.root_dir / "caddy" / "certs"
+        certs_dir.mkdir(parents=True, exist_ok=True)
+
+        cert_src = Path(self.config['SSL_CERT_PATH'])
+        key_src = Path(self.config['SSL_KEY_PATH'])
+
+        shutil.copy(cert_src, certs_dir / "cert.pem")
+        shutil.copy(key_src, certs_dir / "key.pem")
+        print_success("SSL certificates copied to caddy/certs/")
+
     def prepare_data_directories(self):
         """Create required data directories with proper permissions"""
         print_header("Preparing Data Directories")
@@ -465,6 +730,7 @@ class TsushinInstaller:
             self.backend_data_dir / "chroma",
             self.backend_data_dir / "backups",
             self.root_dir / "logs" / "backend",
+            self.root_dir / "caddy" / "certs",
         ]
 
         for dir_path in directories:
@@ -508,8 +774,15 @@ class TsushinInstaller:
         # Get absolute path for HOST_BACKEND_DATA_PATH
         host_backend_data_path = str(self.backend_data_dir.absolute())
 
-        backend_url = f"http://localhost:{self.config['TSN_APP_PORT']}"
-        frontend_url = f"http://localhost:{self.config['FRONTEND_PORT']}"
+        # Determine URLs based on SSL mode
+        ssl_mode = self.config.get('SSL_MODE', 'disabled')
+        if ssl_mode != 'disabled':
+            ssl_domain = self.config.get('SSL_DOMAIN', 'localhost')
+            backend_url = f"https://{ssl_domain}"
+            frontend_url = f"https://{ssl_domain}"
+        else:
+            backend_url = f"http://localhost:{self.config['TSN_APP_PORT']}"
+            frontend_url = f"http://localhost:{self.config['FRONTEND_PORT']}"
 
         env_content = f"""# Tsushin Configuration
 # Generated by installer on {datetime.now().isoformat()}
@@ -547,6 +820,13 @@ ASANA_ENCRYPTION_KEY={asana_encryption_key}
 # Google OAuth (configure later via UI)
 TSN_GOOGLE_OAUTH_REDIRECT_URI={backend_url}/api/hub/google/oauth/callback
 ASANA_REDIRECT_URI={frontend_url}/hub/asana/callback
+
+# SSL/HTTPS Configuration
+SSL_MODE={ssl_mode}
+SSL_DOMAIN={self.config.get('SSL_DOMAIN', '')}
+SSL_EMAIL={self.config.get('SSL_EMAIL', '')}
+HTTP_PORT=80
+HTTPS_PORT=443
 
 # Frontend Build Args
 NEXT_PUBLIC_API_URL={self.config.get('NEXT_PUBLIC_API_URL', backend_url)}
@@ -586,9 +866,21 @@ NEXT_PUBLIC_API_URL={self.config.get('NEXT_PUBLIC_API_URL', backend_url)}
         print_info("Downloading base images, building custom images, and starting services...")
         print()
 
+        # Build compose command with SSL override if enabled
+        ssl_mode = self.config.get('SSL_MODE', 'disabled')
+        if ssl_mode != 'disabled':
+            compose_cmd = self.docker_compose_cmd + [
+                "-f", "docker-compose.yml",
+                "-f", "docker-compose.ssl.yml",
+                "up", "--build", "-d"
+            ]
+            print_info("SSL enabled: deploying with Caddy reverse proxy...")
+        else:
+            compose_cmd = self.docker_compose_cmd + ["up", "--build", "-d"]
+
         try:
             process = subprocess.Popen(
-                self.docker_compose_cmd + ["up", "--build", "-d"],
+                compose_cmd,
                 cwd=self.root_dir,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -721,6 +1013,27 @@ NEXT_PUBLIC_API_URL={self.config.get('NEXT_PUBLIC_API_URL', backend_url)}
             print_info("Check logs: docker-compose logs frontend")
             sys.exit(1)
 
+        # Proxy health check (when SSL is enabled)
+        ssl_mode = self.config.get('SSL_MODE', 'disabled')
+        if ssl_mode != 'disabled':
+            domain = self.config.get('SSL_DOMAIN', 'localhost')
+            proxy_url = f"https://{domain}"
+            print_info(f"Waiting for SSL proxy at {proxy_url}...")
+            import urllib3
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            for i in range(20):
+                try:
+                    response = requests.get(proxy_url, timeout=3, verify=False)
+                    if response.status_code in [200, 308, 404]:
+                        print_success("SSL proxy is healthy")
+                        break
+                except:
+                    pass
+                time.sleep(2)
+                print(f"  Attempt {i+1}/20...", end='\r')
+            else:
+                print_warning("SSL proxy health check failed — services may still be accessible on direct ports")
+
         print()
 
     def setup_initial_tenant(self):
@@ -775,14 +1088,33 @@ NEXT_PUBLIC_API_URL={self.config.get('NEXT_PUBLIC_API_URL', backend_url)}
         """Display success message with access information"""
         print_header("Installation Complete!")
 
+        ssl_mode = self.config.get('SSL_MODE', 'disabled')
         frontend_url = f"http://localhost:{self.config['FRONTEND_PORT']}"
         backend_url = f"http://localhost:{self.config['TSN_APP_PORT']}"
 
-        print(f"{Colors.GREEN}{Colors.BOLD}🎉 Tsushin has been successfully installed!{Colors.ENDC}\n")
-        print(f"{Colors.BOLD}Access URLs:{Colors.ENDC}")
-        print(f"  Frontend:  {Colors.CYAN}{frontend_url}{Colors.ENDC}")
-        print(f"  Backend:   {Colors.CYAN}{backend_url}{Colors.ENDC}")
-        print()
+        print(f"{Colors.GREEN}{Colors.BOLD}Tsushin has been successfully installed!{Colors.ENDC}\n")
+
+        if ssl_mode != 'disabled':
+            domain = self.config['SSL_DOMAIN']
+            primary_url = f"https://{domain}"
+            print(f"{Colors.BOLD}Access URLs:{Colors.ENDC}")
+            print(f"  HTTPS:     {Colors.CYAN}{primary_url}{Colors.ENDC}")
+            print(f"  Direct:    {Colors.CYAN}{frontend_url}{Colors.ENDC} (HTTP, localhost only)")
+            print(f"  API:       {Colors.CYAN}{backend_url}{Colors.ENDC} (HTTP, localhost only)")
+            print()
+
+            if ssl_mode == 'selfsigned':
+                print_warning("Self-signed certificate: browsers will show a security warning.")
+                print_info("Accept the warning to proceed, or add the certificate to your trusted store.")
+                print()
+            elif ssl_mode == 'letsencrypt':
+                print_success("Let's Encrypt certificate will auto-renew (managed by Caddy).")
+                print()
+        else:
+            print(f"{Colors.BOLD}Access URLs:{Colors.ENDC}")
+            print(f"  Frontend:  {Colors.CYAN}{frontend_url}{Colors.ENDC}")
+            print(f"  Backend:   {Colors.CYAN}{backend_url}{Colors.ENDC}")
+            print()
 
         if self.config.get('ADMIN_EMAIL'):
             print(f"{Colors.BOLD}Administrator Accounts:{Colors.ENDC}")
@@ -794,17 +1126,18 @@ NEXT_PUBLIC_API_URL={self.config.get('NEXT_PUBLIC_API_URL', backend_url)}
             print(f"    Access:    {self.config['TENANT_NAME']} organization")
             print()
 
+        access_url = f"https://{self.config['SSL_DOMAIN']}" if ssl_mode != 'disabled' else frontend_url
         print(f"{Colors.BOLD}Next Steps:{Colors.ENDC}")
-        print(f"  1. Open {Colors.CYAN}{frontend_url}{Colors.ENDC} in your browser")
+        print(f"  1. Open {Colors.CYAN}{access_url}{Colors.ENDC} in your browser")
         print(f"  2. Log in with your admin credentials")
         print(f"  3. Follow the onboarding wizard to configure Google OAuth (optional)")
         print(f"  4. Start creating agents and testing in the playground!")
         print()
 
         print(f"{Colors.BOLD}Useful Commands:{Colors.ENDC}")
-        print(f"  View logs:      docker-compose logs -f")
-        print(f"  Stop services:  docker-compose down")
-        print(f"  Restart:        docker-compose restart")
+        print(f"  View logs:      docker compose logs -f")
+        print(f"  Stop services:  docker compose down")
+        print(f"  Restart:        docker compose restart")
         print(f"  Create backup:  python3 backup_installer.py create")
         print()
 
@@ -877,6 +1210,15 @@ NEXT_PUBLIC_API_URL={self.config.get('NEXT_PUBLIC_API_URL', backend_url)}
 
         # Step 6: Prepare data directories with proper permissions
         self.prepare_data_directories()
+
+        # Step 6b: Generate SSL configuration (Caddyfile)
+        self.generate_caddyfile()
+
+        # Step 6c: Generate self-signed certificate if needed
+        self.generate_self_signed_cert()
+
+        # Step 6d: Copy manual certificates if needed
+        self.copy_manual_certs()
 
         # Step 7: Generate .env file
         self.generate_env_file()

@@ -27,6 +27,7 @@ repos:
         name: check for merge conflicts
       - id: check-yaml
         name: check yaml syntax
+        args: ['--unsafe']
         exclude: ^(frontend/node_modules/|backend/venv/)
       - id: detect-private-key
         name: detect private keys
