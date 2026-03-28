@@ -1266,12 +1266,8 @@ class SkillManager:
         """
         Load tenant's enabled+clean custom skills into the registry.
 
-        Creates dynamic subclasses of CustomSkillAdapter for each custom skill
-        record, keyed by "custom:<slug>".
-
-        Args:
-            db: Database session
-            tenant_id: Tenant identifier
+        Always refreshes from DB to pick up enable/disable changes.
+        Removes stale entries for skills no longer enabled/clean.
         """
         from models import CustomSkill
         from agent.skills.custom_skill_adapter import CustomSkillAdapter
@@ -1282,22 +1278,28 @@ class SkillManager:
             CustomSkill.scan_status == 'clean'
         ).all()
 
+        active_keys = set()
         for record in skills:
             key = f"custom:{record.slug}"
-            if key not in self.registry:
-                adapter_class = type(
-                    f"CustomSkill_{record.slug}",
-                    (CustomSkillAdapter,),
-                    {
-                        'skill_type': key,
-                        'skill_name': record.name,
-                        'skill_description': record.description or '',
-                        'execution_mode': record.execution_mode,
-                        '_custom_skill_record': record,
-                    }
-                )
-                self.registry[key] = adapter_class
-                logger.info(f"Registered custom skill: {key} ({record.name})")
+            active_keys.add(key)
+            adapter_class = type(
+                f"CustomSkill_{record.slug}",
+                (CustomSkillAdapter,),
+                {
+                    'skill_type': key,
+                    'skill_name': record.name,
+                    'skill_description': record.description or '',
+                    'execution_mode': record.execution_mode,
+                    '_custom_skill_record': record,
+                }
+            )
+            self.registry[key] = adapter_class
+
+        # Remove stale custom skill entries (disabled or rejected since last registration)
+        stale_keys = [k for k in self.registry if k.startswith("custom:") and k not in active_keys]
+        for k in stale_keys:
+            del self.registry[k]
+            logger.info(f"Unregistered stale custom skill: {k}")
 
     def get_custom_skill_tool_definitions(self, db, agent_id: int) -> list:
         """
