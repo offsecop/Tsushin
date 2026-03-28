@@ -523,13 +523,20 @@ class ConversationSearchService:
         }
 
     def _create_snippet(self, content: str, query: str, context_length: int = 64) -> str:
-        """Create highlighted snippet around query match."""
+        """Create highlighted snippet around query match.
+
+        HTML-escapes the content before adding <mark> tags to prevent stored XSS
+        when snippets are rendered with dangerouslySetInnerHTML in the frontend.
+        """
+        import html
+        import re
+
         query_lower = query.lower()
         content_lower = content.lower()
 
         idx = content_lower.find(query_lower)
         if idx == -1:
-            return content[:context_length] + "..."
+            return html.escape(content[:context_length]) + "..."
 
         # Get context around match
         start = max(0, idx - context_length // 2)
@@ -543,12 +550,14 @@ class ConversationSearchService:
         if end < len(content):
             snippet = snippet + "..."
 
-        # Highlight the query
-        import re
-        pattern = re.compile(re.escape(query), re.IGNORECASE)
-        snippet = pattern.sub(lambda m: f"<mark>{m.group(0)}</mark>", snippet)
+        # HTML-escape the snippet BEFORE adding <mark> tags
+        escaped = html.escape(snippet)
 
-        return snippet
+        # Highlight the query on the escaped content
+        pattern = re.compile(re.escape(html.escape(query)), re.IGNORECASE)
+        escaped = pattern.sub(lambda m: f"<mark>{m.group(0)}</mark>", escaped)
+
+        return escaped
 
     def search_semantic(
         self,

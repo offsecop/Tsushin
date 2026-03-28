@@ -7,7 +7,7 @@ Allows viewing and managing users across all tenants.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from typing import Optional, List
@@ -72,6 +72,10 @@ class UserUpdate(BaseModel):
     email_verified: Optional[bool] = None
     tenant_id: Optional[str] = None  # Transfer to different tenant
     role_name: Optional[str] = None
+
+
+class ResetPasswordRequest(BaseModel):
+    new_password: str = Field(..., min_length=8)
 
 
 class UserStatsResponse(BaseModel):
@@ -557,7 +561,7 @@ async def delete_user(
 @router.post("/{user_id}/reset-password")
 async def admin_reset_password(
     user_id: int,
-    new_password: str = Query(..., min_length=8),
+    request: ResetPasswordRequest,
     current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db),
     _: None = Depends(require_global_admin()),
@@ -577,7 +581,7 @@ async def admin_reset_password(
         )
 
     # Update password
-    user.password_hash = hash_password(new_password)
+    user.password_hash = hash_password(request.new_password)
     user.updated_at = datetime.utcnow()
     db.commit()
 

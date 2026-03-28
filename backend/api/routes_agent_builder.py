@@ -671,7 +671,8 @@ async def save_builder_data(
         if data.sentinel and data.sentinel.action != "unchanged":
             if data.sentinel.action == "assign" and data.sentinel.profile_id:
                 profile = db.query(SentinelProfile).filter(
-                    SentinelProfile.id == data.sentinel.profile_id
+                    SentinelProfile.id == data.sentinel.profile_id,
+                    (SentinelProfile.is_system == True) | (SentinelProfile.tenant_id == ctx.tenant_id) | (SentinelProfile.tenant_id.is_(None)),
                 ).first()
                 if not profile:
                     raise HTTPException(status_code=400, detail=f"Sentinel profile {data.sentinel.profile_id} not found")

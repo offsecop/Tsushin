@@ -642,6 +642,16 @@ def create_agent(
     if existing:
         raise HTTPException(status_code=400, detail="Agent for this contact already exists")
 
+    # Validate persona if provided (tenant isolation)
+    if agent.persona_id:
+        from models import Persona
+        persona = db.query(Persona).filter(
+            Persona.id == agent.persona_id,
+            (Persona.is_system == True) | (Persona.tenant_id == ctx.tenant_id) | (Persona.tenant_id.is_(None)),
+        ).first()
+        if not persona:
+            raise HTTPException(status_code=404, detail="Persona not found")
+
     # Validate tone preset if provided
     if agent.tone_preset_id:
         tone = db.query(TonePreset).filter(TonePreset.id == agent.tone_preset_id).first()
@@ -724,6 +734,16 @@ def update_agent(
         ).first()
         if existing:
             raise HTTPException(status_code=400, detail="Agent for this contact already exists")
+
+    # Validate persona if provided (tenant isolation)
+    if agent.persona_id:
+        from models import Persona
+        persona = db.query(Persona).filter(
+            Persona.id == agent.persona_id,
+            (Persona.is_system == True) | (Persona.tenant_id == ctx.tenant_id) | (Persona.tenant_id.is_(None)),
+        ).first()
+        if not persona:
+            raise HTTPException(status_code=404, detail="Persona not found")
 
     # Validate tone preset if provided
     if agent.tone_preset_id:

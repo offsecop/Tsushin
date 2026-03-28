@@ -365,6 +365,15 @@ async def create_agent(
         ).update({"is_default": False})
         db.commit()
 
+    # Validate persona_id if provided (tenant isolation)
+    if request.persona_id is not None:
+        persona = db.query(Persona).filter(
+            Persona.id == request.persona_id,
+            (Persona.is_system == True) | (Persona.tenant_id == caller.tenant_id) | (Persona.tenant_id.is_(None)),
+        ).first()
+        if not persona:
+            raise HTTPException(status_code=404, detail="Persona not found")
+
     agent = Agent(
         contact_id=contact.id,
         description=request.description,
@@ -444,6 +453,15 @@ async def update_agent(
     ).first()
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
+
+    # Validate persona_id if provided (tenant isolation)
+    if request.persona_id is not None:
+        persona = db.query(Persona).filter(
+            Persona.id == request.persona_id,
+            (Persona.is_system == True) | (Persona.tenant_id == caller.tenant_id) | (Persona.tenant_id.is_(None)),
+        ).first()
+        if not persona:
+            raise HTTPException(status_code=404, detail="Persona not found")
 
     # Update contact name if name is provided
     if request.name is not None:
@@ -574,7 +592,10 @@ async def assign_persona(
         raise HTTPException(status_code=404, detail="Agent not found")
 
     if request.persona_id is not None:
-        persona = db.query(Persona).filter(Persona.id == request.persona_id).first()
+        persona = db.query(Persona).filter(
+            Persona.id == request.persona_id,
+            (Persona.is_system == True) | (Persona.tenant_id == caller.tenant_id) | (Persona.tenant_id.is_(None)),
+        ).first()
         if not persona:
             raise HTTPException(status_code=404, detail="Persona not found")
 
