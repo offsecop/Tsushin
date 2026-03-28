@@ -242,7 +242,9 @@ Programmatic REST API for external applications.
 - Helm chart for Google Kubernetes Engine deployment (`k8s/tsushin/`)
 - Observability endpoints: `/api/readiness` (K8s readiness probe), `/metrics` (Prometheus)
 - Structured JSON logging via `TSN_LOG_FORMAT=json`
-- Pluggable backends: `TSN_CONTAINER_RUNTIME` (docker/kubernetes), `TSN_SECRET_BACKEND` (env/gcp)
+- **K8sRuntime** — fully implemented Kubernetes container backend, mapping Docker operations to K8s Deployments, Services, and exec API. Activated via `TSN_CONTAINER_RUNTIME=kubernetes`
+- **GCPSecretProvider** — fully implemented Google Secret Manager backend with thread-safe TTL cache, parallel warm-up, and three-tier fallback (GCP, env, default). Activated via `TSN_SECRET_BACKEND=gcp`
+- Local Docker Compose development is completely unaffected — both providers default to Docker/env
 - CI/CD pipeline for GKE with Cloud SQL Proxy, HPA, network policies, and managed TLS
 
 ### Multi-Tenancy & RBAC
@@ -349,6 +351,19 @@ TSN_LOG_FORMAT=text            # text (default) or json (structured logging)
 TSN_METRICS_ENABLED=false      # Enable Prometheus /metrics endpoint
 TSN_CONTAINER_RUNTIME=docker   # docker (default) or kubernetes
 TSN_SECRET_BACKEND=env         # env (default) or gcp (Google Secret Manager)
+
+# Kubernetes Runtime (only when TSN_CONTAINER_RUNTIME=kubernetes)
+TSN_K8S_NAMESPACE=tsushin              # K8s namespace for workloads
+TSN_K8S_IMAGE_PULL_POLICY=IfNotPresent # Image pull policy (Always, IfNotPresent, Never)
+
+# GCP Secret Manager (only when TSN_SECRET_BACKEND=gcp)
+TSN_GCP_PROJECT_ID=my-project          # GCP project ID
+TSN_GCP_SECRET_PREFIX=tsushin_         # Prefix for secret names in Secret Manager
+TSN_GCP_SECRET_CACHE_TTL=300           # Cache TTL in seconds (default: 300)
+TSN_GCP_SECRET_VERSION=latest          # Secret version (default: latest)
+
+# Watcher
+TSN_WATCHER_MAX_CATCHUP_SECONDS=60    # Max catchup window after container rebuild
 ```
 
 LLM provider API keys are configured per-tenant through the Hub interface, not in environment variables. This allows multi-tenant isolation where each organization manages their own AI provider credentials.

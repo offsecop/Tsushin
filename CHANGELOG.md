@@ -133,8 +133,13 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `TSN_CONTAINER_RUNTIME` setting — pluggable container backend (docker/kubernetes)
 - `TSN_SECRET_BACKEND` setting — pluggable secret provider (env/gcp)
 - Request ID middleware — generates UUID per request, `X-Request-Id` correlation header
-- `ContainerRuntime` abstraction layer (`DockerRuntime` + `K8sRuntime` stub)
-- `SecretProvider` abstraction layer (`EnvSecretProvider` + `GCPSecretProvider` stub)
+- `ContainerRuntime` abstraction layer with `DockerRuntime` (default) and full `K8sRuntime` implementation
+- `K8sRuntime` — full Kubernetes container backend mapping Docker operations to K8s Deployments, Services, and exec API
+- `SecretProvider` abstraction layer with `EnvSecretProvider` (default) and full `GCPSecretProvider` implementation
+- `GCPSecretProvider` — Google Secret Manager backend with thread-safe TTL cache, parallel warm-up, and three-tier fallback (GCP → env → default)
+- `TSN_K8S_NAMESPACE` and `TSN_K8S_IMAGE_PULL_POLICY` settings for K8s deployment configuration
+- `TSN_GCP_PROJECT_ID`, `TSN_GCP_SECRET_PREFIX`, `TSN_GCP_SECRET_CACHE_TTL`, `TSN_GCP_SECRET_VERSION` settings for GCP Secret Manager
+- Watcher catchup cap (`TSN_WATCHER_MAX_CATCHUP_SECONDS`) to prevent stale message replay after container rebuilds
 - Helm chart for GKE deployment (`k8s/tsushin/`) with 16 templates
 - CI/CD pipeline for GKE (`.github/workflows/gke-deploy.yml`)
 - Cloud SQL Proxy sidecar configuration
@@ -180,6 +185,10 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Fixed stale `gemini-2.0-flash-lite` defaults to `2.5-flash-lite`
 - Removed hardcoded dev password from `alembic.ini`
 - Removed tracked dev artifacts and hardened `.gitignore`
+- Shell injection prevention in `K8sRuntime` exec commands via `shlex.quote`
+- Thread-safe exec exit code cache with `Lock` in `K8sRuntime`
+- PVC cleanup on container removal in `K8sRuntime` to prevent resource leaks
+- GCP warm-up no longer caches `None` values on failure (forces retry on next access)
 
 #### UI & UX
 - Full UI cosmetic assessment and remediation across all pages
@@ -223,6 +232,8 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `ToolboxContainerService` refactored to use `ContainerRuntime` interface
 - `MCPContainerManager` refactored to use `ContainerRuntime` interface
 - `settings.py` now routes secret retrieval through `SecretProvider`
+- `auth_utils.py` `JWT_SECRET_KEY` now uses `SecretProvider` instead of direct `os.getenv()`
+- GKE deploy workflow changed to manual-only trigger until GCP infrastructure is configured
 - Pre-commit YAML check now excludes Helm template directory
 - Compacted Watcher "Threats by Type" into inline pill badges
 - Added `frontend/lib/` to repo (was excluded by Python gitignore pattern)
