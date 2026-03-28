@@ -94,7 +94,7 @@ class AIClient:
                 try:
                     self.ollama_base_url = validate_ollama_url(self.ollama_base_url)
                 except SSRFValidationError as e:
-                    logger.warning(f"Invalid Ollama base URL '{self.ollama_base_url}': {e}. Using default.")
+                    logger.error(f"SSRF blocked: Ollama base URL '{self.ollama_base_url}' rejected: {e}. Falling back to default.")
                     self.ollama_base_url = "http://host.docker.internal:11434"
 
             # Extended timeout for CPU inference (first load can be slow)

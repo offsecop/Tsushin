@@ -40,6 +40,9 @@ CLOUD_METADATA_IPS = frozenset({
     "fd00:ec2::254",        # AWS IPv6 metadata
 })
 
+# CGNAT / Shared Address Space (RFC 6598) — reachable in some cloud environments
+_CGNAT_NETWORK = ipaddress.ip_network("100.64.0.0/10")
+
 
 class SSRFValidationError(ValueError):
     """Raised when a URL fails SSRF validation."""
@@ -74,6 +77,9 @@ def is_dangerous_ip(ip_str: str) -> bool:
     if addr.is_reserved:
         return True
     if addr.is_multicast:
+        return True
+    # CGNAT range (RFC 6598) — not flagged by is_private on all Python versions
+    if isinstance(addr, ipaddress.IPv4Address) and addr in _CGNAT_NETWORK:
         return True
     if addr == ipaddress.ip_address("0.0.0.0"):
         return True

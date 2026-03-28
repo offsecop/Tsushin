@@ -534,7 +534,7 @@ class SentinelService:
             "host.docker.internal", "gateway.docker.internal",
             "kubernetes.default",
             # Private networks (RFC 1918)
-            "10.0.", "10.1.", "10.2.", "10.10.", "10.100.",
+            "10.",
             "192.168.",
             # 172.16-31 range
             "172.16.", "172.17.", "172.18.", "172.19.",
