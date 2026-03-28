@@ -88,7 +88,7 @@ jobs:
       - name: Lint frontend
         run: |
           cd frontend
-          npm run lint || true  # Don't fail deploy on lint warnings
+          npm run lint
 
   # ===========================================================================
   # Job 2: Build & Push Docker images to Artifact Registry

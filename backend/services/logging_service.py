@@ -8,6 +8,7 @@ Provides:
 
 import json
 import logging
+import re
 import traceback
 import uuid
 from contextvars import ContextVar
@@ -18,6 +19,9 @@ from starlette.requests import Request
 
 # Per-request context
 request_id_ctx: ContextVar[str] = ContextVar("request_id", default="")
+
+# Only accept UUID-like values for X-Request-Id (alphanumeric + hyphens, 8-36 chars)
+_REQUEST_ID_RE = re.compile(r"^[0-9a-fA-F-]{8,36}$")
 
 
 class JsonFormatter(logging.Formatter):
@@ -52,7 +56,8 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(self, request: Request, call_next):
-        rid = request.headers.get("X-Request-Id") or str(uuid.uuid4())
+        incoming_rid = request.headers.get("X-Request-Id", "")
+        rid = incoming_rid if _REQUEST_ID_RE.match(incoming_rid) else str(uuid.uuid4())
         token = request_id_ctx.set(rid)
         try:
             response = await call_next(request)

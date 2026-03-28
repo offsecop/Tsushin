@@ -34,6 +34,11 @@ spec:
                 name: {{ include "tsushin.secretName" . }}
           {{- if .Values.cloudsql.enabled }}
           env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tsushin.secretName" . }}
+                  key: POSTGRES_PASSWORD
             - name: DATABASE_URL
               value: "postgresql://tsushin:$(POSTGRES_PASSWORD)@127.0.0.1:{{ .Values.cloudsql.port }}/tsushin"
           {{- end }}

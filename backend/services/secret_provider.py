@@ -118,7 +118,10 @@ class GCPSecretProvider(SecretProvider):
 # Factory
 # ---------------------------------------------------------------------------
 
+import threading
+
 _provider_instance: Optional[SecretProvider] = None
+_provider_lock = threading.Lock()
 
 
 def get_secret_provider() -> SecretProvider:
@@ -137,19 +140,23 @@ def get_secret_provider() -> SecretProvider:
     if _provider_instance is not None:
         return _provider_instance
 
-    # Read backend choice directly from os.environ (bootstrap — can't use
-    # the provider to read its own config)
-    backend = os.environ.get("TSN_SECRET_BACKEND", "env").lower().strip()
+    with _provider_lock:
+        if _provider_instance is not None:
+            return _provider_instance
 
-    if backend == "env":
-        _provider_instance = EnvSecretProvider()
-    elif backend == "gcp":
-        _provider_instance = GCPSecretProvider()
-    else:
-        raise ValueError(
-            f"Unknown secret backend: '{backend}'. "
-            f"Set TSN_SECRET_BACKEND to 'env' or 'gcp'."
-        )
+        # Read backend choice directly from os.environ (bootstrap — can't use
+        # the provider to read its own config)
+        backend = os.environ.get("TSN_SECRET_BACKEND", "env").lower().strip()
 
-    logger.info(f"Secret provider initialized: {backend}")
+        if backend == "env":
+            _provider_instance = EnvSecretProvider()
+        elif backend == "gcp":
+            _provider_instance = GCPSecretProvider()
+        else:
+            raise ValueError(
+                f"Unknown secret backend: '{backend}'. "
+                f"Set TSN_SECRET_BACKEND to 'env' or 'gcp'."
+            )
+
+        logger.info(f"Secret provider initialized: {backend}")
     return _provider_instance

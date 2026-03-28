@@ -94,7 +94,13 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
         path = _normalise_path(request.url.path)
 
         start = time.perf_counter()
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
+        except Exception:
+            duration = time.perf_counter() - start
+            HTTP_REQUESTS_TOTAL.labels(method=method, path_template=path, status="500").inc()
+            HTTP_REQUEST_DURATION.labels(method=method, path_template=path).observe(duration)
+            raise
         duration = time.perf_counter() - start
 
         status = str(response.status_code)

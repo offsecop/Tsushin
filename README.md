@@ -238,6 +238,13 @@ Programmatic REST API for external applications.
 - Automatic HTTP→HTTPS redirect and WSS auto-detection
 - Built into installer with domain validation
 
+### Cloud-Native / GKE Deployment
+- Helm chart for Google Kubernetes Engine deployment (`k8s/tsushin/`)
+- Observability endpoints: `/api/readiness` (K8s readiness probe), `/metrics` (Prometheus)
+- Structured JSON logging via `TSN_LOG_FORMAT=json`
+- Pluggable backends: `TSN_CONTAINER_RUNTIME` (docker/kubernetes), `TSN_SECRET_BACKEND` (env/gcp)
+- CI/CD pipeline for GKE with Cloud SQL Proxy, HPA, network policies, and managed TLS
+
 ### Multi-Tenancy & RBAC
 - Organization isolation with complete data separation
 - Role-based access control (Owner, Admin, Member, Read-only)
@@ -336,6 +343,12 @@ JWT_SECRET_KEY=your-secret-key
 # PostgreSQL Database (Required)
 DATABASE_URL=postgresql+asyncpg://tsushin:<password>@tsushin-postgres:5432/tsushin
 POSTGRES_PASSWORD=your_secure_password_here
+
+# Cloud-Native (Optional — for GKE/K8s deployments)
+TSN_LOG_FORMAT=text            # text (default) or json (structured logging)
+TSN_METRICS_ENABLED=false      # Enable Prometheus /metrics endpoint
+TSN_CONTAINER_RUNTIME=docker   # docker (default) or kubernetes
+TSN_SECRET_BACKEND=env         # env (default) or gcp (Google Secret Manager)
 ```
 
 LLM provider API keys are configured per-tenant through the Hub interface, not in environment variables. This allows multi-tenant isolation where each organization manages their own AI provider credentials.

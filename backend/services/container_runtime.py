@@ -781,7 +781,10 @@ class K8sRuntime(ContainerRuntime):
 # Factory
 # ---------------------------------------------------------------------------
 
+import threading
+
 _runtime_instance: Optional[ContainerRuntime] = None
+_runtime_lock = threading.Lock()
 
 
 def get_container_runtime() -> ContainerRuntime:
@@ -799,17 +802,21 @@ def get_container_runtime() -> ContainerRuntime:
     if _runtime_instance is not None:
         return _runtime_instance
 
-    backend = os.getenv("TSN_CONTAINER_RUNTIME", "docker").lower().strip()
+    with _runtime_lock:
+        if _runtime_instance is not None:
+            return _runtime_instance
 
-    if backend == "docker":
-        _runtime_instance = DockerRuntime()
-    elif backend == "kubernetes":
-        _runtime_instance = K8sRuntime()
-    else:
-        raise ValueError(
-            f"Unknown container runtime: '{backend}'. "
-            f"Set TSN_CONTAINER_RUNTIME to 'docker' or 'kubernetes'."
-        )
+        backend = os.getenv("TSN_CONTAINER_RUNTIME", "docker").lower().strip()
 
-    logger.info(f"Container runtime initialized: {backend}")
+        if backend == "docker":
+            _runtime_instance = DockerRuntime()
+        elif backend == "kubernetes":
+            _runtime_instance = K8sRuntime()
+        else:
+            raise ValueError(
+                f"Unknown container runtime: '{backend}'. "
+                f"Set TSN_CONTAINER_RUNTIME to 'docker' or 'kubernetes'."
+            )
+
+        logger.info(f"Container runtime initialized: {backend}")
     return _runtime_instance

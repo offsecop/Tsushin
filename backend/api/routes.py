@@ -111,7 +111,7 @@ def readiness_check():
             db.close()
     except Exception as exc:
         logger.warning(f"Readiness: PostgreSQL check failed: {exc}")
-        components["postgresql"] = {"status": "unhealthy", "error": str(exc)}
+        components["postgresql"] = {"status": "unhealthy", "error": "database connection failed"}
 
     # --- Aggregate ---
     all_healthy = all(c["status"] == "healthy" for c in components.values())

@@ -125,6 +125,21 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - HTTP->HTTPS redirect (308), WSS auto-detection
 - Backup/restore support for `caddy/` directory
 
+#### GKE Readiness (Cloud-Native Infrastructure)
+- `/api/readiness` endpoint — checks PostgreSQL connectivity for Kubernetes readiness gates
+- `/metrics` endpoint — Prometheus metrics (`http_requests_total`, `http_request_duration_seconds`, `tsn_service_info`)
+- `TSN_LOG_FORMAT` setting — toggle between text (default) and JSON structured logging
+- `TSN_METRICS_ENABLED` setting — enable/disable Prometheus metrics endpoint
+- `TSN_CONTAINER_RUNTIME` setting — pluggable container backend (docker/kubernetes)
+- `TSN_SECRET_BACKEND` setting — pluggable secret provider (env/gcp)
+- Request ID middleware — generates UUID per request, `X-Request-Id` correlation header
+- `ContainerRuntime` abstraction layer (`DockerRuntime` + `K8sRuntime` stub)
+- `SecretProvider` abstraction layer (`EnvSecretProvider` + `GCPSecretProvider` stub)
+- Helm chart for GKE deployment (`k8s/tsushin/`) with 16 templates
+- CI/CD pipeline for GKE (`.github/workflows/gke-deploy.yml`)
+- Cloud SQL Proxy sidecar configuration
+- Network policies, HPA, managed TLS, WebSocket ingress support
+
 #### Smart UX Features (Playground)
 - Auto-save drafts to localStorage per thread with 500ms debounce, restored on thread switch
 - Smart paste: auto-detects JSON and code blocks, wraps in markdown fences on paste
@@ -205,6 +220,10 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - Bumped version to v0.6.0
+- `ToolboxContainerService` refactored to use `ContainerRuntime` interface
+- `MCPContainerManager` refactored to use `ContainerRuntime` interface
+- `settings.py` now routes secret retrieval through `SecretProvider`
+- Pre-commit YAML check now excludes Helm template directory
 - Compacted Watcher "Threats by Type" into inline pill badges
 - Added `frontend/lib/` to repo (was excluded by Python gitignore pattern)
 

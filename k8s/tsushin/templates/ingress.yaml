@@ -40,13 +40,7 @@ spec:
                 name: {{ include "tsushin.fullname" . }}-backend
                 port:
                   number: {{ .Values.backend.port }}
-          - path: /metrics
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: {{ include "tsushin.fullname" . }}-backend
-                port:
-                  number: {{ .Values.backend.port }}
+          # /metrics is NOT publicly routed — Prometheus scrapes in-cluster only
           # Everything else → frontend
           - path: /*
             pathType: ImplementationSpecific
