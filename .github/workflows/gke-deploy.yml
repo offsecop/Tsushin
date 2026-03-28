@@ -1,10 +1,9 @@
 # =============================================================================
 # Tsushin — GKE Build & Deploy Pipeline
 # =============================================================================
-# Triggers:
-#   push to main    → build + deploy-prod (manual approval)
-#   push to develop → build + deploy-dev  (automatic)
-#   workflow_dispatch → choose environment manually
+# Triggers: workflow_dispatch only (manual)
+# Push triggers disabled until GCP infrastructure is configured.
+# Re-enable by adding push.branches: [main, develop] to the on: block.
 # =============================================================================
 
 name: GKE Build & Deploy
@@ -108,7 +107,8 @@ jobs:
         id: meta
         run: |
           SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          TAG="v0.6.0-${SHORT_SHA}"
+          APP_VERSION=$(grep '^appVersion' k8s/tsushin/Chart.yaml | awk '{print $2}' | tr -d '"')
+          TAG="${APP_VERSION}-${SHORT_SHA}"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "Image tag: ${TAG}"
 

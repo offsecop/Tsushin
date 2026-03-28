@@ -36,6 +36,8 @@ backend:
     TSN_POLL_INTERVAL_MS: "3000"
     TSN_CONTAINER_RUNTIME: "kubernetes"
     TSN_SECRET_BACKEND: "gcp"
+    TSN_K8S_NAMESPACE: "tsushin"
+    TSN_K8S_IMAGE_PULL_POLICY: "IfNotPresent"
     TSN_CHROMA_DIR: "/app/data/chroma"
     TSN_WORKSPACE_DIR: "/app/data/workspace"
     TSN_BACKUPS_DIR: "/app/data/backups"
@@ -163,7 +165,10 @@ secrets:
   external: false
   externalSecretName: ""
   # Placeholder values — override via Helm --set or external secret operator
+  # WARNING: Never pass secrets via --set on the CLI (visible in shell history).
+  # Use --set-file, external secrets operator, or sealed secrets in production.
   data:
+    POSTGRES_PASSWORD: ""    # REQUIRED — Cloud SQL password
     DATABASE_URL: ""
     JWT_SECRET_KEY: ""
     GEMINI_API_KEY: ""
@@ -173,10 +178,12 @@ secrets:
     GROK_API_KEY: ""
     ELEVENLABS_API_KEY: ""
     BRAVE_API: ""
+    BRAVE_SEARCH_API_KEY: ""
     OPENWEATHER_API_KEY: ""
     AMADEUS_API_KEY: ""
     AMADEUS_API_SECRET: ""
     ASANA_ENCRYPTION_KEY: ""
+    GOOGLE_SSO_CLIENT_SECRET: ""
 
 # -----------------------------------------------------------------------------
 # Database migration (Alembic)

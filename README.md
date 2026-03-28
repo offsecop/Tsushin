@@ -20,6 +20,8 @@
 - **Git**
 - **Supported platforms:** Linux, macOS, Windows 10+
 
+> **Note:** The Docker network `tsushin-network` must exist before running `docker-compose up`. The installer creates it automatically. For manual setup: `docker network create tsushin-network`.
+
 > The installer automatically installs required Python packages (`requests`, `cryptography`) via pip.
 
 ### Installation

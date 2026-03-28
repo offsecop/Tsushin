@@ -1647,8 +1647,6 @@ class K8sRuntime(ContainerRuntime):
 # Factory
 # ---------------------------------------------------------------------------
 
-import threading
-
 _runtime_instance: Optional[ContainerRuntime] = None
 _runtime_lock = threading.Lock()
 

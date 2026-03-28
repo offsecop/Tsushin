@@ -234,6 +234,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `settings.py` now routes secret retrieval through `SecretProvider`
 - `auth_utils.py` `JWT_SECRET_KEY` now uses `SecretProvider` instead of direct `os.getenv()`
 - GKE deploy workflow changed to manual-only trigger until GCP infrastructure is configured
+- `tsushin-network` is now an external Docker network — survives `docker-compose down` to preserve MCP/WhatsApp sessions. Existing installs must run `docker network create tsushin-network` or re-run `install.py`.
 - Pre-commit YAML check now excludes Helm template directory
 - Compacted Watcher "Threats by Type" into inline pill badges
 - Added `frontend/lib/` to repo (was excluded by Python gitignore pattern)

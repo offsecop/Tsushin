@@ -728,6 +728,21 @@ class ToolboxContainerService:
                 tag=tenant_id,
                 message=f"Committed by tenant {tenant_id} at {datetime.utcnow().isoformat() + 'Z'}",
             )
+        except ContainerRuntimeError as e:
+            if "not supported" in str(e).lower():
+                # K8s mode: commit not supported — mark packages as committed in DB only
+                logger.warning(f"Container commit not supported in current runtime, marking packages committed in DB only")
+                self._mark_packages_committed(tenant_id, db)
+                return {
+                    'success': True,
+                    'image_tag': new_image_tag,
+                    'image_id': 'db-only',
+                    'committed_at': datetime.utcnow().isoformat() + "Z",
+                    'note': 'Packages recorded in DB. Use CI/CD to build custom images for K8s.'
+                }
+            raise
+
+        try:
 
             image_id = image.id if hasattr(image, 'id') else str(image)
             logger.info(f"Container committed as {new_image_tag} (ID: {image_id[:12]})")

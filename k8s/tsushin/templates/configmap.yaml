@@ -9,6 +9,10 @@ data:
   {{- range $key, $val := .Values.backend.env }}
   {{ $key }}: {{ $val | quote }}
   {{- end }}
+  # GCP Project ID — derived from global.project (required for GCPSecretProvider)
+  {{- if .Values.global.project }}
+  TSN_GCP_PROJECT_ID: {{ .Values.global.project | quote }}
+  {{- end }}
   # Frontend URL — derived from ingress host
   {{- if .Values.ingress.host }}
   TSN_FRONTEND_URL: {{ printf "https://%s" .Values.ingress.host | quote }}
