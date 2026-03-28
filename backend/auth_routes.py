@@ -368,6 +368,27 @@ async def setup_wizard(
             detail="Setup wizard can only be run on a fresh installation. Users already exist."
         )
 
+    # BUG-061 FIX: TOCTOU race condition — re-verify under a serialized transaction.
+    # For SQLite: BEGIN IMMEDIATE acquires a reserved lock, preventing concurrent writes.
+    # For PostgreSQL: pg_advisory_xact_lock provides an exclusive advisory lock.
+    from sqlalchemy import text
+    db_dialect = db.bind.dialect.name if db.bind else "sqlite"
+    if db_dialect == "postgresql":
+        db.execute(text("SELECT pg_advisory_xact_lock(1)"))
+    else:
+        # SQLite: BEGIN IMMEDIATE ensures only one writer at a time
+        db.execute(text("BEGIN IMMEDIATE"))
+
+    # Re-check user count under the lock to prevent race condition
+    user_count_locked = db.query(User).count()
+    if user_count_locked > 0:
+        if db_dialect != "postgresql":
+            db.execute(text("ROLLBACK"))
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Setup already completed"
+        )
+
     auth_service = AuthService(db)
 
     try:

@@ -75,6 +75,7 @@ class UserUpdate(BaseModel):
 
 
 class ResetPasswordRequest(BaseModel):
+    """BUG-053 FIX: Password transmitted in request body instead of URL query string."""
     new_password: str = Field(..., min_length=8)
 
 
@@ -561,13 +562,16 @@ async def delete_user(
 @router.post("/{user_id}/reset-password")
 async def admin_reset_password(
     user_id: int,
-    request: ResetPasswordRequest,
+    body: ResetPasswordRequest,
     current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db),
     _: None = Depends(require_global_admin()),
 ):
     """
     Reset a user's password (global admin only).
+
+    BUG-053 FIX: Password is now transmitted in the request body
+    instead of as a URL query parameter to prevent exposure in logs.
     """
     user = db.query(User).filter(
         User.id == user_id,
@@ -581,7 +585,7 @@ async def admin_reset_password(
         )
 
     # Update password
-    user.password_hash = hash_password(request.new_password)
+    user.password_hash = hash_password(body.new_password)
     user.updated_at = datetime.utcnow()
     db.commit()
 

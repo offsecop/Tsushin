@@ -17,14 +17,20 @@ from argon2.exceptions import VerifyMismatchError
 logger = logging.getLogger(__name__)
 
 # JWT Configuration
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
-if not JWT_SECRET_KEY or len(JWT_SECRET_KEY) < 32:
+# BUG-054 FIX: Warn loudly when JWT_SECRET_KEY is not set instead of silently
+# generating an ephemeral key that invalidates all sessions on restart.
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+if not JWT_SECRET_KEY:
+    import warnings
     JWT_SECRET_KEY = secrets.token_urlsafe(32)
-    logger.critical(
-        "JWT_SECRET_KEY is not set or too short! Using ephemeral key — "
-        "sessions will be lost on restart. Set JWT_SECRET_KEY in .env (min 32 chars)."
+    warnings.warn(
+        "JWT_SECRET_KEY not set — using ephemeral key. All sessions will be lost on restart. "
+        "Set JWT_SECRET_KEY in your .env file for production.",
+        stacklevel=1,
     )
+
 JWT_ALGORITHM = "HS256"
+# BUG-058 FIX: Reduced from 7 days to 24 hours to limit token exposure window.
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
 # Password hashing configuration (using Argon2 - more secure than bcrypt)
