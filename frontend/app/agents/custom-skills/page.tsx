@@ -318,12 +318,16 @@ export default function CustomSkillsPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
-        {/* Breadcrumb */}
-        <div className="mb-6">
+        {/* Back + Breadcrumb */}
+        <div className="flex items-center gap-3 mb-6">
+          <Link href="/agents" className="text-tsushin-slate hover:text-white transition-colors">
+            ← Back
+          </Link>
+          <div className="h-4 w-px bg-tsushin-border"></div>
           <Link href="/agents" className="text-tsushin-slate hover:text-white transition-colors text-sm">
             Studio
           </Link>
-          <span className="text-tsushin-slate/50 mx-2">/</span>
+          <span className="text-tsushin-slate/50">/</span>
           <span className="text-white text-sm">Custom Skills</span>
         </div>
 

@@ -35,51 +35,9 @@ interface TestResult {
   error?: string
 }
 
-// Provider card configuration
-const AI_PROVIDERS = [
-  {
-    service: 'groq',
-    name: 'Groq',
-    description: 'Ultra-fast inference for open-source LLMs (LLaMA, Mixtral, Gemma)',
-    gradient: 'from-orange-500 to-yellow-500',
-    features: ['LLaMA 3.3 70B', 'Mixtral 8x7B', 'Gemma 2 9B', 'Ultra-low latency'],
-    placeholder: 'gsk_...',
-    icon: (
-      <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    ),
-  },
-  {
-    service: 'grok',
-    name: 'Grok (xAI)',
-    description: "xAI's frontier models with real-time knowledge",
-    gradient: 'from-gray-700 to-gray-900',
-    features: ['Grok 3', 'Grok 3 Mini', 'Grok 2', 'Real-time knowledge'],
-    placeholder: 'xai-...',
-    icon: (
-      <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-      </svg>
-    ),
-  },
-  {
-    service: 'elevenlabs',
-    name: 'ElevenLabs',
-    description: 'Premium AI voice synthesis with neural TTS',
-    gradient: 'from-purple-600 to-blue-600',
-    features: ['Neural TTS', 'Voice cloning', '25+ languages', 'Emotional control'],
-    placeholder: 'sk_...',
-    icon: (
-      <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-        <line x1="12" y1="19" x2="12" y2="23" />
-        <line x1="8" y1="23" x2="16" y2="23" />
-      </svg>
-    ),
-  },
-]
+// AI Provider API keys are now managed in Hub > AI Providers (v0.6.0)
+// This page only handles non-LLM service integrations (Google OAuth, etc.)
+const AI_PROVIDERS: any[] = []
 
 export default function IntegrationsSettingsPage() {
   const { user, loading: authLoading, hasPermission } = useRequireAuth()
@@ -325,9 +283,9 @@ export default function IntegrationsSettingsPage() {
       )}
 
       {/* ============================================================ */}
-      {/* AI Provider API Keys Section */}
+      {/* AI Provider API Keys Section — Migrated to Hub > AI Providers in v0.6.0 */}
       {/* ============================================================ */}
-      <div>
+      {AI_PROVIDERS.length > 0 && <div>
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">AI Providers</h2>
         <div className="space-y-4">
           {AI_PROVIDERS.map(provider => {
@@ -456,7 +414,7 @@ export default function IntegrationsSettingsPage() {
             )
           })}
         </div>
-      </div>
+      </div>}
 
       {/* ============================================================ */}
       {/* Google OAuth Section */}
