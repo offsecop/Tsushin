@@ -201,10 +201,16 @@ async def lifespan(app: FastAPI):
     try:
         MigrationSession = sessionmaker(bind=engine)
         migration_db = MigrationSession()
-        from services.sandboxed_tool_seeding import ensure_sandboxed_tools_skill, update_existing_tools
+        from services.sandboxed_tool_seeding import ensure_sandboxed_tools_skill, update_existing_tools, deduplicate_tool_commands
         created = ensure_sandboxed_tools_skill(migration_db)
         if created > 0:
             print(f"📦 Migration: Created sandboxed_tools skill for {created} agents")
+
+        # BUG-044: Deduplicate tool commands/params before updating from manifests
+        dedup_result = deduplicate_tool_commands(migration_db)
+        if dedup_result["deleted_commands"] > 0 or dedup_result["deleted_params"] > 0:
+            print(f"📦 Dedup: removed {dedup_result['deleted_commands']} duplicate commands, "
+                  f"{dedup_result['deleted_params']} duplicate parameters")
 
         # Update existing tools from manifests (picks up template/prompt changes)
         from models_rbac import Tenant

@@ -1093,6 +1093,10 @@ class SandboxedToolCommand(Base):
     timeout_seconds = Column(Integer, default=30)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    __table_args__ = (
+        UniqueConstraint('tool_id', 'command_name', name='uq_sandboxed_tool_command_name'),
+    )
+
 
 class SandboxedToolParameter(Base):
     """
@@ -1108,6 +1112,10 @@ class SandboxedToolParameter(Base):
     default_value = Column(Text)
     description = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint('command_id', 'parameter_name', name='uq_sandboxed_tool_param_name'),
+    )
 
 
 class AgentSandboxedTool(Base):
