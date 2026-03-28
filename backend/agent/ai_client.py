@@ -25,6 +25,7 @@ class AIClient:
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         tenant_id: Optional[str] = None,
+        provider_instance_id: Optional[int] = None,
     ):
         """
         Initialize AI client with database session for API key loading.
@@ -37,6 +38,7 @@ class AIClient:
             temperature: Model temperature (0.0-1.0), defaults to 0.7
             max_tokens: Maximum response tokens, defaults to 2048
             tenant_id: Tenant ID for loading tenant-specific API keys
+            provider_instance_id: Optional provider instance ID for per-instance API key/URL resolution
         """
         self.provider = provider.lower()
         self.model_name = model_name
@@ -49,6 +51,51 @@ class AIClient:
         # BUG FIX 2026-01-17: Increased from 2048 to 16384 to prevent truncation of long responses
         # (e.g., flight search results with multiple options). Most modern LLMs support 8K-128K+ tokens.
         self.max_tokens = max_tokens if max_tokens is not None else 16384
+
+        # Provider Instance resolution — takes precedence over flat fields
+        if provider_instance_id is not None and db is not None:
+            from services.provider_instance_service import ProviderInstanceService, VENDOR_DEFAULT_BASE_URLS
+            instance = ProviderInstanceService.get_instance(provider_instance_id, tenant_id, db)
+            if instance and instance.is_active:
+                self.provider = instance.vendor
+                api_key = ProviderInstanceService.resolve_api_key(instance, db)
+                base_url = instance.base_url or VENDOR_DEFAULT_BASE_URLS.get(instance.vendor)
+
+                # DNS rebinding guard at request time
+                if instance.base_url:
+                    from utils.ssrf_validator import validate_url, validate_ollama_url, SSRFValidationError
+                    try:
+                        if instance.vendor == "ollama":
+                            validate_ollama_url(instance.base_url)
+                        else:
+                            validate_url(instance.base_url)
+                    except SSRFValidationError as e:
+                        self.logger.error(f"SSRF blocked for provider instance {instance.id}: {e}")
+                        raise ValueError(f"Provider instance URL blocked: {e}")
+
+                # Initialize client based on vendor type
+                if instance.vendor == "anthropic":
+                    if not api_key:
+                        raise ValueError("Anthropic API key not configured for this instance")
+                    self.client = AsyncAnthropic(api_key=api_key)
+                elif instance.vendor == "gemini":
+                    if not api_key:
+                        raise ValueError("Gemini API key not configured for this instance")
+                    genai.configure(api_key=api_key)
+                    self.client = genai.GenerativeModel(model_name)
+                elif instance.vendor == "ollama":
+                    self.ollama_base_url = base_url or "http://host.docker.internal:11434"
+                    self.client = httpx.AsyncClient(timeout=httpx.Timeout(600.0, connect=30.0))
+                    if api_key:
+                        self.ollama_api_key = api_key
+                else:
+                    # All OpenAI-compatible (openai, groq, grok, openrouter, custom)
+                    if not api_key:
+                        raise ValueError(f"{instance.vendor} API key not configured for this instance")
+                    self.client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+
+                self.logger.info(f"AIClient initialized via provider instance {instance.id} ({instance.vendor})")
+                return  # Skip the flat-field path below
 
         # Get API key from database or environment (skip for Ollama - Phase 5.2)
         # Priority: DB tenant key → DB system key → env var fallback (handled by get_api_key)

@@ -344,6 +344,7 @@ class Agent(Base):
     enabled_channels = Column(JSON, default=["playground", "whatsapp"])  # Available: playground, whatsapp, telegram
     whatsapp_integration_id = Column(Integer, ForeignKey("whatsapp_mcp_instance.id", ondelete="SET NULL"), nullable=True)  # Specific MCP instance
     telegram_integration_id = Column(Integer, nullable=True)  # Future: FK to TelegramBotInstance
+    provider_instance_id = Column(Integer, ForeignKey("provider_instance.id", ondelete="SET NULL"), nullable=True)
 
     # Avatar
     avatar = Column(String(50), nullable=True, default=None)  # Avatar slug (e.g., "samurai", "robot", "ninja")
@@ -404,6 +405,75 @@ class ApiKey(Base):
     __table_args__ = (
         Index('idx_api_key_service_tenant', 'service', 'tenant_id', unique=True),
     )
+
+
+class ProviderInstance(Base):
+    """
+    Phase 21: Multi-instance provider support.
+    Each tenant can configure multiple provider endpoints (e.g., multiple OpenAI-compatible
+    servers, Ollama instances, or custom LLM gateways) with independent API keys, base URLs,
+    and model availability. Agents reference a specific provider instance via FK.
+    """
+    __tablename__ = "provider_instance"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(String(50), nullable=False, index=True)
+    vendor = Column(String(30), nullable=False)  # 'openai'|'anthropic'|'gemini'|'groq'|'grok'|'openrouter'|'ollama'|'custom'
+    instance_name = Column(String(100), nullable=False)
+    base_url = Column(String(500), nullable=True)  # NULL = vendor default
+    api_key_encrypted = Column(Text, nullable=True)  # Fernet-encrypted
+    available_models = Column(JSON, default=list)
+    is_default = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
+    health_status = Column(String(20), default='unknown')  # healthy|degraded|unavailable|unknown
+    health_status_reason = Column(String(500), nullable=True)
+    last_health_check = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint('tenant_id', 'instance_name', name='uq_provider_instance_tenant_name'),
+        Index('idx_pi_tenant_vendor', 'tenant_id', 'vendor'),
+    )
+
+
+class ProviderUrlPolicy(Base):
+    """
+    Phase 21: URL allowlist/blocklist for provider base URLs.
+    Admins can restrict which base URLs tenants may connect to, preventing
+    SSRF and enforcing corporate proxy / gateway policies.
+    Scope can be 'global' (system-wide) or 'tenant' (per-tenant override).
+    """
+    __tablename__ = "provider_url_policy"
+
+    id = Column(Integer, primary_key=True)
+    scope = Column(String(10), nullable=False)  # 'global' | 'tenant'
+    tenant_id = Column(String(50), nullable=True)  # NULL when scope='global'
+    policy_type = Column(String(10), nullable=False)  # 'allowlist' | 'blocklist'
+    url_pattern = Column(String(500), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_by = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ProviderConnectionAudit(Base):
+    """
+    Phase 21: Audit trail for provider connection events.
+    Logs every connection attempt (health checks, model discovery, chat requests)
+    including the resolved IP address for SSRF post-incident analysis.
+    """
+    __tablename__ = "provider_connection_audit"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(String(50), nullable=False)
+    user_id = Column(Integer, nullable=True)
+    provider_instance_id = Column(Integer, nullable=False)
+    action = Column(String(30), nullable=False)  # 'test_connection'|'model_discovery'|'chat_request'
+    resolved_ip = Column(String(45), nullable=True)
+    base_url = Column(String(500), nullable=True)
+    success = Column(Boolean, nullable=False)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class ApiClient(Base):

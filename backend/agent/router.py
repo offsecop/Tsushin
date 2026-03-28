@@ -754,7 +754,8 @@ class AgentRouter:
             "model_name": agent.model_name,
             "system_prompt": system_prompt,
             "memory_size": self.config.get("memory_size", 10),  # Inherit from config
-            "response_template": agent.response_template if hasattr(agent, 'response_template') else "@{agent_name}: {response}"
+            "response_template": agent.response_template if hasattr(agent, 'response_template') else "@{agent_name}: {response}",
+            "provider_instance_id": getattr(agent, 'provider_instance_id', None),
         }
 
     def _build_persona_context(self, persona) -> str:

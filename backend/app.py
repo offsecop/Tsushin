@@ -147,6 +147,8 @@ from api.routes_sentinel_profiles import router as sentinel_profiles_router, set
 # Message Queue System
 from api.routes_queue import router as queue_router
 from api.routes_api_clients import router as api_clients_router
+# Phase 21: Provider Instance Management
+from api.routes_provider_instances import router as provider_instances_router, set_engine as set_provider_instances_engine
 from api.v1.router import v1_router
 from middleware.rate_limiter import ApiV1RateLimitMiddleware
 from services.queue_worker import start_queue_worker, stop_queue_worker
@@ -208,6 +210,9 @@ async def lifespan(app: FastAPI):
     set_sentinel_engine(engine)
     set_sentinel_exceptions_engine(engine)
     set_sentinel_profiles_engine(engine)
+
+    # Phase 21: Provider Instance Management
+    set_provider_instances_engine(engine)
 
     logging.info("Database initialized")
 
@@ -1068,6 +1073,7 @@ app.include_router(integrations_router)  # Integration Test Connection
 app.include_router(sentinel_router, prefix="/api")  # Phase 20: Sentinel Security Agent
 app.include_router(sentinel_exceptions_router, prefix="/api")  # Phase 20 Enhancement: Sentinel Exceptions
 app.include_router(sentinel_profiles_router, prefix="/api")  # v1.6.0: Sentinel Security Profiles
+app.include_router(provider_instances_router, prefix="/api", tags=["Provider Instances"])  # Phase 21: Provider Instance Management
 app.include_router(queue_router)  # Message Queue System
 app.include_router(api_clients_router)  # Public API v1: Client Management (UI-facing)
 app.include_router(v1_router)  # Public API v1: All /api/v1/ endpoints

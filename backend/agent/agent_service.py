@@ -117,7 +117,8 @@ class AgentService:
             token_tracker=token_tracker,
             temperature=config.get("temperature"),
             max_tokens=config.get("max_tokens"),
-            tenant_id=tenant_id
+            tenant_id=tenant_id,
+            provider_instance_id=config.get("provider_instance_id"),
         )
 
         # Legacy tools removed - now handled by Skills system:
