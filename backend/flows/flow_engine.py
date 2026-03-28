@@ -1788,6 +1788,7 @@ class FlowEngine:
             "conversation": ConversationStepHandler(db, self.mcp_sender, self.token_tracker),
             "slash_command": SlashCommandStepHandler(db, self.mcp_sender, self.token_tracker),
             "skill": SkillStepHandler(db, self.mcp_sender, self.token_tracker),  # Phase 16: Agentic skill execution
+            "custom_skill": SkillStepHandler(db, self.mcp_sender, self.token_tracker),  # Phase 22: Custom skill alias
             "summarization": SummarizationStepHandler(db, self.mcp_sender, self.token_tracker),  # Phase 17: Agentic summarization
             "browser_automation": BrowserAutomationStepHandler(db, self.mcp_sender, self.token_tracker),  # Phase 14.5: Browser automation
             # Legacy types (backward compatibility)

@@ -695,6 +695,101 @@ class AgentSkill(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class CustomSkill(Base):
+    """
+    Phase 22: Custom Skills Foundation
+    Stores tenant-created custom skills that can be assigned to agents.
+    Supports instruction-based, script-based, and MCP server skill types.
+    """
+    __tablename__ = "custom_skill"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(String(50), nullable=False, index=True)
+    source = Column(String(20), nullable=False, default='tenant')  # tenant|marketplace|builtin
+    slug = Column(String(100), nullable=False)
+    name = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    icon = Column(String(10), nullable=True)  # emoji
+    skill_type_variant = Column(String(20), nullable=False, default='instruction')  # instruction|script|mcp_server
+    execution_mode = Column(String(20), nullable=False, default='tool')  # tool|hybrid|passive
+    instructions_md = Column(Text, nullable=True)
+    script_entrypoint = Column(String(50), nullable=True)
+    script_content = Column(Text, nullable=True)
+    script_language = Column(String(20), nullable=True)  # python|bash|nodejs
+    script_content_hash = Column(String(64), nullable=True)
+    input_schema = Column(JSON, default=dict)
+    output_schema = Column(JSON, nullable=True)
+    config_schema = Column(JSON, default=list)
+    trigger_mode = Column(String(20), default='llm_decided')  # keyword|always_on|llm_decided
+    trigger_keywords = Column(JSON, default=list)
+    priority = Column(Integer, default=50)
+    sentinel_profile_id = Column(Integer, nullable=True)
+    timeout_seconds = Column(Integer, nullable=False, default=30)
+    is_enabled = Column(Boolean, nullable=False, default=True)
+    scan_status = Column(String(20), default='pending')  # pending|clean|rejected
+    last_scan_result = Column(JSON, nullable=True)
+    version = Column(String(20), nullable=False, default='1.0.0')
+    created_by = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint('tenant_id', 'slug', name='uq_custom_skill_tenant_slug'),)
+
+
+class CustomSkillVersion(Base):
+    """
+    Phase 22: Custom Skills Foundation
+    Stores version snapshots of custom skills for audit and rollback.
+    """
+    __tablename__ = "custom_skill_version"
+
+    id = Column(Integer, primary_key=True)
+    custom_skill_id = Column(Integer, ForeignKey("custom_skill.id", ondelete="CASCADE"), nullable=False, index=True)
+    version = Column(String(20), nullable=False)
+    snapshot_json = Column(JSON, nullable=False)
+    changed_by = Column(Integer, nullable=True)
+    changed_at = Column(DateTime, default=datetime.utcnow)
+
+
+class AgentCustomSkill(Base):
+    """
+    Phase 22: Custom Skills Foundation
+    Maps custom skills to agents with per-agent configuration overrides.
+    """
+    __tablename__ = "agent_custom_skill"
+
+    id = Column(Integer, primary_key=True)
+    agent_id = Column(Integer, ForeignKey("agent.id", ondelete="CASCADE"), nullable=False, index=True)
+    custom_skill_id = Column(Integer, ForeignKey("custom_skill.id", ondelete="CASCADE"), nullable=False, index=True)
+    is_enabled = Column(Boolean, default=True)
+    config = Column(JSON, default=dict)
+    priority_override = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint('agent_id', 'custom_skill_id', name='uq_agent_custom_skill'),)
+
+
+class CustomSkillExecution(Base):
+    """
+    Phase 22: Custom Skills Foundation
+    Logs execution history for custom skills for analytics and debugging.
+    """
+    __tablename__ = "custom_skill_execution"
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(String(50), nullable=False, index=True)
+    agent_id = Column(Integer, nullable=True)
+    custom_skill_id = Column(Integer, ForeignKey("custom_skill.id", ondelete="SET NULL"), nullable=True)
+    skill_name = Column(String(200), nullable=True)
+    input_json = Column(JSON, nullable=True)
+    output = Column(Text, nullable=True)
+    error = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, default='pending')  # pending|running|completed|failed
+    execution_time_ms = Column(Integer, nullable=True)
+    sentinel_result = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class AgentKnowledge(Base):
     """
     Phase 5.0: Knowledge Base System

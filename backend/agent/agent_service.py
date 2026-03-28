@@ -755,6 +755,16 @@ IMPORTANT: When the user asks for system information, server status, file listin
             except Exception as e:
                 self.logger.warning(f"[SKILL TOOLS] Error getting skill tools: {e}")
 
+        # Phase 22: Custom Skills - Inject instruction-type custom skill content
+        try:
+            from agent.skills.skill_manager import get_skill_manager
+            skill_mgr = get_skill_manager()
+            custom_instructions = skill_mgr.get_custom_skill_instructions(self.db, self.agent_id)
+            if custom_instructions:
+                system_prompt_with_date = f"{system_prompt_with_date}\n\n{custom_instructions}"
+        except Exception as e:
+            self.logger.warning(f"Error loading custom skill instructions: {e}")
+
         try:
             # Call AI (Phase 7.2: Pass tracking parameters)
             result = await self.ai_client.generate(

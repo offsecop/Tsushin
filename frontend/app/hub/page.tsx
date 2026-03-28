@@ -15,9 +15,10 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
-import { api, WhatsAppMCPInstance, MCPHealthStatus, QRCodeResponse, TelegramBotInstance, TelegramHealthStatus, Config } from '@/lib/client'
+import { api, WhatsAppMCPInstance, MCPHealthStatus, QRCodeResponse, TelegramBotInstance, TelegramHealthStatus, Config, ProviderInstance } from '@/lib/client'
 import Modal from '@/components/ui/Modal'
 import TelegramBotModal from '@/components/TelegramBotModal'
+import ProviderInstanceModal from '@/components/providers/ProviderInstanceModal'
 import {
   GeminiIcon,
   OpenAIIcon,
@@ -226,6 +227,13 @@ export default function HubPage() {
   // Toolbox Container state
   const [toolboxStatus, setToolboxStatus] = useState<ToolboxStatus | null>(null)
 
+  // Provider Instances state (Phase 21)
+  const [providerInstances, setProviderInstances] = useState<ProviderInstance[]>([])
+  const [instanceModalOpen, setInstanceModalOpen] = useState(false)
+  const [editingInstance, setEditingInstance] = useState<ProviderInstance | null>(null)
+  const [selectedVendor, setSelectedVendor] = useState<string>('')
+  const [instanceMenuOpen, setInstanceMenuOpen] = useState<number | null>(null)
+
   // UI state
   const [loading, setLoading] = useState(true)
   const [showApiKeyModal, setShowApiKeyModal] = useState(false)
@@ -301,6 +309,14 @@ export default function HubPage() {
     window.addEventListener('tsushin:refresh', handleRefresh)
     return () => window.removeEventListener('tsushin:refresh', handleRefresh)
   }, [])
+
+  // Close instance dropdown menu when clicking outside
+  useEffect(() => {
+    if (instanceMenuOpen === null) return
+    const handleClickOutside = () => setInstanceMenuOpen(null)
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [instanceMenuOpen])
 
   // QR Code Modal polling - auto-refresh QR and auto-close on authentication
   useEffect(() => {
@@ -415,7 +431,8 @@ export default function HubPage() {
         loadTelegramInstances(),  // Phase 10.1.1
         fetchToolboxStatus(),
         loadGoogleCredentials(),
-        loadSystemConfig()
+        loadSystemConfig(),
+        fetchProviderInstances(),  // Phase 21: Provider Instances
       ])
     } finally {
       setLoading(false)
@@ -454,6 +471,15 @@ export default function HubPage() {
     } catch (error) {
       console.error('Failed to fetch API keys:', error)
       setError('Failed to load API keys')
+    }
+  }
+
+  const fetchProviderInstances = async () => {
+    try {
+      const instances = await api.getProviderInstances()
+      setProviderInstances(instances)
+    } catch (error) {
+      console.error('Failed to fetch provider instances:', error)
     }
   }
 
@@ -1319,90 +1345,341 @@ export default function HubPage() {
                 <div className="flex justify-between items-center">
                   <div>
                     <h2 className="text-lg font-display font-semibold text-white">AI Model Providers</h2>
-                    <p className="text-sm text-tsushin-slate">Configure API keys for AI models (LLMs)</p>
+                    <p className="text-sm text-tsushin-slate">Manage provider instances and API keys for AI models</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditingInstance(null)
+                      setSelectedVendor('')
+                      setInstanceModalOpen(true)
+                    }}
+                    className="btn-primary"
+                  >
+                    + New Instance
+                  </button>
+                </div>
+
+                {/* Provider Instances grouped by vendor */}
+                {(() => {
+                  const vendorGroups: Record<string, ProviderInstance[]> = {}
+                  providerInstances.forEach(inst => {
+                    if (!vendorGroups[inst.vendor]) vendorGroups[inst.vendor] = []
+                    vendorGroups[inst.vendor].push(inst)
+                  })
+
+                  const VENDOR_LABELS: Record<string, string> = {
+                    openai: 'OpenAI',
+                    anthropic: 'Anthropic',
+                    gemini: 'Google Gemini',
+                    groq: 'Groq',
+                    grok: 'Grok (xAI)',
+                    openrouter: 'OpenRouter',
+                    ollama: 'Ollama',
+                    custom: 'Custom',
+                  }
+
+                  const VENDOR_ICONS: Record<string, React.FC<{ size?: number; className?: string }>> = {
+                    openai: OpenAIIcon,
+                    anthropic: AnthropicIcon,
+                    gemini: GeminiIcon,
+                    groq: LightningIcon,
+                    grok: LightningIcon,
+                    openrouter: GlobeIcon,
+                    ollama: BotIconSvg,
+                    custom: BeakerIcon,
+                  }
+
+                  const VENDOR_COLORS: Record<string, string> = {
+                    openai: 'text-green-400',
+                    anthropic: 'text-orange-400',
+                    gemini: 'text-blue-400',
+                    groq: 'text-yellow-400',
+                    grok: 'text-red-400',
+                    openrouter: 'text-teal-400',
+                    ollama: 'text-purple-400',
+                    custom: 'text-pink-400',
+                  }
+
+                  const healthDotClass = (status: string) => {
+                    switch (status) {
+                      case 'healthy': return 'bg-tsushin-success animate-pulse'
+                      case 'degraded': return 'bg-tsushin-warning'
+                      case 'unavailable': return 'bg-tsushin-vermilion'
+                      default: return 'bg-tsushin-slate'
+                    }
+                  }
+
+                  const allVendors = Array.from(new Set([
+                    ...Object.keys(vendorGroups),
+                    'openai', 'anthropic', 'gemini', 'groq', 'grok', 'openrouter', 'ollama',
+                  ])).sort()
+
+                  return (
+                    <div className="space-y-6">
+                      {allVendors.map(vendor => {
+                        const instances = vendorGroups[vendor] || []
+                        const VendorIcon = VENDOR_ICONS[vendor] || BeakerIcon
+                        const vendorColor = VENDOR_COLORS[vendor] || 'text-tsushin-accent'
+
+                        return (
+                          <div key={vendor} className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2.5">
+                                <VendorIcon size={18} className={vendorColor} />
+                                <h3 className="text-sm font-semibold text-white">{VENDOR_LABELS[vendor] || vendor}</h3>
+                                <span className="text-xs text-tsushin-slate">
+                                  {instances.length} instance{instances.length !== 1 ? 's' : ''}
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setEditingInstance(null)
+                                  setSelectedVendor(vendor)
+                                  setInstanceModalOpen(true)
+                                }}
+                                className="flex items-center gap-1 text-xs text-tsushin-accent hover:text-white transition-colors"
+                              >
+                                <PlusIconSvg size={14} />
+                                Add Instance
+                              </button>
+                            </div>
+
+                            {instances.length === 0 ? (
+                              <div className="border border-dashed border-tsushin-border rounded-xl p-4 text-center">
+                                <p className="text-xs text-tsushin-slate">No instances configured</p>
+                              </div>
+                            ) : (
+                              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                                {instances.map(inst => (
+                                  <div key={inst.id} className="card p-4 hover-glow group relative">
+                                    <div className="flex items-start justify-between mb-3">
+                                      <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${healthDotClass(inst.health_status)}`} title={inst.health_status} />
+                                        <h4 className="text-sm font-semibold text-white truncate">{inst.instance_name}</h4>
+                                        {inst.is_default && (
+                                          <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-tsushin-indigo/20 text-tsushin-indigo border border-tsushin-indigo/30">
+                                            DEFAULT
+                                          </span>
+                                        )}
+                                      </div>
+                                      {/* Three-dot menu */}
+                                      <div className="relative">
+                                        <button
+                                          onClick={() => setInstanceMenuOpen(instanceMenuOpen === inst.id ? null : inst.id)}
+                                          className="p-1 text-tsushin-slate hover:text-white transition-colors rounded"
+                                        >
+                                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                            <circle cx="12" cy="5" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="12" cy="19" r="2" />
+                                          </svg>
+                                        </button>
+                                        {instanceMenuOpen === inst.id && (
+                                          <div className="absolute right-0 top-8 z-20 w-44 bg-tsushin-elevated border border-tsushin-border rounded-lg shadow-elevated py-1 animate-fade-in">
+                                            <button
+                                              onClick={() => {
+                                                setInstanceMenuOpen(null)
+                                                setEditingInstance(inst)
+                                                setInstanceModalOpen(true)
+                                              }}
+                                              className="w-full text-left px-3 py-2 text-sm text-tsushin-fog hover:text-white hover:bg-white/5 transition-colors"
+                                            >
+                                              Edit
+                                            </button>
+                                            <button
+                                              onClick={async () => {
+                                                setInstanceMenuOpen(null)
+                                                try {
+                                                  const result = await api.testProviderConnection(inst.id)
+                                                  toast.success(result.success
+                                                    ? `Connected (${result.latency_ms}ms)`
+                                                    : `Failed: ${result.message}`
+                                                  )
+                                                  fetchProviderInstances()
+                                                } catch (err: any) {
+                                                  toast.error(err.message || 'Test failed')
+                                                }
+                                              }}
+                                              className="w-full text-left px-3 py-2 text-sm text-tsushin-fog hover:text-white hover:bg-white/5 transition-colors"
+                                            >
+                                              Test Connection
+                                            </button>
+                                            <button
+                                              onClick={async () => {
+                                                setInstanceMenuOpen(null)
+                                                try {
+                                                  const models = await api.discoverProviderModels(inst.id)
+                                                  toast.success(`Discovered ${models.length} model${models.length !== 1 ? 's' : ''}`)
+                                                  fetchProviderInstances()
+                                                } catch (err: any) {
+                                                  toast.error(err.message || 'Discovery failed')
+                                                }
+                                              }}
+                                              className="w-full text-left px-3 py-2 text-sm text-tsushin-fog hover:text-white hover:bg-white/5 transition-colors"
+                                            >
+                                              Discover Models
+                                            </button>
+                                            {!inst.is_default && (
+                                              <button
+                                                onClick={async () => {
+                                                  setInstanceMenuOpen(null)
+                                                  try {
+                                                    await api.updateProviderInstance(inst.id, { is_default: true })
+                                                    toast.success(`${inst.instance_name} set as default`)
+                                                    fetchProviderInstances()
+                                                  } catch (err: any) {
+                                                    toast.error(err.message || 'Failed to set default')
+                                                  }
+                                                }}
+                                                className="w-full text-left px-3 py-2 text-sm text-tsushin-fog hover:text-white hover:bg-white/5 transition-colors"
+                                              >
+                                                Set as Default
+                                              </button>
+                                            )}
+                                            <div className="border-t border-tsushin-border my-1" />
+                                            <button
+                                              onClick={async () => {
+                                                setInstanceMenuOpen(null)
+                                                if (!confirm(`Delete instance "${inst.instance_name}"?`)) return
+                                                try {
+                                                  await api.deleteProviderInstance(inst.id)
+                                                  toast.success(`Deleted ${inst.instance_name}`)
+                                                  fetchProviderInstances()
+                                                } catch (err: any) {
+                                                  toast.error(err.message || 'Failed to delete')
+                                                }
+                                              }}
+                                              className="w-full text-left px-3 py-2 text-sm text-tsushin-vermilion hover:bg-tsushin-vermilion/10 transition-colors"
+                                            >
+                                              Delete
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    <div className="space-y-1.5 text-xs">
+                                      <p className="text-tsushin-slate">
+                                        {inst.base_url
+                                          ? <span className="font-mono text-tsushin-accent truncate block">{inst.base_url}</span>
+                                          : <span className="text-tsushin-slate italic">Default URL</span>
+                                        }
+                                      </p>
+                                      {inst.api_key_configured && (
+                                        <p className="text-tsushin-slate">
+                                          Key: <span className="font-mono text-tsushin-fog">{inst.api_key_preview}</span>
+                                        </p>
+                                      )}
+                                      <p className="text-tsushin-slate">
+                                        {inst.available_models.length > 0
+                                          ? `${inst.available_models.length} model${inst.available_models.length !== 1 ? 's' : ''}`
+                                          : 'No models configured'
+                                        }
+                                      </p>
+                                      {inst.health_status_reason && inst.health_status !== 'healthy' && (
+                                        <p className="text-tsushin-vermilion text-[11px] truncate" title={inst.health_status_reason}>
+                                          {inst.health_status_reason}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })()}
+
+                {/* Local Services Section */}
+                <div className="pt-2">
+                  <h3 className="text-sm font-semibold text-tsushin-fog mb-3">Local Services</h3>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {/* Ollama Card (Special - Local) */}
+                    <div className="card p-5 hover-glow group">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <BotIconSvg size={20} className="text-purple-400" />
+                          </div>
+                          <h3 className="font-semibold text-white">Ollama (Local)</h3>
+                        </div>
+                        <span className={ollamaHealth?.available ? 'badge badge-success' : 'badge badge-neutral'}>
+                          {ollamaHealth?.available ? 'Online' : 'Offline'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-tsushin-slate mb-3">Run LLMs locally - no API key needed</p>
+                      <div className="text-sm text-tsushin-slate">
+                        {ollamaHealth?.available ? (
+                          <>
+                            <p className="text-xs mb-2">{ollamaHealth.models_count || 0} models available</p>
+                            <p className="text-xs font-mono text-tsushin-accent mb-2">{ollamaHealth.base_url}</p>
+                            {ollamaHealth.models?.slice(0, 3).map((m, i) => (
+                              <p key={i} className="text-xs text-tsushin-muted">- {m.name}</p>
+                            ))}
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-xs text-tsushin-vermilion mb-2">{ollamaHealth?.error || 'Not running'}</p>
+                            <p className="text-xs">Start with: <code className="bg-tsushin-deep px-1.5 py-0.5 rounded font-mono text-tsushin-accent">ollama serve</code></p>
+                          </>
+                        )}
+                      </div>
+                      <button
+                        onClick={fetchOllamaHealth}
+                        className="w-full mt-4 btn-secondary py-2 text-sm"
+                      >
+                        Refresh Status
+                      </button>
+                    </div>
+
+                    {/* Kokoro TTS Card (Special - Free Local TTS) */}
+                    <div className="card p-5 hover-glow group border-green-700/30">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <MicrophoneIcon size={20} className="text-green-400" />
+                          </div>
+                          <h3 className="font-semibold text-white">Kokoro TTS (Free)</h3>
+                        </div>
+                        <span className={kokoroHealth?.available ? 'badge badge-success' : 'badge badge-neutral'}>
+                          {kokoroHealth?.available ? 'Online' : 'Offline'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-tsushin-slate mb-3">Free text-to-speech with PTBR support</p>
+                      <div className="text-sm text-tsushin-slate">
+                        {kokoroHealth?.available ? (
+                          <>
+                            <p className="text-xs mb-2">{kokoroHealth.details?.voices || 15} voices available</p>
+                            <p className="text-xs font-mono text-tsushin-accent mb-2">{kokoroHealth.details?.service_url || 'http://localhost:8880'}</p>
+                            {kokoroHealth.latency_ms && (
+                              <p className="text-xs text-green-400">Latency: {kokoroHealth.latency_ms}ms</p>
+                            )}
+                            <p className="text-xs text-green-400 mt-1 flex items-center gap-1"><CreditCardIcon size={12} className="text-green-400" /> 100% FREE - No API costs!</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-xs text-tsushin-vermilion mb-2">{kokoroHealth?.message || 'Service not running'}</p>
+                            <p className="text-xs">Start with: <code className="bg-tsushin-deep px-1.5 py-0.5 rounded font-mono text-tsushin-accent">docker compose --profile tts up -d</code></p>
+                          </>
+                        )}
+                      </div>
+                      <button
+                        onClick={fetchKokoroHealth}
+                        className="w-full mt-4 btn-secondary py-2 text-sm"
+                      >
+                        Refresh Status
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 animate-stagger">
-                  {/* Ollama Card (Special - Local) */}
-                  <div className="card p-5 hover-glow group">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                          <BotIconSvg size={20} className="text-purple-400" />
-                        </div>
-                        <h3 className="font-semibold text-white">Ollama (Local)</h3>
-                      </div>
-                      <span className={ollamaHealth?.available ? 'badge badge-success' : 'badge badge-neutral'}>
-                        {ollamaHealth?.available ? 'Online' : 'Offline'}
-                      </span>
-                    </div>
-                    <p className="text-xs text-tsushin-slate mb-3">Run LLMs locally - no API key needed</p>
-                    <div className="text-sm text-tsushin-slate">
-                      {ollamaHealth?.available ? (
-                        <>
-                          <p className="text-xs mb-2">{ollamaHealth.models_count || 0} models available</p>
-                          <p className="text-xs font-mono text-tsushin-accent mb-2">{ollamaHealth.base_url}</p>
-                          {ollamaHealth.models?.slice(0, 3).map((m, i) => (
-                            <p key={i} className="text-xs text-tsushin-muted">• {m.name}</p>
-                          ))}
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-xs text-tsushin-vermilion mb-2">{ollamaHealth?.error || 'Not running'}</p>
-                          <p className="text-xs">Start with: <code className="bg-tsushin-deep px-1.5 py-0.5 rounded font-mono text-tsushin-accent">ollama serve</code></p>
-                        </>
-                      )}
-                    </div>
-                    <button
-                      onClick={fetchOllamaHealth}
-                      className="w-full mt-4 btn-secondary py-2 text-sm"
-                    >
-                      Refresh Status
-                    </button>
+                {/* Service API Keys Section */}
+                <div className="pt-2">
+                  <h3 className="text-sm font-semibold text-tsushin-fog mb-3">Service API Keys</h3>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {AI_PROVIDERS.map(provider => renderIntegrationCard(provider, 'ai'))}
                   </div>
-
-                  {/* Kokoro TTS Card (Special - Free Local TTS) */}
-                  <div className="card p-5 hover-glow group border-green-700/30">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                          <MicrophoneIcon size={20} className="text-green-400" />
-                        </div>
-                        <h3 className="font-semibold text-white">Kokoro TTS (Free)</h3>
-                      </div>
-                      <span className={kokoroHealth?.available ? 'badge badge-success' : 'badge badge-neutral'}>
-                        {kokoroHealth?.available ? 'Online' : 'Offline'}
-                      </span>
-                    </div>
-                    <p className="text-xs text-tsushin-slate mb-3">Free text-to-speech with PTBR support</p>
-                    <div className="text-sm text-tsushin-slate">
-                      {kokoroHealth?.available ? (
-                        <>
-                          <p className="text-xs mb-2">{kokoroHealth.details?.voices || 15} voices available</p>
-                          <p className="text-xs font-mono text-tsushin-accent mb-2">{kokoroHealth.details?.service_url || 'http://localhost:8880'}</p>
-                          {kokoroHealth.latency_ms && (
-                            <p className="text-xs text-green-400">Latency: {kokoroHealth.latency_ms}ms</p>
-                          )}
-                          <p className="text-xs text-green-400 mt-1 flex items-center gap-1"><CreditCardIcon size={12} className="text-green-400" /> 100% FREE - No API costs!</p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-xs text-tsushin-vermilion mb-2">{kokoroHealth?.message || 'Service not running'}</p>
-                          <p className="text-xs">Start with: <code className="bg-tsushin-deep px-1.5 py-0.5 rounded font-mono text-tsushin-accent">docker compose --profile tts up -d</code></p>
-                        </>
-                      )}
-                    </div>
-                    <button
-                      onClick={fetchKokoroHealth}
-                      className="w-full mt-4 btn-secondary py-2 text-sm"
-                    >
-                      Refresh Status
-                    </button>
-                  </div>
-
-                  {/* Other AI Providers */}
-                  {AI_PROVIDERS.map(provider => renderIntegrationCard(provider, 'ai'))}
                 </div>
 
                 {/* Info Box */}
@@ -1411,12 +1688,26 @@ export default function HubPage() {
                     <LightbulbIcon size={16} className="text-purple-300" /> AI Providers
                   </h3>
                   <p className="text-xs text-tsushin-slate">
-                    Configure API keys for cloud AI providers, use Ollama for free local LLM inference, or Kokoro for free text-to-speech.
-                    Groq offers ultra-fast inference, Grok (xAI) provides cutting-edge reasoning, and ElevenLabs delivers premium voice AI synthesis.
+                    Provider instances let you configure multiple endpoints for the same vendor (e.g., different OpenAI-compatible servers).
+                    Service API Keys below are used as fallbacks when instances don't have their own key configured.
                   </p>
                 </div>
               </div>
             )}
+
+            {/* Provider Instance Modal */}
+            <ProviderInstanceModal
+              isOpen={instanceModalOpen}
+              onClose={() => {
+                setInstanceModalOpen(false)
+                setEditingInstance(null)
+                setSelectedVendor('')
+                setInstanceMenuOpen(null)
+              }}
+              onSave={fetchProviderInstances}
+              instance={editingInstance}
+              defaultVendor={selectedVendor}
+            />
 
             {/* ==================== COMMUNICATION TAB ==================== */}
             {activeTab === 'communication' && (

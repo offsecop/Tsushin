@@ -1,5 +1,5 @@
 # Tsushin Bug Tracker
-**Open:** 16 | **In Progress:** 0 | **Resolved:** 83
+**Open:** 1 | **In Progress:** 0 | **Resolved:** 98
 **Source:** v0.6.1 RBAC & Multi-Tenancy Audit + Security Vulnerability Audit + GKE Readiness Audit (2026-03-28)
 
 ## Open Issues
@@ -109,7 +109,8 @@
 - **Remediation:** Store `sha256(token)` in the database. On lookup, hash the submitted token and compare. This is the same pattern already used for API client secrets (`ApiClientService.create_client()` uses Argon2 hashing).
 
 ### BUG-072: Soft-deleted users can still authenticate
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** Critical
 - **Category:** Broken Authentication (CWE-287)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -119,7 +120,8 @@
 - **Remediation:** Add `.filter(User.deleted_at.is_(None))` to the login query and `get_user_by_id`.
 
 ### BUG-073: SSO user password login causes unhandled 500 error
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Error Handling / Denial of Service (CWE-755)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -129,7 +131,8 @@
 - **Remediation:** Add a `None` check before calling `verify_password`: `if not user.password_hash: raise HTTPException(401, "Invalid credentials")`. Or catch the broader `argon2.exceptions.VerificationError` base class.
 
 ### BUG-074: Wildcard trusted proxy enables rate limit bypass via IP spoofing
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Rate Limiting Bypass (CWE-799)
 - **Found:** 2026-03-28 (Security Vulnerability Audit)
@@ -139,7 +142,8 @@
 - **Remediation:** Set `trusted_hosts` to the specific upstream reverse proxy IP (e.g., Caddy/Nginx IP or Docker network CIDR), not `["*"]`.
 
 ### BUG-075: Sentinel logs, stats, and agent-config endpoints missing permission checks
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Broken Access Control (CWE-862)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -149,7 +153,8 @@
 - **Remediation:** Add `require_permission("org.settings.read")` or `require_permission("audit.read")` dependency to all three endpoints.
 
 ### BUG-076: Duplicate get_current_user bypasses is_active check
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Broken Authentication (CWE-287)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -159,7 +164,8 @@
 - **Remediation:** Add `is_active` check to `auth_routes.py`'s `get_current_user`, or consolidate to a single function.
 
 ### BUG-077: Hub Shell page has no frontend permission gate
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Broken Access Control — Frontend (CWE-862)
 - **Found:** 2026-03-28 (Frontend RBAC Audit)
@@ -169,7 +175,8 @@
 - **Remediation:** Add `hasPermission('shell.read')` gate with an Access Denied fallback block, or use the existing `PermissionGate` component.
 
 ### BUG-078: Hub Sandboxed Tools page has no frontend permission gate
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Broken Access Control — Frontend (CWE-862)
 - **Found:** 2026-03-28 (Frontend RBAC Audit)
@@ -179,7 +186,8 @@
 - **Remediation:** Add `hasPermission('tools.manage')` or `hasPermission('tools.read')` gate with Access Denied fallback.
 
 ### BUG-079: Five sensitive settings pages accessible to any authenticated user
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Broken Access Control — Frontend (CWE-862)
 - **Found:** 2026-03-28 (Frontend RBAC Audit)
@@ -195,7 +203,8 @@
 - **Remediation:** Add `hasPermission('org.settings.read')` gate with Access Denied block to all five pages, matching the pattern used in `/settings/api-clients`.
 
 ### BUG-080: Hard user delete fails with FK violation on PostgreSQL
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Data Integrity / Broken Delete Flow (CWE-404)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -205,7 +214,8 @@
 - **Remediation:** Either add `ON DELETE SET NULL` to the FK constraints, or delete related `UserInvitation` and `GlobalAdminAuditLog` records before deleting the user. Alternatively, restrict to soft-delete only.
 
 ### BUG-081: SSO config endpoint uses inverted logic for global admin tenant context
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Broken Access Control (CWE-863)
 - **Found:** 2026-03-28 (Security Vulnerability Audit)
@@ -215,7 +225,8 @@
 - **Remediation:** Use `tenant_context.tenant_id` consistently (the standard pattern used in all other routes).
 
 ### BUG-082: Analytics includes NULL-tenant agents for all users
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Information Disclosure / Multi-Tenancy Leakage (CWE-200)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -225,7 +236,8 @@
 - **Remediation:** Remove the `Agent.tenant_id.is_(None)` condition. If system agents need analytics visibility, make it global-admin only.
 
 ### BUG-083: conversation_search_service references non-existent Memory columns
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Runtime Error / Dead Code (CWE-476)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -235,7 +247,8 @@
 - **Remediation:** Either add `tenant_id` and `user_id` columns to the Memory model, or rewrite the query to join through the Agent table for tenant isolation.
 
 ### BUG-084: RBAC migration seed out of sync — missing 9 permissions
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** Medium
 - **Category:** Configuration Drift (CWE-1188)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -245,7 +258,8 @@
 - **Remediation:** Sync the migration seed to include all permissions from `db.py`. Keep `ensure_rbac_permissions()` as an upgrade path.
 
 ### BUG-085: Blind setattr mass assignment pattern on agent update
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** Medium
 - **Category:** Mass Assignment (CWE-915)
 - **Found:** 2026-03-28 (Security Vulnerability Audit)
@@ -255,7 +269,8 @@
 - **Remediation:** Use an explicit allowlist of updatable fields instead of blind `setattr` loop.
 
 ### BUG-086: Password reset flow non-functional — no email delivery
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** Medium
 - **Category:** Broken Functionality (CWE-440)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -265,7 +280,8 @@
 - **Remediation:** Implement email delivery for password reset tokens, or provide an alternative self-service mechanism.
 
 ### BUG-087: No self-service profile update or password change endpoints
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** Medium
 - **Category:** Missing Feature / Broken User Management
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -275,7 +291,8 @@
 - **Remediation:** Implement `PUT /api/auth/me` for profile updates and `POST /api/auth/change-password` requiring current password verification.
 
 ### BUG-088: Tenant ID generation collision at second-precision timestamps
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** Medium
 - **Category:** Data Integrity / Race Condition (CWE-362)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -285,7 +302,8 @@
 - **Remediation:** Add microsecond precision or a random suffix (e.g., `tenant_20240101120000_a3f2b9`) to ensure uniqueness. Alternatively, use UUID-based tenant IDs.
 
 ### BUG-089: Flow template validate/render endpoints lack permission check
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** Medium
 - **Category:** Broken Access Control (CWE-862)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -295,7 +313,8 @@
 - **Remediation:** Add `require_permission("flows.read")` for consistency.
 
 ### BUG-090: No audit logging for tenant-level role changes
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** Medium
 - **Category:** Insufficient Logging (CWE-778)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -305,7 +324,8 @@
 - **Remediation:** Add audit logging for all role changes in `routes_team.py`, either to an existing audit table or a new tenant-level audit log.
 
 ### BUG-091: Global email uniqueness blocks re-registration after soft delete
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** Medium
 - **Category:** Data Integrity / Design Flaw (CWE-1289)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -315,7 +335,8 @@
 - **Remediation:** Either make the unique constraint a partial index on `deleted_at IS NULL`, or append a suffix to deleted users' emails (e.g., `user@example.com` → `user@example.com.deleted.{timestamp}`).
 
 ### BUG-092: Missing HSTS security header
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** Medium
 - **Category:** Transport Security (CWE-319)
 - **Found:** 2026-03-28 (Security Vulnerability Audit)
@@ -325,7 +346,8 @@
 - **Remediation:** Add `response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"` (conditionally, only when deployed behind TLS).
 
 ### BUG-093: PermissionGate component and matchesPermission() are dead code
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** Low
 - **Category:** Dead Code / Technical Debt
 - **Found:** 2026-03-28 (Frontend RBAC Audit)
@@ -335,7 +357,8 @@
 - **Remediation:** Either integrate `PermissionGate` into pages that need permission gating, or remove the dead code.
 
 ### BUG-094: Settings audit-logs and team member detail pages use mock data
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** Low
 - **Category:** Incomplete Implementation
 - **Found:** 2026-03-28 (Frontend RBAC Audit)
@@ -345,7 +368,8 @@
 - **Remediation:** Connect both pages to their respective backend API endpoints.
 
 ### BUG-095: Inconsistent 403/401 error handling across frontend API methods
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** Low
 - **Category:** Error Handling (CWE-755)
 - **Found:** 2026-03-28 (Frontend RBAC Audit)
@@ -355,7 +379,8 @@
 - **Remediation:** Apply `handleApiError` consistently across all API methods, or add a global fetch interceptor that handles 401/403 uniformly.
 
 ### BUG-096: Stale JWT role/tenant claims not revalidated after changes
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** Low
 - **Category:** Session Management (CWE-613)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -365,7 +390,8 @@
 - **Remediation:** Force token refresh after role/tenant changes. Or add a `role_version` counter that invalidates tokens on role change.
 
 ### BUG-097: rbac_middleware.py decorator functions are unused dead code
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** Low
 - **Category:** Dead Code / Technical Debt
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -375,7 +401,8 @@
 - **Remediation:** Remove the unused decorator functions or add deprecation warnings. Document `auth_dependencies.py` as the canonical pattern.
 
 ### BUG-098: Tenant user limit check has race condition on concurrent invites
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** Low
 - **Category:** Race Condition (CWE-362)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -385,7 +412,8 @@
 - **Remediation:** Use `SELECT ... FOR UPDATE` on the tenant row before the count check, or add a database-level trigger constraint.
 
 ### BUG-099: Team invite error reveals email domain exists in another tenant
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 2026-03-28
 - **Severity:** Low
 - **Category:** Information Disclosure (CWE-200)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)

@@ -149,6 +149,8 @@ from api.routes_queue import router as queue_router
 from api.routes_api_clients import router as api_clients_router
 # Phase 21: Provider Instance Management
 from api.routes_provider_instances import router as provider_instances_router, set_engine as set_provider_instances_engine
+# Phase 22: Custom Skills Foundation
+from api.routes_custom_skills import router as custom_skills_router, set_engine as set_custom_skills_engine
 from api.v1.router import v1_router
 from middleware.rate_limiter import ApiV1RateLimitMiddleware
 from services.queue_worker import start_queue_worker, stop_queue_worker
@@ -213,6 +215,9 @@ async def lifespan(app: FastAPI):
 
     # Phase 21: Provider Instance Management
     set_provider_instances_engine(engine)
+
+    # Phase 22: Custom Skills Foundation
+    set_custom_skills_engine(engine)
 
     logging.info("Database initialized")
 
@@ -1074,6 +1079,7 @@ app.include_router(sentinel_router, prefix="/api")  # Phase 20: Sentinel Securit
 app.include_router(sentinel_exceptions_router, prefix="/api")  # Phase 20 Enhancement: Sentinel Exceptions
 app.include_router(sentinel_profiles_router, prefix="/api")  # v1.6.0: Sentinel Security Profiles
 app.include_router(provider_instances_router, prefix="/api", tags=["Provider Instances"])  # Phase 21: Provider Instance Management
+app.include_router(custom_skills_router, prefix="/api", tags=["Custom Skills"])  # Phase 22: Custom Skills Foundation
 app.include_router(queue_router)  # Message Queue System
 app.include_router(api_clients_router)  # Public API v1: Client Management (UI-facing)
 app.include_router(v1_router)  # Public API v1: All /api/v1/ endpoints

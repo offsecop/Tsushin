@@ -1258,6 +1258,83 @@ class SkillManager:
                 logger.warning(f"Error checking conflict rule '{rule['name']}': {e}")
 
 
+    # =========================================================================
+    # PHASE 22: CUSTOM SKILLS FOUNDATION
+    # =========================================================================
+
+    def register_custom_skills(self, db, tenant_id: str):
+        """
+        Load tenant's enabled+clean custom skills into the registry.
+
+        Creates dynamic subclasses of CustomSkillAdapter for each custom skill
+        record, keyed by "custom:<slug>".
+
+        Args:
+            db: Database session
+            tenant_id: Tenant identifier
+        """
+        from models import CustomSkill
+        from agent.skills.custom_skill_adapter import CustomSkillAdapter
+
+        skills = db.query(CustomSkill).filter(
+            CustomSkill.tenant_id == tenant_id,
+            CustomSkill.is_enabled == True,
+            CustomSkill.scan_status == 'clean'
+        ).all()
+
+        for record in skills:
+            key = f"custom:{record.slug}"
+            if key not in self.registry:
+                adapter_class = type(
+                    f"CustomSkill_{record.slug}",
+                    (CustomSkillAdapter,),
+                    {
+                        'skill_type': key,
+                        'skill_name': record.name,
+                        'skill_description': record.description or '',
+                        'execution_mode': record.execution_mode,
+                        '_custom_skill_record': record,
+                    }
+                )
+                self.registry[key] = adapter_class
+                logger.info(f"Registered custom skill: {key} ({record.name})")
+
+    def get_custom_skill_instructions(self, db, agent_id: int) -> str:
+        """
+        Get concatenated instructions from instruction-type custom skills
+        assigned to this agent.
+
+        Only includes skills that are enabled, have clean scan status,
+        and are of the 'instruction' type variant.
+
+        Args:
+            db: Database session
+            agent_id: Agent ID
+
+        Returns:
+            Concatenated instruction markdown from all matching custom skills
+        """
+        from models import AgentCustomSkill, CustomSkill
+
+        assignments = db.query(AgentCustomSkill).join(
+            CustomSkill, AgentCustomSkill.custom_skill_id == CustomSkill.id
+        ).filter(
+            AgentCustomSkill.agent_id == agent_id,
+            AgentCustomSkill.is_enabled == True,
+            CustomSkill.is_enabled == True,
+            CustomSkill.skill_type_variant == 'instruction',
+            CustomSkill.scan_status == 'clean'
+        ).all()
+
+        instructions = []
+        for assignment in assignments:
+            skill = db.query(CustomSkill).filter(CustomSkill.id == assignment.custom_skill_id).first()
+            if skill and skill.instructions_md:
+                instructions.append(f"## Custom Skill: {skill.name}\n{skill.instructions_md}")
+
+        return "\n\n".join(instructions)
+
+
 # Global skill manager instance
 _skill_manager: Optional[SkillManager] = None
 

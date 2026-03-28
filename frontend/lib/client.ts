@@ -817,6 +817,9 @@ export interface Agent {
   whatsapp_integration_id?: number  // Specific MCP instance
   telegram_integration_id?: number  // Future: Telegram bot instance
 
+  // Phase 21: Provider Instance
+  provider_instance_id?: number | null  // Link to a specific provider instance
+
   // Agent avatar
   avatar?: string | null
 
@@ -2292,6 +2295,32 @@ export interface UserUpdateRequest {
   email_verified?: boolean
   tenant_id?: string
   role_name?: string
+}
+
+// Provider Instances
+export interface ProviderInstance {
+  id: number
+  tenant_id: string
+  vendor: string
+  instance_name: string
+  base_url: string | null
+  api_key_configured: boolean
+  api_key_preview: string
+  available_models: string[]
+  is_default: boolean
+  is_active: boolean
+  health_status: string
+  health_status_reason: string | null
+  last_health_check: string | null
+}
+
+export interface ProviderInstanceCreate {
+  vendor: string
+  instance_name: string
+  base_url?: string
+  api_key?: string
+  available_models?: string[]
+  is_default?: boolean
 }
 
 export const api = {
@@ -5869,6 +5898,71 @@ export const api = {
   async getApiClientUsage(clientId: string): Promise<ApiClientUsageInfo> {
     const res = await authenticatedFetch(`${API_URL}/api/clients/${clientId}/usage`)
     if (!res.ok) await handleApiError(res, 'Failed to fetch API client usage')
+    return res.json()
+  },
+
+  // ==================== Provider Instances API ====================
+
+  async getProviderInstances(vendor?: string): Promise<ProviderInstance[]> {
+    const url = vendor
+      ? `${API_URL}/api/provider-instances?vendor=${encodeURIComponent(vendor)}`
+      : `${API_URL}/api/provider-instances`
+    const res = await authenticatedFetch(url)
+    if (!res.ok) await handleApiError(res, 'Failed to fetch provider instances')
+    return res.json()
+  },
+
+  async createProviderInstance(data: ProviderInstanceCreate): Promise<ProviderInstance> {
+    const res = await authenticatedFetch(`${API_URL}/api/provider-instances`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    if (!res.ok) await handleApiError(res, 'Failed to create provider instance')
+    return res.json()
+  },
+
+  async updateProviderInstance(id: number, data: Partial<ProviderInstanceCreate>): Promise<ProviderInstance> {
+    const res = await authenticatedFetch(`${API_URL}/api/provider-instances/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    if (!res.ok) await handleApiError(res, 'Failed to update provider instance')
+    return res.json()
+  },
+
+  async deleteProviderInstance(id: number): Promise<void> {
+    const res = await authenticatedFetch(`${API_URL}/api/provider-instances/${id}`, {
+      method: 'DELETE',
+    })
+    if (!res.ok) await handleApiError(res, 'Failed to delete provider instance')
+  },
+
+  async testProviderConnection(id: number): Promise<{ success: boolean; message: string; latency_ms?: number }> {
+    const res = await authenticatedFetch(`${API_URL}/api/provider-instances/${id}/test-connection`, {
+      method: 'POST',
+    })
+    if (!res.ok) await handleApiError(res, 'Failed to test provider connection')
+    return res.json()
+  },
+
+  async discoverProviderModels(id: number): Promise<string[]> {
+    const res = await authenticatedFetch(`${API_URL}/api/provider-instances/${id}/discover-models`, {
+      method: 'POST',
+    })
+    if (!res.ok) await handleApiError(res, 'Failed to discover models')
+    const data = await res.json()
+    return data.models || []
+  },
+
+  async validateProviderUrl(url: string): Promise<{ valid: boolean; error?: string }> {
+    const res = await authenticatedFetch(`${API_URL}/api/provider-instances/validate-url`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    })
+    if (!res.ok) await handleApiError(res, 'Failed to validate URL')
     return res.json()
   },
 }

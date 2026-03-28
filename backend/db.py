@@ -434,6 +434,57 @@ def ensure_rbac_permissions(session):
         session.commit()
         print("[RBAC] API client permissions ensured successfully")
 
+    # Phase 22: Ensure custom skill permissions exist
+    custom_skill_permissions_data = [
+        ("skills.custom.create", "skills.custom", "create", "Create custom skills"),
+        ("skills.custom.read", "skills.custom", "read", "View custom skills"),
+        ("skills.custom.execute", "skills.custom", "execute", "Execute custom skills"),
+        ("skills.custom.delete", "skills.custom", "delete", "Delete custom skills"),
+    ]
+
+    custom_skill_role_assignments = {
+        "owner": ["skills.custom.create", "skills.custom.read", "skills.custom.execute", "skills.custom.delete"],
+        "admin": ["skills.custom.create", "skills.custom.read", "skills.custom.execute", "skills.custom.delete"],
+        "member": ["skills.custom.read", "skills.custom.execute"],
+    }
+
+    custom_skill_perms_added = False
+    for name, resource, action, description in custom_skill_permissions_data:
+        existing_perm = session.query(Permission).filter(Permission.name == name).first()
+        if not existing_perm:
+            print(f"[RBAC] Adding missing {name} permission...")
+            perm = Permission(name=name, resource=resource, action=action, description=description)
+            session.add(perm)
+            session.flush()
+
+            for role_name, role_perms in custom_skill_role_assignments.items():
+                if name in role_perms:
+                    role = session.query(Role).filter(Role.name == role_name).first()
+                    if role:
+                        rp = RolePermission(role_id=role.id, permission_id=perm.id)
+                        session.add(rp)
+                        print(f"[RBAC] Assigned {name} to role: {role_name}")
+
+            custom_skill_perms_added = True
+        else:
+            for role_name, role_perms in custom_skill_role_assignments.items():
+                if name in role_perms:
+                    role = session.query(Role).filter(Role.name == role_name).first()
+                    if role:
+                        existing_mapping = session.query(RolePermission).filter(
+                            RolePermission.role_id == role.id,
+                            RolePermission.permission_id == existing_perm.id
+                        ).first()
+                        if not existing_mapping:
+                            rp = RolePermission(role_id=role.id, permission_id=existing_perm.id)
+                            session.add(rp)
+                            print(f"[RBAC] Assigned {name} to role: {role_name}")
+                            custom_skill_perms_added = True
+
+    if custom_skill_perms_added:
+        session.commit()
+        print("[RBAC] Custom skill permissions ensured successfully")
+
 
 def seed_slash_commands(session):
     """

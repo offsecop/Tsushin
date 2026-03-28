@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { api, Agent, TonePreset, Persona } from '@/lib/client'
+import { api, Agent, TonePreset, Persona, ProviderInstance } from '@/lib/client'
 import {
   InfoIcon, TargetIcon, TheaterIcon, BotIcon, KeyIcon, LightbulbIcon,
-  SettingsIcon, ClipboardIcon, SparklesIcon, ScaleIcon
+  SettingsIcon, ClipboardIcon, SparklesIcon, ScaleIcon, LinkIcon
 } from '@/components/ui/icons'
 
 interface Props {
@@ -63,6 +63,8 @@ export default function AgentConfigurationManager({ agentId }: Props) {
   // enabledTools removed - use Skills system for web_search, weather, etc.
   const [modelProvider, setModelProvider] = useState('gemini')
   const [modelName, setModelName] = useState('gemini-2.5-pro')
+  const [providerInstanceId, setProviderInstanceId] = useState<number | null>(null)
+  const [providerInstances, setProviderInstances] = useState<ProviderInstance[]>([])
   const [isActive, setIsActive] = useState(true)
   const [isDefault, setIsDefault] = useState(false)
 
@@ -104,8 +106,17 @@ export default function AgentConfigurationManager({ agentId }: Props) {
       // enabledTools removed - use Skills system
       setModelProvider(agentData.model_provider)
       setModelName(agentData.model_name)
+      setProviderInstanceId(agentData.provider_instance_id || null)
       setIsActive(agentData.is_active)
       setIsDefault(agentData.is_default)
+
+      // Load provider instances for the selected vendor
+      try {
+        const instances = await api.getProviderInstances(agentData.model_provider)
+        setProviderInstances(instances)
+      } catch {
+        setProviderInstances([])
+      }
 
       // Trigger configuration
       setTriggerDmEnabled(agentData.trigger_dm_enabled ?? null)
@@ -136,6 +147,7 @@ export default function AgentConfigurationManager({ agentId }: Props) {
         // enabled_tools removed - use Skills system for web_search, weather, etc.
         model_provider: modelProvider,
         model_name: modelName,
+        provider_instance_id: providerInstanceId,
         is_active: isActive,
         is_default: isDefault,
 
@@ -205,6 +217,14 @@ export default function AgentConfigurationManager({ agentId }: Props) {
   }
 
   const getAvailableModels = () => {
+    // If an instance is selected and it has models, use those
+    if (providerInstanceId) {
+      const instance = providerInstances.find(i => i.id === providerInstanceId)
+      if (instance && instance.available_models.length > 0) {
+        return instance.available_models
+      }
+    }
+    // Fall back to static MODEL_PROVIDERS list
     const provider = MODEL_PROVIDERS.find(p => p.value === modelProvider)
     return provider?.models || []
   }
@@ -322,11 +342,20 @@ export default function AgentConfigurationManager({ agentId }: Props) {
             <label className="block text-sm font-medium mb-2">Provider</label>
             <select
               value={modelProvider}
-              onChange={(e) => {
-                setModelProvider(e.target.value)
-                const provider = MODEL_PROVIDERS.find(p => p.value === e.target.value)
+              onChange={async (e) => {
+                const newVendor = e.target.value
+                setModelProvider(newVendor)
+                setProviderInstanceId(null)
+                const provider = MODEL_PROVIDERS.find(p => p.value === newVendor)
                 if (provider && provider.models.length > 0) {
                   setModelName(provider.models[0])
+                }
+                // Fetch instances for the new vendor
+                try {
+                  const instances = await api.getProviderInstances(newVendor)
+                  setProviderInstances(instances)
+                } catch {
+                  setProviderInstances([])
                 }
               }}
               className="w-full px-3 py-2 border border-tsushin-border rounded-md text-white bg-tsushin-surface"
