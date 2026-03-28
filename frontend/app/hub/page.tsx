@@ -13,6 +13,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { api, WhatsAppMCPInstance, MCPHealthStatus, QRCodeResponse, TelegramBotInstance, TelegramHealthStatus, Config, ProviderInstance } from '@/lib/client'
@@ -2836,6 +2837,15 @@ export default function HubPage() {
                             >
                               Refresh Tools
                             </button>
+                            <Link
+                              href={`/agents/custom-skills?mcp_server_id=${server.id}`}
+                              className="text-xs px-2.5 py-1.5 rounded-lg bg-tsushin-indigo/10 text-tsushin-indigo hover:bg-tsushin-indigo/20 transition-colors inline-flex items-center gap-1"
+                            >
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                              </svg>
+                              Create Skill
+                            </Link>
                             <button
                               onClick={() => handleDeleteMcpServer(server.id, server.server_name)}
                               disabled={isActionLoading}

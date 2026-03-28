@@ -8,8 +8,9 @@
  * Supports instruction-based and script-based skill types.
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { api, CustomSkill, CustomSkillCreate, CustomSkillUpdate } from '@/lib/client'
 
@@ -58,7 +59,7 @@ function formatDate(dateStr: string | null | undefined): string {
 
 // ==================== Page ====================
 
-export default function CustomSkillsPage() {
+function CustomSkillsPageContent() {
   const { hasPermission } = useAuth()
   const canCreate = hasPermission('skills.custom.create')
   const canDelete = hasPermission('skills.custom.delete')
@@ -102,6 +103,17 @@ export default function CustomSkillsPage() {
   const [testRunning, setTestRunning] = useState(false)
   const [testResult, setTestResult] = useState<any>(null)
 
+  // MCP Server state
+  const [mcpServers, setMcpServers] = useState<any[]>([])
+  const [mcpTools, setMcpTools] = useState<any[]>([])
+  const [selectedServerId, setSelectedServerId] = useState<number | null>(null)
+  const [selectedToolName, setSelectedToolName] = useState<string>('')
+  const [mcpToolsLoading, setMcpToolsLoading] = useState(false)
+
+  // URL params for pre-selection (from Hub "Create Skill" shortcut)
+  const searchParams = useSearchParams()
+  const preselectedMcpServerId = searchParams.get('mcp_server_id')
+
   // Fetch skills
   const fetchSkills = useCallback(async () => {
     try {
@@ -127,6 +139,63 @@ export default function CustomSkillsPage() {
     }
   }, [success])
 
+  // Fetch MCP servers for the dropdown
+  useEffect(() => {
+    const fetchMcpServers = async () => {
+      try {
+        const servers = await api.getMCPServers()
+        setMcpServers(servers)
+      } catch { /* non-critical */ }
+    }
+    fetchMcpServers()
+  }, [])
+
+  // Handle pre-selected MCP server from URL params (Hub shortcut)
+  useEffect(() => {
+    if (preselectedMcpServerId && mcpServers.length > 0 && !showModal) {
+      const serverId = parseInt(preselectedMcpServerId, 10)
+      if (!isNaN(serverId) && mcpServers.some(s => s.id === serverId)) {
+        setEditingSkill(null)
+        setFormName('')
+        setFormDescription('')
+        setFormIcon('')
+        setFormType('mcp_server')
+        setFormExecMode('tool')
+        setFormTriggerMode('llm_decided')
+        setFormInstructions('')
+        setFormScriptContent('')
+        setFormScriptEntrypoint('main.py')
+        setFormScriptLanguage('python')
+        setFormTimeout(30)
+        setFormPriority(50)
+        setSelectedServerId(serverId)
+        setSelectedToolName('')
+        setMcpTools([])
+        setShowModal(true)
+      }
+    }
+  }, [preselectedMcpServerId, mcpServers]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch tools when MCP server selection changes
+  useEffect(() => {
+    if (selectedServerId && formType === 'mcp_server') {
+      const fetchTools = async () => {
+        setMcpToolsLoading(true)
+        try {
+          const tools = await api.getMCPServerTools(selectedServerId)
+          setMcpTools(tools)
+        } catch {
+          setMcpTools([])
+        } finally {
+          setMcpToolsLoading(false)
+        }
+      }
+      fetchTools()
+    } else {
+      setMcpTools([])
+    }
+  }, [selectedServerId, formType])
+
   // Open create modal
   const openCreate = () => {
     setEditingSkill(null)
@@ -142,6 +211,9 @@ export default function CustomSkillsPage() {
     setFormScriptLanguage('python')
     setFormTimeout(30)
     setFormPriority(50)
+    setSelectedServerId(null)
+    setSelectedToolName('')
+    setMcpTools([])
     setShowModal(true)
   }
 
@@ -160,6 +232,8 @@ export default function CustomSkillsPage() {
     setFormScriptLanguage(skill.script_language || 'python')
     setFormTimeout(skill.timeout_seconds)
     setFormPriority(skill.priority)
+    setSelectedServerId(skill.mcp_server_id || null)
+    setSelectedToolName(skill.mcp_tool_name || '')
     setShowModal(true)
   }
 
@@ -167,6 +241,10 @@ export default function CustomSkillsPage() {
   const handleSave = async () => {
     if (!formName.trim()) {
       setError('Skill name is required')
+      return
+    }
+    if (formType === 'mcp_server' && !selectedServerId) {
+      setError('Please select an MCP server')
       return
     }
 
@@ -182,12 +260,14 @@ export default function CustomSkillsPage() {
           skill_type_variant: formType,
           execution_mode: formExecMode,
           trigger_mode: formTriggerMode,
-          instructions_md: formType === 'instruction' ? formInstructions : undefined,
+          instructions_md: (formType === 'instruction' || formType === 'mcp_server') ? formInstructions || undefined : undefined,
           script_content: formType === 'script' ? formScriptContent : undefined,
           script_entrypoint: formType === 'script' ? formScriptEntrypoint : undefined,
           script_language: formType === 'script' ? formScriptLanguage : undefined,
           timeout_seconds: formTimeout,
           priority: formPriority,
+          mcp_server_id: formType === 'mcp_server' ? selectedServerId : null,
+          mcp_tool_name: formType === 'mcp_server' ? selectedToolName || undefined : undefined,
         }
         await api.updateCustomSkill(editingSkill.id, update)
         setSuccess(`Skill "${formName}" updated`)
@@ -199,12 +279,14 @@ export default function CustomSkillsPage() {
           skill_type_variant: formType,
           execution_mode: formExecMode,
           trigger_mode: formTriggerMode,
-          instructions_md: formType === 'instruction' ? formInstructions : undefined,
+          instructions_md: (formType === 'instruction' || formType === 'mcp_server') ? formInstructions || undefined : undefined,
           script_content: formType === 'script' ? formScriptContent : undefined,
           script_entrypoint: formType === 'script' ? formScriptEntrypoint : undefined,
           script_language: formType === 'script' ? formScriptLanguage : undefined,
           timeout_seconds: formTimeout,
           priority: formPriority,
+          mcp_server_id: formType === 'mcp_server' ? selectedServerId : undefined,
+          mcp_tool_name: formType === 'mcp_server' ? selectedToolName || undefined : undefined,
         }
         await api.createCustomSkill(create)
         setSuccess(`Skill "${formName}" created`)
@@ -293,10 +375,34 @@ export default function CustomSkillsPage() {
     }
   }
 
+  // Helper to prettify MCP tool names
+  const prettifyToolName = (toolName: string): string => {
+    return toolName
+      .replace(/_/g, ' ')
+      .replace(/-/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase())
+  }
+
+  // Handle MCP tool selection - auto-populate form fields
+  const handleToolSelect = (toolName: string) => {
+    setSelectedToolName(toolName)
+    const tool = mcpTools.find(t => t.tool_name === toolName)
+    if (tool) {
+      if (!formName || formName === prettifyToolName(selectedToolName)) {
+        setFormName(prettifyToolName(tool.tool_name))
+      }
+      if (!formDescription) {
+        setFormDescription(tool.description || '')
+      }
+      setFormIcon('')
+    }
+  }
+
   // Stats
   const totalSkills = skills.length
   const activeSkills = skills.filter(s => s.is_enabled).length
   const instructionSkills = skills.filter(s => s.skill_type_variant === 'instruction').length
+  const mcpSkills = skills.filter(s => s.skill_type_variant === 'mcp_server').length
   const scriptSkills = skills.filter(s => s.skill_type_variant === 'script').length
 
   if (loading) {
@@ -374,7 +480,7 @@ export default function CustomSkillsPage() {
         )}
 
         {/* Stat Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
           <div className="bg-tsushin-surface border border-white/10 rounded-xl p-4">
             <p className="text-tsushin-slate text-xs uppercase tracking-wider mb-1">Total</p>
             <p className="text-2xl font-bold text-white">{totalSkills}</p>
@@ -390,6 +496,10 @@ export default function CustomSkillsPage() {
           <div className="bg-tsushin-surface border border-white/10 rounded-xl p-4">
             <p className="text-tsushin-slate text-xs uppercase tracking-wider mb-1">Script</p>
             <p className="text-2xl font-bold text-violet-400">{scriptSkills}</p>
+          </div>
+          <div className="bg-tsushin-surface border border-white/10 rounded-xl p-4">
+            <p className="text-tsushin-slate text-xs uppercase tracking-wider mb-1">MCP Server</p>
+            <p className="text-2xl font-bold text-cyan-400">{mcpSkills}</p>
           </div>
         </div>
 
@@ -425,7 +535,7 @@ export default function CustomSkillsPage() {
                   {/* Left: Icon + Info */}
                   <div className="flex items-start gap-4 min-w-0 flex-1">
                     <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center shrink-0 text-lg">
-                      {skill.icon || (skill.skill_type_variant === 'script' ? '\u2699' : '\u2728')}
+                      {skill.icon || (skill.skill_type_variant === 'script' ? '\u2699' : skill.skill_type_variant === 'mcp_server' ? '\u{1F50C}' : '\u2728')}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -602,11 +712,19 @@ export default function CustomSkillsPage() {
                     <label className="block text-sm font-medium text-tsushin-slate mb-1">Type</label>
                     <select
                       value={formType}
-                      onChange={(e) => setFormType(e.target.value)}
+                      onChange={(e) => {
+                        setFormType(e.target.value)
+                        if (e.target.value !== 'mcp_server') {
+                          setSelectedServerId(null)
+                          setSelectedToolName('')
+                          setMcpTools([])
+                        }
+                      }}
                       className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tsushin-accent/50"
                     >
                       <option value="instruction">Instruction</option>
                       <option value="script">Script</option>
+                      <option value="mcp_server">MCP Server</option>
                     </select>
                   </div>
                   <div>
@@ -634,6 +752,99 @@ export default function CustomSkillsPage() {
                     </select>
                   </div>
                 </div>
+
+                {/* MCP Server configuration */}
+                {formType === 'mcp_server' && (
+                  <div className="space-y-4">
+                    {/* MCP Server selector */}
+                    <div>
+                      <label className="block text-sm font-medium text-tsushin-slate mb-1">MCP Server *</label>
+                      <select
+                        value={selectedServerId ?? ''}
+                        onChange={(e) => {
+                          const id = e.target.value ? parseInt(e.target.value, 10) : null
+                          setSelectedServerId(id)
+                          setSelectedToolName('')
+                        }}
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-tsushin-accent/50"
+                      >
+                        <option value="">Select an MCP server...</option>
+                        {mcpServers.map(server => (
+                          <option key={server.id} value={server.id}>
+                            {server.server_name}
+                            {server.connection_status === 'healthy' ? ' (connected)' : server.connection_status === 'disconnected' ? ' (disconnected)' : ` (${server.connection_status})`}
+                          </option>
+                        ))}
+                      </select>
+                      {mcpServers.length === 0 && (
+                        <p className="text-xs text-tsushin-slate/60 mt-1">
+                          No MCP servers configured. <Link href="/hub" className="text-tsushin-accent hover:underline">Add one in the Hub</Link>.
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Tool selector */}
+                    {selectedServerId && (
+                      <div>
+                        <label className="block text-sm font-medium text-tsushin-slate mb-1">Tool</label>
+                        {mcpToolsLoading ? (
+                          <div className="flex items-center gap-2 text-tsushin-slate text-sm py-2">
+                            <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                            Loading tools...
+                          </div>
+                        ) : mcpTools.length === 0 ? (
+                          <p className="text-xs text-tsushin-slate/60 py-2">
+                            No tools discovered. Try connecting and refreshing tools from the Hub.
+                          </p>
+                        ) : (
+                          <div className="grid gap-2 max-h-60 overflow-y-auto pr-1">
+                            {mcpTools.map(tool => (
+                              <button
+                                key={tool.id}
+                                type="button"
+                                onClick={() => handleToolSelect(tool.tool_name)}
+                                className={`text-left w-full rounded-lg p-3 border transition-colors ${
+                                  selectedToolName === tool.tool_name
+                                    ? 'bg-tsushin-accent/10 border-tsushin-accent/40'
+                                    : 'bg-tsushin-ink/50 border-white/5 hover:border-tsushin-accent/30'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <span className="text-sm font-medium text-white font-mono">{tool.tool_name}</span>
+                                  {selectedToolName === tool.tool_name && (
+                                    <svg className="w-4 h-4 text-tsushin-accent shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  )}
+                                </div>
+                                {tool.description && (
+                                  <p className="text-xs text-tsushin-slate line-clamp-2">{tool.description}</p>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Instructions (optional context for MCP server skills) */}
+                    <div>
+                      <label className="block text-sm font-medium text-tsushin-slate mb-1">
+                        Additional Instructions (optional)
+                      </label>
+                      <textarea
+                        value={formInstructions}
+                        onChange={(e) => setFormInstructions(e.target.value)}
+                        rows={4}
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white font-mono text-sm placeholder-tsushin-slate/50 focus:outline-none focus:border-tsushin-accent/50 resize-y"
+                        placeholder="Optional: add context or constraints for how the agent should use this MCP tool..."
+                      />
+                      <p className="text-xs text-tsushin-slate/60 mt-1">
+                        Provide additional instructions for the agent when invoking this tool.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Instruction content */}
                 {formType === 'instruction' && (
@@ -734,7 +945,7 @@ export default function CustomSkillsPage() {
                 </button>
                 <button
                   onClick={handleSave}
-                  disabled={saving || !formName.trim()}
+                  disabled={saving || !formName.trim() || (formType === 'mcp_server' && !selectedServerId)}
                   className="px-5 py-2 bg-tsushin-indigo hover:bg-tsushin-indigo/80 disabled:opacity-50 text-white rounded-lg font-medium transition-colors"
                 >
                   {saving ? 'Saving...' : (editingSkill ? 'Update' : 'Create')}
@@ -829,5 +1040,25 @@ export default function CustomSkillsPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function CustomSkillsPage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 bg-white/5 rounded w-48" />
+            <div className="grid grid-cols-5 gap-4">
+              {[1,2,3,4,5].map(i => <div key={i} className="h-20 bg-white/5 rounded-xl" />)}
+            </div>
+            <div className="h-64 bg-white/5 rounded-xl" />
+          </div>
+        </div>
+      </div>
+    }>
+      <CustomSkillsPageContent />
+    </Suspense>
   )
 }

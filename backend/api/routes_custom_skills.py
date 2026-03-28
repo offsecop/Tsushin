@@ -72,6 +72,8 @@ class CustomSkillCreate(BaseModel):
     timeout_seconds: int = Field(default=30)
     priority: int = Field(default=50)
     sentinel_profile_id: Optional[int] = None
+    mcp_server_id: Optional[int] = None
+    mcp_tool_name: Optional[str] = None
 
 
 class CustomSkillUpdate(BaseModel):
@@ -92,6 +94,8 @@ class CustomSkillUpdate(BaseModel):
     priority: Optional[int] = None
     is_enabled: Optional[bool] = None
     sentinel_profile_id: Optional[int] = None
+    mcp_server_id: Optional[int] = None
+    mcp_tool_name: Optional[str] = None
 
 
 class CustomSkillTestRequest(BaseModel):
@@ -146,6 +150,8 @@ class CustomSkillResponse(BaseModel):
     scan_status: str
     last_scan_result: Optional[dict] = None
     version: str
+    mcp_server_id: Optional[int] = None
+    mcp_tool_name: Optional[str] = None
     created_by: Optional[int] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
@@ -206,6 +212,8 @@ def _to_response(skill: CustomSkill) -> CustomSkillResponse:
         scan_status=skill.scan_status,
         last_scan_result=skill.last_scan_result,
         version=skill.version,
+        mcp_server_id=skill.mcp_server_id,
+        mcp_tool_name=skill.mcp_tool_name,
         created_by=skill.created_by,
         created_at=skill.created_at.isoformat() if skill.created_at else None,
         updated_at=skill.updated_at.isoformat() if skill.updated_at else None,
@@ -261,6 +269,8 @@ def _snapshot_skill(skill: CustomSkill) -> dict:
         "priority": skill.priority,
         "timeout_seconds": skill.timeout_seconds,
         "version": skill.version,
+        "mcp_server_id": skill.mcp_server_id,
+        "mcp_tool_name": skill.mcp_tool_name,
     }
 
 
@@ -342,6 +352,26 @@ async def create_custom_skill(
     if payload.script_language and payload.script_language not in ('python', 'bash', 'nodejs'):
         raise HTTPException(status_code=400, detail="script_language must be one of: python, bash, nodejs")
 
+    # Validate MCP server for mcp_server type
+    if payload.skill_type_variant == 'mcp_server':
+        if not payload.mcp_server_id:
+            raise HTTPException(status_code=400, detail="mcp_server_id is required for mcp_server skill type")
+        from models import MCPServerConfig, MCPDiscoveredTool
+        mcp_server = db.query(MCPServerConfig).filter(
+            MCPServerConfig.id == payload.mcp_server_id,
+            MCPServerConfig.tenant_id == tenant_id,
+        ).first()
+        if not mcp_server:
+            raise HTTPException(status_code=404, detail="MCP server not found or does not belong to this tenant")
+        # If tool name provided, auto-populate input_schema from discovered tool
+        if payload.mcp_tool_name:
+            tool = db.query(MCPDiscoveredTool).filter(
+                MCPDiscoveredTool.server_id == payload.mcp_server_id,
+                MCPDiscoveredTool.tool_name == payload.mcp_tool_name,
+            ).first()
+            if tool and tool.input_schema and not payload.input_schema:
+                payload.input_schema = tool.input_schema
+
     # Create skill
     skill = CustomSkill(
         tenant_id=tenant_id,
@@ -363,6 +393,8 @@ async def create_custom_skill(
         priority=payload.priority,
         sentinel_profile_id=payload.sentinel_profile_id,
         timeout_seconds=payload.timeout_seconds,
+        mcp_server_id=payload.mcp_server_id,
+        mcp_tool_name=payload.mcp_tool_name,
         is_enabled=True,
         scan_status='pending',
         version='1.0.0',

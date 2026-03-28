@@ -2352,6 +2352,8 @@ export interface CustomSkill {
   scan_status: string          // pending | clean | rejected
   last_scan_result?: Record<string, any> | null
   version: string
+  mcp_server_id?: number | null
+  mcp_tool_name?: string | null
   created_by?: number | null
   created_at?: string | null
   updated_at?: string | null
@@ -2374,6 +2376,8 @@ export interface CustomSkillCreate {
   timeout_seconds?: number
   priority?: number
   sentinel_profile_id?: number | null
+  mcp_server_id?: number | null
+  mcp_tool_name?: string | null
 }
 
 export interface CustomSkillUpdate {
@@ -2394,6 +2398,8 @@ export interface CustomSkillUpdate {
   priority?: number
   is_enabled?: boolean
   sentinel_profile_id?: number | null
+  mcp_server_id?: number | null
+  mcp_tool_name?: string | null
 }
 
 export interface CustomSkillTestResult {

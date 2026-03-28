@@ -729,6 +729,8 @@ class CustomSkill(Base):
     scan_status = Column(String(20), default='pending')  # pending|clean|rejected
     last_scan_result = Column(JSON, nullable=True)
     version = Column(String(20), nullable=False, default='1.0.0')
+    mcp_server_id = Column(Integer, ForeignKey("mcp_server_config.id", ondelete="SET NULL"), nullable=True)
+    mcp_tool_name = Column(String(200), nullable=True)
     created_by = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
