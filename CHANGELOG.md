@@ -185,6 +185,10 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Fixed stale `gemini-2.0-flash-lite` defaults to `2.5-flash-lite`
 - Removed hardcoded dev password from `alembic.ini`
 - Removed tracked dev artifacts and hardened `.gitignore`
+- Fixed Helm chart missing `POSTGRES_PASSWORD` in secrets — pod would fail `InvalidPodSpec` on GKE
+- Fixed `TSN_GCP_PROJECT_ID` not injected into pod — backend would crash with `KeyError` at startup
+- Fixed `commit_container` hard error in K8s mode — now gracefully falls back to DB-only package tracking
+- Fixed hardcoded `v0.6.0` image tag in CI — now derived from `Chart.yaml appVersion`
 - Shell injection prevention in `K8sRuntime` exec commands via `shlex.quote`
 - Thread-safe exec exit code cache with `Lock` in `K8sRuntime`
 - PVC cleanup on container removal in `K8sRuntime` to prevent resource leaks
