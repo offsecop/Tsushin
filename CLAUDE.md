@@ -25,6 +25,11 @@
 - Bot acceptable tests are via WhatsApp tester MCP or playground using browser automation (general), you have access to both and can proactively test everything, so don't be lazy and delegate simple tests to the user.
 - **Seed/Installer Script Maintenance:** Whenever implementing architectural changes, DB schema modifications, or new functionality, always review and update the seed/installer scripts (e.g., `backend/services/tone_preset_seeding.py`, database initialization scripts) to ensure they remain consistent with the new changes. This includes: new tables, new required fields, default values, enum changes, and any data that needs to be pre-populated.
 
+# Key Project Files
+
+- **Bug Tracker:** `BUGS.md` (root) — all open/resolved bugs with severity, category, file references, and remediation steps. Check here before starting any bug fix work.
+- **Roadmap:** `.private/ROADMAP.md` — version plans, feature status (complete/planned), and implementation details. Check here for release scope and priorities.
+
 # Branching Strategy (Git Flow Lite)
 
 - **`main`** — stable releases only. Tagged with version numbers (e.g., `v1.5.0`). Never push directly to `main`; merge via PR only.
