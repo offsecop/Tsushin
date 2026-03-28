@@ -2631,13 +2631,13 @@ export const api = {
     if (activeOnly) params.append('active_only', 'true')
 
     const res = await authenticatedFetch(`${API_URL}/api/agents?${params}`)
-    if (!res.ok) throw new Error('Failed to fetch agents')
+    if (!res.ok) await handleApiError(res, 'Failed to fetch agents')
     return res.json()
   },
 
   async getAgent(id: number): Promise<Agent> {
     const res = await authenticatedFetch(`${API_URL}/api/agents/${id}`)
-    if (!res.ok) throw new Error('Failed to fetch agent')
+    if (!res.ok) await handleApiError(res, 'Failed to fetch agent')
     return res.json()
   },
 
@@ -2658,7 +2658,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(agent),
     })
-    if (!res.ok) throw new Error('Failed to create agent')
+    if (!res.ok) await handleApiError(res, 'Failed to create agent')
     return res.json()
   },
 
@@ -2686,7 +2686,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(agent),
     })
-    if (!res.ok) throw new Error('Failed to update agent')
+    if (!res.ok) await handleApiError(res, 'Failed to update agent')
     return res.json()
   },
 
@@ -2694,7 +2694,7 @@ export const api = {
     const res = await authenticatedFetch(`${API_URL}/api/agents/${id}`, {
       method: 'DELETE',
     })
-    if (!res.ok) throw new Error('Failed to delete agent')
+    if (!res.ok) await handleApiError(res, 'Failed to delete agent')
   },
 
   // Phase 6 - Graph View: Batch endpoints for performance
@@ -2928,14 +2928,14 @@ export const api = {
   // Phase 5.0: Skills System
   async getAvailableSkills(): Promise<SkillDefinition[]> {
     const res = await authenticatedFetch(`${API_URL}/api/skills/available`)
-    if (!res.ok) throw new Error('Failed to fetch available skills')
+    if (!res.ok) await handleApiError(res, 'Failed to fetch available skills')
     const data = await res.json()
     return data.skills || []
   },
 
   async getAgentSkills(agentId: number): Promise<AgentSkill[]> {
     const res = await authenticatedFetch(`${API_URL}/api/agents/${agentId}/skills`)
-    if (!res.ok) throw new Error('Failed to fetch agent skills')
+    if (!res.ok) await handleApiError(res, 'Failed to fetch agent skills')
     const data = await res.json()
     return data.skills || []
   },
@@ -2952,7 +2952,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(update),
     })
-    if (!res.ok) throw new Error('Failed to update agent skill')
+    if (!res.ok) await handleApiError(res, 'Failed to update agent skill')
     return res.json()
   },
 
@@ -2960,7 +2960,7 @@ export const api = {
     const res = await authenticatedFetch(`${API_URL}/api/agents/${agentId}/skills/${skillType}`, {
       method: 'DELETE',
     })
-    if (!res.ok) throw new Error('Failed to disable agent skill')
+    if (!res.ok) await handleApiError(res, 'Failed to disable agent skill')
   },
 
   // Skill Integrations (Provider Configuration)
@@ -3800,7 +3800,7 @@ export const api = {
         'Authorization': `Bearer ${token}`,
       },
     })
-    if (!res.ok) throw new Error('Failed to fetch current user')
+    if (!res.ok) await handleApiError(res, 'Failed to fetch current user')
     return res.json()
   },
 
@@ -3834,20 +3834,20 @@ export const api = {
         'Authorization': `Bearer ${token}`,
       },
     })
-    if (!res.ok) throw new Error('Failed to logout')
+    if (!res.ok) await handleApiError(res, 'Failed to logout')
     return res.json()
   },
 
   // Phase 8: Multi-Tenant MCP Containerization
   async getMCPInstances(): Promise<WhatsAppMCPInstance[]> {
     const res = await authenticatedFetch(`${API_URL}/api/mcp/instances/`)
-    if (!res.ok) throw new Error('Failed to fetch MCP instances')
+    if (!res.ok) await handleApiError(res, 'Failed to fetch MCP instances')
     return res.json()
   },
 
   async getMCPInstance(id: number): Promise<WhatsAppMCPInstance> {
     const res = await authenticatedFetch(`${API_URL}/api/mcp/instances/${id}`)
-    if (!res.ok) throw new Error('Failed to fetch MCP instance')
+    if (!res.ok) await handleApiError(res, 'Failed to fetch MCP instance')
     return res.json()
   },
 
@@ -3857,7 +3857,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone_number, instance_type }),
     })
-    if (!res.ok) throw new Error('Failed to create MCP instance')
+    if (!res.ok) await handleApiError(res, 'Failed to create MCP instance')
     return res.json()
   },
 
@@ -3865,7 +3865,7 @@ export const api = {
     const res = await authenticatedFetch(`${API_URL}/api/mcp/instances/${id}/start`, {
       method: 'POST',
     })
-    if (!res.ok) throw new Error('Failed to start MCP instance')
+    if (!res.ok) await handleApiError(res, 'Failed to start MCP instance')
     return res.json()
   },
 
@@ -3873,7 +3873,7 @@ export const api = {
     const res = await authenticatedFetch(`${API_URL}/api/mcp/instances/${id}/stop`, {
       method: 'POST',
     })
-    if (!res.ok) throw new Error('Failed to stop MCP instance')
+    if (!res.ok) await handleApiError(res, 'Failed to stop MCP instance')
     return res.json()
   },
 
@@ -3881,7 +3881,7 @@ export const api = {
     const res = await authenticatedFetch(`${API_URL}/api/mcp/instances/${id}/restart`, {
       method: 'POST',
     })
-    if (!res.ok) throw new Error('Failed to restart MCP instance')
+    if (!res.ok) await handleApiError(res, 'Failed to restart MCP instance')
     return res.json()
   },
 
@@ -3892,7 +3892,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ is_group_handler: isGroupHandler }),
     })
-    if (!res.ok) throw new Error('Failed to set group handler')
+    if (!res.ok) await handleApiError(res, 'Failed to set group handler')
     return res.json()
   },
 
@@ -3903,7 +3903,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(filters),
     })
-    if (!res.ok) throw new Error('Failed to update instance filters')
+    if (!res.ok) await handleApiError(res, 'Failed to update instance filters')
     return res.json()
   },
 
@@ -3911,7 +3911,7 @@ export const api = {
     const res = await authenticatedFetch(`${API_URL}/api/mcp/instances/${id}?remove_data=${removeData}`, {
       method: 'DELETE',
     })
-    if (!res.ok) throw new Error('Failed to delete MCP instance')
+    if (!res.ok) await handleApiError(res, 'Failed to delete MCP instance')
     return res.json()
   },
 
@@ -4113,7 +4113,7 @@ export const api = {
   // Phase 14.3: Playground Settings
   async getPlaygroundSettings(): Promise<PlaygroundSettings> {
     const res = await authenticatedFetch(`${API_URL}/api/playground/settings`)
-    if (!res.ok) throw new Error('Failed to fetch settings')
+    if (!res.ok) await handleApiError(res, 'Failed to fetch settings')
     return res.json()
   },
 
@@ -4123,7 +4123,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings),
     })
-    if (!res.ok) throw new Error('Failed to update settings')
+    if (!res.ok) await handleApiError(res, 'Failed to update settings')
     return res.json()
   },
 
@@ -4136,13 +4136,13 @@ export const api = {
   // BUG-010 Fix: Organization API
   async getCurrentOrganization(): Promise<OrganizationData> {
     const res = await authenticatedFetch(`${API_URL}/api/tenants/current`)
-    if (!res.ok) throw new Error('Failed to fetch organization')
+    if (!res.ok) await handleApiError(res, 'Failed to fetch organization')
     return res.json()
   },
 
   async getOrganizationStats(tenantId: string): Promise<OrganizationStats> {
     const res = await authenticatedFetch(`${API_URL}/api/tenants/${tenantId}/stats`)
-    if (!res.ok) throw new Error('Failed to fetch organization stats')
+    if (!res.ok) await handleApiError(res, 'Failed to fetch organization stats')
     return res.json()
   },
 
@@ -4152,7 +4152,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     })
-    if (!res.ok) throw new Error('Failed to update organization')
+    if (!res.ok) await handleApiError(res, 'Failed to update organization')
     return res.json()
   },
 
@@ -4399,19 +4399,19 @@ export const api = {
     if (params?.plan) searchParams.append('plan', params.plan)
 
     const res = await authenticatedFetch(`${API_URL}/api/tenants?${searchParams}`)
-    if (!res.ok) throw new Error('Failed to fetch tenants')
+    if (!res.ok) await handleApiError(res, 'Failed to fetch tenants')
     return res.json()
   },
 
   async getTenant(id: string): Promise<TenantInfo> {
     const res = await authenticatedFetch(`${API_URL}/api/tenants/${id}`)
-    if (!res.ok) throw new Error('Failed to fetch tenant')
+    if (!res.ok) await handleApiError(res, 'Failed to fetch tenant')
     return res.json()
   },
 
   async getCurrentTenant(): Promise<TenantInfo> {
     const res = await authenticatedFetch(`${API_URL}/api/tenants/current`)
-    if (!res.ok) throw new Error('Failed to fetch current tenant')
+    if (!res.ok) await handleApiError(res, 'Failed to fetch current tenant')
     return res.json()
   },
 
@@ -4450,7 +4450,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     })
-    if (!res.ok) throw new Error('Failed to update tenant')
+    if (!res.ok) await handleApiError(res, 'Failed to update tenant')
     return res.json()
   },
 
@@ -4458,7 +4458,7 @@ export const api = {
     const res = await authenticatedFetch(`${API_URL}/api/tenants/${id}`, {
       method: 'DELETE',
     })
-    if (!res.ok) throw new Error('Failed to delete tenant')
+    if (!res.ok) await handleApiError(res, 'Failed to delete tenant')
   },
 
   async getTenantStats(id: string): Promise<TenantStats> {
@@ -4488,13 +4488,13 @@ export const api = {
     if (params?.is_active !== undefined) searchParams.append('is_active', params.is_active.toString())
 
     const res = await authenticatedFetch(`${API_URL}/api/team/?${searchParams}`)
-    if (!res.ok) throw new Error('Failed to fetch team members')
+    if (!res.ok) await handleApiError(res, 'Failed to fetch team members')
     return res.json()
   },
 
   async getTeamMember(userId: number): Promise<TeamMember> {
     const res = await authenticatedFetch(`${API_URL}/api/team/${userId}`)
-    if (!res.ok) throw new Error('Failed to fetch team member')
+    if (!res.ok) await handleApiError(res, 'Failed to fetch team member')
     return res.json()
   },
 
@@ -4543,7 +4543,7 @@ export const api = {
     total: number
   }> {
     const res = await authenticatedFetch(`${API_URL}/api/team/invitations`)
-    if (!res.ok) throw new Error('Failed to fetch invitations')
+    if (!res.ok) await handleApiError(res, 'Failed to fetch invitations')
     return res.json()
   },
 
@@ -4551,14 +4551,14 @@ export const api = {
     const res = await authenticatedFetch(`${API_URL}/api/team/invitations/${invitationId}`, {
       method: 'DELETE',
     })
-    if (!res.ok) throw new Error('Failed to cancel invitation')
+    if (!res.ok) await handleApiError(res, 'Failed to cancel invitation')
   },
 
   async resendInvitation(invitationId: number): Promise<TeamInvitation> {
     const res = await authenticatedFetch(`${API_URL}/api/team/invitations/${invitationId}/resend`, {
       method: 'POST',
     })
-    if (!res.ok) throw new Error('Failed to resend invitation')
+    if (!res.ok) await handleApiError(res, 'Failed to resend invitation')
     return res.json()
   },
 
@@ -4567,6 +4567,31 @@ export const api = {
   }> {
     const res = await authenticatedFetch(`${API_URL}/api/team/roles`)
     if (!res.ok) throw new Error('Failed to fetch roles')
+    return res.json()
+  },
+
+  async getAuditLogs(params?: {
+    limit?: number
+    offset?: number
+    action?: string
+  }): Promise<{
+    logs: Array<{
+      id: number
+      action: string
+      user: string
+      resource?: string
+      timestamp: string
+      ipAddress?: string
+      details?: string
+    }>
+    total: number
+  }> {
+    const searchParams = new URLSearchParams()
+    if (params?.limit) searchParams.append('limit', params.limit.toString())
+    if (params?.offset) searchParams.append('offset', params.offset.toString())
+    if (params?.action) searchParams.append('action', params.action)
+    const res = await authenticatedFetch(`${API_URL}/api/team/audit-logs?${searchParams}`)
+    if (!res.ok) throw new Error('Failed to fetch audit logs')
     return res.json()
   },
 

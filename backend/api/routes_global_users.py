@@ -549,8 +549,10 @@ async def delete_user(
         db.delete(user)
     else:
         # Soft delete
-        user.deleted_at = datetime.utcnow()
+        now = datetime.utcnow()
+        user.deleted_at = now
         user.is_active = False
+        user.email = f"{user.email}.deleted.{int(now.timestamp())}"
 
     db.commit()
 

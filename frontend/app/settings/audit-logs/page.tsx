@@ -5,91 +5,67 @@
  * Shows activity history for the organization
  */
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
+import { api } from '@/lib/client'
 import AuditLogEntry from '@/components/rbac/AuditLogEntry'
 
-// Mock audit log data
-const MOCK_LOGS = [
-  {
-    id: 1,
-    action: 'user.invited',
-    user: 'Admin',
-    resource: 'newuser@example.com',
-    timestamp: '2 hours ago',
-    ipAddress: '192.168.1.100',
-    details: 'invited newuser@example.com as Member',
-  },
-  {
-    id: 2,
-    action: 'settings.updated',
-    user: 'Alice',
-    resource: 'Organization Settings',
-    timestamp: '5 hours ago',
-    ipAddress: '192.168.1.101',
-    details: 'updated organization timezone to UTC',
-  },
-  {
-    id: 3,
-    action: 'agent.created',
-    user: 'John Smith',
-    resource: 'Agent: Marketing Bot',
-    timestamp: '1 day ago',
-    ipAddress: '192.168.1.102',
-    details: 'created new agent "Marketing Bot"',
-  },
-  {
-    id: 4,
-    action: 'user.role_changed',
-    user: 'Admin',
-    resource: 'john@example.com',
-    timestamp: '2 days ago',
-    ipAddress: '192.168.1.100',
-    details: 'changed role from Read-Only to Member',
-  },
-  {
-    id: 5,
-    action: 'billing.updated',
-    user: 'Admin',
-    resource: 'Billing',
-    timestamp: '3 days ago',
-    ipAddress: '192.168.1.100',
-    details: 'upgraded plan from Free to Pro',
-  },
-  {
-    id: 6,
-    action: 'agent.deleted',
-    user: 'Alice',
-    resource: 'Agent: Old Bot',
-    timestamp: '4 days ago',
-    ipAddress: '192.168.1.101',
-    details: 'deleted agent "Old Bot"',
-  },
-  {
-    id: 7,
-    action: 'login',
-    user: 'Maria Santos',
-    timestamp: '5 days ago',
-    ipAddress: '192.168.1.103',
-    details: 'logged in',
-  },
-  {
-    id: 8,
-    action: 'user.removed',
-    user: 'Admin',
-    resource: 'olduser@example.com',
-    timestamp: '1 week ago',
-    ipAddress: '192.168.1.100',
-    details: 'removed olduser@example.com from organization',
-  },
-]
+interface AuditLog {
+  id: number
+  action: string
+  user: string
+  resource?: string
+  timestamp: string
+  ipAddress?: string
+  details?: string
+}
 
 export default function AuditLogsPage() {
   const { hasPermission } = useAuth()
-  const [logs, setLogs] = useState(MOCK_LOGS)
+  const [logs, setLogs] = useState<AuditLog[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [filterAction, setFilterAction] = useState('all')
   const [filterUser, setFilterUser] = useState('')
+  const [offset, setOffset] = useState(0)
+  const PAGE_SIZE = 50
+
+  const fetchLogs = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await api.getAuditLogs({
+        limit: PAGE_SIZE,
+        offset,
+        action: filterAction !== 'all' ? filterAction : undefined,
+      })
+      if (offset === 0) {
+        setLogs(data.logs)
+      } else {
+        setLogs((prev) => [...prev, ...data.logs])
+      }
+      setTotal(data.total)
+    } catch (err) {
+      console.error('Failed to fetch audit logs:', err)
+      setError('Failed to load audit logs')
+    } finally {
+      setLoading(false)
+    }
+  }, [offset, filterAction])
+
+  useEffect(() => {
+    if (hasPermission('users.read')) {
+      setOffset(0)
+    }
+  }, [filterAction, hasPermission])
+
+  useEffect(() => {
+    if (hasPermission('users.read')) {
+      fetchLogs()
+    }
+  }, [fetchLogs, hasPermission])
 
   if (!hasPermission('users.read')) {
     return (
@@ -99,19 +75,16 @@ export default function AuditLogsPage() {
             Access Denied
           </h3>
           <p className="text-sm text-red-800 dark:text-red-200">
-            You don't have permission to view audit logs.
+            You don&apos;t have permission to view audit logs.
           </p>
         </div>
       </div>
     )
   }
 
-  // Filter logs
+  // Client-side filter by user name
   const filteredLogs = logs.filter((log) => {
-    const matchesAction = filterAction === 'all' || log.action.startsWith(filterAction)
-    const matchesUser =
-      !filterUser || log.user.toLowerCase().includes(filterUser.toLowerCase())
-    return matchesAction && matchesUser
+    return !filterUser || log.user.toLowerCase().includes(filterUser.toLowerCase())
   })
 
   return (
@@ -150,10 +123,11 @@ export default function AuditLogsPage() {
               >
                 <option value="all">All Actions</option>
                 <option value="user">User Actions</option>
-                <option value="agent">Agent Actions</option>
-                <option value="settings">Settings Changes</option>
-                <option value="billing">Billing Actions</option>
-                <option value="login">Login/Logout</option>
+                <option value="tenant">Tenant Actions</option>
+                <option value="integration">Integration Actions</option>
+                <option value="plan">Plan Actions</option>
+                <option value="sso">SSO Actions</option>
+                <option value="system">System Actions</option>
               </select>
             </div>
 
@@ -173,21 +147,34 @@ export default function AuditLogsPage() {
 
           <div className="mt-4 flex items-center justify-between">
             <span className="text-sm text-gray-600 dark:text-gray-400">
-              Showing {filteredLogs.length} of {logs.length} events
+              Showing {filteredLogs.length} of {total} events
             </span>
-            <button className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
-              Export to CSV
-            </button>
           </div>
         </div>
 
+        {/* Error State */}
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+            <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loading && logs.length === 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center">
+            <p className="text-gray-600 dark:text-gray-400">Loading audit logs...</p>
+          </div>
+        )}
+
         {/* Audit Log Entries */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
-          {filteredLogs.length === 0 ? (
-            <div className="p-8 text-center text-gray-600 dark:text-gray-400">
-              No audit logs found matching your filters.
-            </div>
-          ) : (
+        {!loading && logs.length === 0 && !error && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center">
+            <p className="text-gray-600 dark:text-gray-400">No audit logs found.</p>
+          </div>
+        )}
+
+        {filteredLogs.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
             <div className="divide-y divide-gray-200 dark:divide-gray-700">
               {filteredLogs.map((log) => (
                 <AuditLogEntry
@@ -201,14 +188,18 @@ export default function AuditLogsPage() {
                 />
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Load More */}
-        {filteredLogs.length > 0 && (
+        {logs.length < total && (
           <div className="mt-6 text-center">
-            <button className="px-6 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 font-medium rounded-md transition-colors">
-              Load More
+            <button
+              onClick={() => setOffset((prev) => prev + PAGE_SIZE)}
+              disabled={loading}
+              className="px-6 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 font-medium rounded-md transition-colors disabled:opacity-50"
+            >
+              {loading ? 'Loading...' : 'Load More'}
             </button>
           </div>
         )}

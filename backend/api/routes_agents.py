@@ -727,10 +727,20 @@ def update_agent(
     if agent.is_default:
         db.query(Agent).filter(Agent.tenant_id == ctx.tenant_id, Agent.id != agent_id).update({"is_default": False})
 
-    # Update fields
+    # Update fields (explicit allowlist to prevent mass assignment)
+    UPDATABLE_AGENT_FIELDS = {
+        "contact_id", "system_prompt", "tone_preset_id", "custom_tone",
+        "persona_id", "keywords", "model_provider", "model_name",
+        "response_template", "memory_size", "trigger_dm_enabled",
+        "trigger_group_filters", "trigger_number_filters",
+        "context_message_count", "context_char_limit", "enabled_channels",
+        "whatsapp_integration_id", "telegram_integration_id",
+        "is_active", "is_default",
+    }
     update_data = agent.model_dump(exclude_unset=True)
     for field, value in update_data.items():
-        setattr(db_agent, field, value)
+        if field in UPDATABLE_AGENT_FIELDS:
+            setattr(db_agent, field, value)
 
     db_agent.updated_at = datetime.utcnow()
     db.commit()

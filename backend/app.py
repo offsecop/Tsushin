@@ -962,6 +962,8 @@ async def add_security_headers(request: Request, call_next):
     # Content Security Policy - restrictive but allows API usage
     # Note: Adjust 'self' and add specific domains as needed for production
     response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' wss: https:; frame-ancestors 'none'"
+    if os.getenv("TSN_ENABLE_HSTS", "").lower() in ("1", "true", "yes"):
+        response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
     return response
 
 # CORS headers for exception handlers — must match the middleware config above

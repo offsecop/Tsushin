@@ -375,8 +375,20 @@ def seed_default_roles_and_permissions(conn):
         ("analytics.read", "analytics", "read", "View analytics and reports"),
         # Audit logs
         ("audit.read", "audit", "read", "View audit logs"),
+        # Custom Tools (Phase 9.3)
+        ("tools.manage", "tools", "manage", "Manage custom tools (create, update, delete)"),
+        ("tools.execute", "tools", "execute", "Execute custom tools"),
+        # Shell/Beacon (Phase 18)
+        ("shell.read", "shell", "read", "View shell integrations and commands"),
+        ("shell.write", "shell", "write", "Create and manage shell integrations"),
+        ("shell.execute", "shell", "execute", "Execute shell commands on beacons"),
+        ("shell.approve", "shell", "approve", "Approve high-risk shell commands"),
         # Watcher (monitoring dashboard) - CRIT-007 security fix
         ("watcher.read", "watcher", "read", "View watcher dashboard, messages, and agent runs"),
+        # API Clients (Public API v1)
+        ("api_clients.read", "api_clients", "read", "View API clients"),
+        ("api_clients.write", "api_clients", "write", "Create and manage API clients"),
+        ("api_clients.delete", "api_clients", "delete", "Revoke API clients"),
     ]
 
     # Insert permissions
@@ -422,7 +434,10 @@ def seed_default_roles_and_permissions(conn):
             "billing.read", "billing.write",
             "analytics.read",
             "audit.read",
+            "tools.manage", "tools.execute",  # Phase 9.3: Custom Tools
+            "shell.read", "shell.write", "shell.execute", "shell.approve",  # Phase 18: Shell/Beacon
             "watcher.read",
+            "api_clients.read", "api_clients.write", "api_clients.delete",  # Public API v1
         ],
         "admin": [
             # All except billing.write
@@ -439,7 +454,10 @@ def seed_default_roles_and_permissions(conn):
             "billing.read",  # Can view but not write
             "analytics.read",
             "audit.read",
+            "tools.manage", "tools.execute",  # Phase 9.3: Custom Tools
+            "shell.read", "shell.write", "shell.execute", "shell.approve",  # Phase 18: Shell/Beacon
             "watcher.read",
+            "api_clients.read", "api_clients.write", "api_clients.delete",  # Public API v1
         ],
         "member": [
             # Standard user permissions
@@ -454,6 +472,7 @@ def seed_default_roles_and_permissions(conn):
             "users.read",
             "org.settings.read",
             "analytics.read",
+            "tools.execute",  # Phase 9.3: Members can execute but not manage tools
             "watcher.read",
         ],
         "readonly": [

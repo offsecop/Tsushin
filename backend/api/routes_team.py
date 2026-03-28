@@ -16,7 +16,7 @@ from typing import Optional, List
 from datetime import datetime, timedelta
 
 from db import get_db
-from models_rbac import User, UserRole, Role, Tenant, UserInvitation
+from models_rbac import User, UserRole, Role, Tenant, UserInvitation, GlobalAdminAuditLog
 from auth_dependencies import (
     get_current_user_required,
     require_permission,
@@ -25,6 +25,10 @@ from auth_dependencies import (
 )
 from auth_utils import generate_invitation_token, hash_token
 from services.email_service import send_invitation
+from services.audit_service import log_admin_action, AuditActions
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/team", tags=["team"])
 
@@ -269,6 +273,51 @@ async def get_available_roles(
     return {"roles": available_roles}
 
 
+@router.get("/audit-logs")
+async def get_audit_logs(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    action: Optional[str] = None,
+    ctx: TenantContext = Depends(get_tenant_context),
+    current_user: User = Depends(require_permission("audit.read")),
+):
+    """
+    Get audit logs for the current tenant.
+
+    Requires: audit.read permission
+    """
+    query = ctx.db.query(GlobalAdminAuditLog).filter(
+        GlobalAdminAuditLog.target_tenant_id == ctx.tenant_id
+    )
+
+    if action:
+        query = query.filter(GlobalAdminAuditLog.action.like(f"{action}%"))
+
+    total = query.count()
+
+    logs = (
+        query.order_by(GlobalAdminAuditLog.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    result = []
+    for log in logs:
+        admin = ctx.db.query(User).filter(User.id == log.global_admin_id).first()
+        result.append({
+            "id": log.id,
+            "action": log.action,
+            "user": admin.full_name or admin.email if admin else "System",
+            "resource": f"{log.resource_type}/{log.resource_id}" if log.resource_type else None,
+            "timestamp": log.created_at.isoformat() if log.created_at else None,
+            "ipAddress": log.ip_address,
+            "details": log.details_json,
+        })
+
+    return {"logs": result, "total": total}
+
+
 @router.post("/invite", response_model=InvitationResponse, status_code=status.HTTP_201_CREATED)
 async def invite_team_member(
     request: InvitationCreate,
@@ -296,7 +345,7 @@ async def invite_team_member(
             )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email is already registered with another organization"
+            detail="Unable to invite this user. Please contact support if this is unexpected."
         )
 
     # Check if invitation already exists
@@ -313,8 +362,8 @@ async def invite_team_member(
             detail="Invitation already sent to this email"
         )
 
-    # Check tenant user limit
-    tenant = ctx.db.query(Tenant).filter(Tenant.id == ctx.tenant_id).first()
+    # Check tenant user limit (lock tenant row to prevent race conditions on concurrent invites)
+    tenant = ctx.db.query(Tenant).filter(Tenant.id == ctx.tenant_id).with_for_update().first()
     if tenant:
         current_users = ctx.db.query(User).filter(
             User.tenant_id == ctx.tenant_id,
@@ -570,6 +619,28 @@ async def change_member_role(
 
     ctx.db.commit()
 
+    logger.info(
+        f"Role change: user {target_user.email} (id={user_id}) "
+        f"changed from '{target_role_name}' to '{request.role}' "
+        f"by user {ctx.user.email} (id={ctx.user.id}) "
+        f"in tenant {ctx.tenant_id}"
+    )
+
+    log_admin_action(
+        db=ctx.db,
+        admin=ctx.user,
+        action=AuditActions.USER_ROLE_CHANGE,
+        target_tenant_id=ctx.tenant_id,
+        resource_type="user",
+        resource_id=str(user_id),
+        details={
+            "email": target_user.email,
+            "old_role": target_role_name,
+            "new_role": request.role,
+            "changed_by": ctx.user.email,
+        },
+    )
+
     return user_to_response(target_user, ctx.tenant_id, ctx.db)
 
 
@@ -615,8 +686,10 @@ async def remove_team_member(
         )
 
     # Soft delete
-    target_user.deleted_at = datetime.utcnow()
+    now = datetime.utcnow()
+    target_user.deleted_at = now
     target_user.is_active = False
+    target_user.email = f"{target_user.email}.deleted.{int(now.timestamp())}"
 
     # Remove role assignment
     ctx.db.query(UserRole).filter(

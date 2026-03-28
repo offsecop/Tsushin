@@ -28,7 +28,8 @@ from db import get_db
 from auth_service import AuthService, AuthenticationError
 from models_rbac import User, UserInvitation, UserRole, Role, Tenant, TenantSSOConfig
 from models import GoogleOAuthCredentials, OAuthState
-from auth_utils import hash_password, hash_token, create_access_token
+from auth_utils import hash_password, verify_password, hash_token, create_access_token
+from auth_dependencies import get_current_user_required
 from auth_google import GoogleSSOService, GoogleSSOError, get_google_sso_service
 import settings
 
@@ -77,6 +78,7 @@ class AuthResponse(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+    reset_token: Optional[str] = None
 
 
 # MED-009 FIX: One-time code exchange models
@@ -565,14 +567,13 @@ async def request_password_reset(request: Request, reset_request: PasswordResetR
     # Generate reset token
     token = auth_service.request_password_reset(reset_request.email)
 
-    # Always return success message (don't reveal if email exists)
-    # In production, send email with reset link here
     if token:
-        # MED-006 FIX: Never log password reset tokens - they can be used for account takeover
-        # Log only a masked email to help with debugging without exposing sensitive data
         masked_email = reset_request.email[:3] + "***" + reset_request.email[reset_request.email.index("@"):] if "@" in reset_request.email else "***"
-        logger.info(f"Password reset token generated for: {masked_email}")
-        # TODO: Implement secure email delivery for password reset links
+        logger.warning(f"Password reset token generated for {masked_email} but email delivery is NOT configured. Token returned in response for admin/dev use only.")
+        return MessageResponse(
+            message="Password reset token generated. Email delivery is not configured — token included in response for admin use.",
+            reset_token=token,
+        )
 
     return MessageResponse(
         message="If an account exists with this email, a password reset link has been sent."
@@ -625,6 +626,63 @@ async def get_current_user_info(current_user: User = Depends(get_current_user), 
         "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
         "last_login_at": current_user.last_login_at.isoformat() if current_user.last_login_at else None,
     }
+
+
+class ProfileUpdateRequest(BaseModel):
+    full_name: str
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+@router.put("/me")
+async def update_profile(
+    payload: ProfileUpdateRequest,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """Update current user's profile (full_name)."""
+    current_user.full_name = payload.full_name
+    db.commit()
+    db.refresh(current_user)
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "full_name": current_user.full_name,
+        "message": "Profile updated successfully",
+    }
+
+
+@router.post("/change-password")
+async def change_password(
+    payload: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user_required),
+    db: Session = Depends(get_db),
+):
+    """Change the current user's password."""
+    if not current_user.password_hash:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password change not available for SSO-only accounts",
+        )
+
+    if not verify_password(payload.current_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect",
+        )
+
+    if len(payload.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be at least 6 characters",
+        )
+
+    current_user.password_hash = hash_password(payload.new_password)
+    db.commit()
+    return MessageResponse(message="Password changed successfully")
 
 
 @router.post("/logout")

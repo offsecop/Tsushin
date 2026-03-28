@@ -115,7 +115,10 @@ class AuthService:
 
         # Generate tenant ID and slug
         import re
-        tenant_id = f"tenant_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+        import secrets
+        timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S%f")
+        random_suffix = secrets.token_hex(3)
+        tenant_id = f"tenant_{timestamp}_{random_suffix}"
         slug = re.sub(r'[^a-z0-9-]', '', org_name.lower().replace(' ', '-'))[:50]
 
         # Check if slug already exists, append number if needed

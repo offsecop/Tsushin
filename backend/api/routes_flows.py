@@ -293,7 +293,8 @@ class TemplateValidationResponse(BaseModel):
     rendered: Optional[str] = None  # Only if context provided
 
 
-@router.post("/template/validate", response_model=TemplateValidationResponse)
+@router.post("/template/validate", response_model=TemplateValidationResponse,
+    dependencies=[Depends(require_permission("flows.read"))])
 def validate_template(
     request: TemplateValidationRequest,
     db: Session = Depends(get_db),
@@ -343,7 +344,8 @@ def validate_template(
         raise HTTPException(status_code=500, detail="Failed to validate template")
 
 
-@router.post("/template/render")
+@router.post("/template/render",
+    dependencies=[Depends(require_permission("flows.read"))])
 def render_template(
     request: TemplateValidationRequest,
     db: Session = Depends(get_db),
