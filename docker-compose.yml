@@ -201,7 +201,12 @@ services:
 networks:
   tsushin-network:
     name: tsushin-network
-    driver: bridge
+    external: true
+    # Network is external so docker-compose down cannot remove it.
+    # MCP containers (WhatsApp bots, tester, toolbox) share this network
+    # and would lose their WhatsApp sessions if it was torn down.
+    # Create the network once: docker network create tsushin-network
+    # The install.py script handles this automatically.
 
 # ==========================================================================
 # Volumes

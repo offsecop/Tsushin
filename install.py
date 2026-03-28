@@ -898,6 +898,21 @@ NEXT_PUBLIC_API_URL={self.config.get('NEXT_PUBLIC_API_URL', backend_url)}
         """Run docker-compose up --build -d"""
         print_header("Deploying Docker Containers")
 
+        # Ensure the external network exists (required before docker-compose up)
+        try:
+            result = subprocess.run(
+                ["docker", "network", "inspect", "tsushin-network"],
+                capture_output=True, text=True
+            )
+            if result.returncode != 0:
+                print_info("Creating tsushin-network (external network for MCP containers)...")
+                subprocess.run(
+                    ["docker", "network", "create", "tsushin-network"],
+                    check=True, capture_output=True
+                )
+        except Exception as e:
+            print_warning(f"Could not create tsushin-network: {e}")
+
         print_info("Building and starting containers (this may take several minutes)...")
         print_info("Downloading base images, building custom images, and starting services...")
         print()
