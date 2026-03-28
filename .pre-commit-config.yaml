@@ -28,7 +28,7 @@ repos:
       - id: check-yaml
         name: check yaml syntax
         args: ['--unsafe']
-        exclude: ^(frontend/node_modules/|backend/venv/)
+        exclude: ^(frontend/node_modules/|backend/venv/|k8s/.*/templates/)
       - id: detect-private-key
         name: detect private keys
       - id: end-of-file-fixer
