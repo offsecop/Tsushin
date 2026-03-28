@@ -9,7 +9,6 @@ Handles container lifecycle: create, start, stop, restart, delete.
 import os
 import time
 import logging
-import docker
 import requests
 from datetime import datetime
 from pathlib import Path
@@ -20,6 +19,12 @@ from models import WhatsAppMCPInstance, Agent
 from services.port_allocator import get_port_allocator
 from services.mcp_auth_service import generate_mcp_secret
 from services.docker_network_utils import resolve_tsushin_network_name
+from services.container_runtime import (
+    get_container_runtime,
+    ContainerRuntime,
+    ContainerNotFoundError,
+    ContainerRuntimeError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,15 +38,15 @@ class MCPContainerManager:
     HEALTH_CHECK_INTERVAL = 5  # seconds
 
     def __init__(self):
-        """Initialize Docker client"""
-        try:
-            self.docker = docker.from_env()
-            logger.info("Docker client initialized successfully")
-        except docker.errors.DockerException as e:
-            logger.error(f"Failed to initialize Docker client: {e}")
-            raise RuntimeError(
-                f"Docker is not available or not running. Please ensure Docker is installed and running. Error: {e}"
-            )
+        """Initialize container runtime"""
+        self.runtime: ContainerRuntime = get_container_runtime()
+        logger.info("MCPContainerManager initialized with container runtime")
+
+    def _resolve_network_name(self) -> str:
+        """Resolve the tsushin network name."""
+        if hasattr(self.runtime, 'raw_client'):
+            return resolve_tsushin_network_name(self.runtime.raw_client)
+        return "tsushin-network"
 
     def create_instance(
         self,
@@ -88,7 +93,8 @@ class MCPContainerManager:
         # 4. Start container
         try:
             container = self._start_container(container_name, port, session_dir, phone_number, api_secret)
-            logger.info(f"Container {container_name} started with ID {container.id}")
+            container_id = container.id if hasattr(container, 'id') else str(container)
+            logger.info(f"Container {container_name} started with ID {container_id}")
 
         except Exception as e:
             logger.error(f"Failed to start container: {e}")
@@ -96,7 +102,6 @@ class MCPContainerManager:
 
         # 5. Use container name for Docker DNS resolution (more robust than IP)
         # Container name is resolvable within the Docker network
-        container.reload()  # Refresh container info
         logger.info(f"Container {container_name} created on tsushin network")
 
         # 6. Convert session_dir to container path for watcher
@@ -133,7 +138,7 @@ class MCPContainerManager:
             session_data_path=container_session_dir,
             status="starting",
             health_status="unknown",
-            container_id=container.id,
+            container_id=container_id,
             created_by=created_by,
             last_started_at=datetime.utcnow(),
             # Phase Security-1: API authentication
@@ -199,7 +204,7 @@ class MCPContainerManager:
         session_dir: str,
         phone_number: str,
         api_secret: Optional[str] = None
-    ) -> docker.models.containers.Container:
+    ):
         """
         Start Docker container
 
@@ -211,10 +216,10 @@ class MCPContainerManager:
             api_secret: API authentication secret (Phase Security-1)
 
         Returns:
-            Docker container object
+            Container object
 
         Raises:
-            docker.errors.DockerException: If container start fails
+            ContainerRuntimeError: If container start fails
         """
         # Convert session_dir to absolute path
         session_dir_abs = os.path.abspath(session_dir)
@@ -242,10 +247,11 @@ class MCPContainerManager:
         logger.info(f"Volume mount: {session_dir_abs} -> /app/store")
 
         # Check if tsushin network exists, create if not
-        tsushin_network = self._get_or_create_tsushin_network()
+        network_name = self._resolve_network_name()
+        self.runtime.get_or_create_network(network_name)
 
-        container = self.docker.containers.run(
-            self.IMAGE_NAME,
+        container = self.runtime.create_container(
+            image=self.IMAGE_NAME,
             name=container_name,
             ports={'8080/tcp': ('127.0.0.1', port)},  # Also expose on localhost for debugging
             volumes={
@@ -262,24 +268,19 @@ class MCPContainerManager:
                 # Phase Security-1: API authentication secret
                 'MCP_API_SECRET': api_secret or ''
             },
-            detach=True,
             restart_policy={"Name": "unless-stopped"},
-            network=tsushin_network.name,  # Connect to tsushin network for backend communication
-            command=["--port", "8080"]
+            network=network_name,  # Connect to tsushin network for backend communication
+            command=["--port", "8080"],
         )
 
         return container
 
     def _get_or_create_tsushin_network(self):
         """Get or create the tsushin Docker network"""
-        network_name = resolve_tsushin_network_name(self.docker)
-        try:
-            return self.docker.networks.get(network_name)
-        except docker.errors.NotFound:
-            logger.info(f"Creating Docker network: {network_name}")
-            return self.docker.networks.create(network_name, driver="bridge")
+        network_name = self._resolve_network_name()
+        return self.runtime.get_or_create_network(network_name)
 
-    def _ensure_container_on_tsushin_network(self, container):
+    def _ensure_container_on_tsushin_network(self, container_name_or_id: str):
         """
         Ensure container is connected to tsushin network for backend communication.
 
@@ -288,39 +289,20 @@ class MCPContainerManager:
         2. If container was manually started or network was disconnected, this reconnects it
 
         Args:
-            container: Docker container object
+            container_name_or_id: Container name or ID
         """
-        network_name = resolve_tsushin_network_name(self.docker)
+        network_name = self._resolve_network_name()
         try:
-            container.reload()  # Refresh container info
-            networks = container.attrs.get('NetworkSettings', {}).get('Networks', {})
-
-            if network_name not in networks:
-                logger.info(f"Connecting container {container.name} to {network_name}")
-                tsushin_network = self._get_or_create_tsushin_network()
-                tsushin_network.connect(container)
-                logger.info(f"Container {container.name} connected to {network_name}")
-            else:
-                logger.debug(f"Container {container.name} already on {network_name}")
-
+            self.runtime.ensure_container_on_network(container_name_or_id, network_name)
         except Exception as e:
             logger.error(f"Failed to ensure container on tsushin network: {e}")
             # Don't raise - container might still work via localhost fallback
 
-    def _get_container_ip(self, container) -> str:
+    def _get_container_ip(self, container_name_or_id: str) -> str:
         """Get container IP address on tsushin network"""
-        network_name = resolve_tsushin_network_name(self.docker)
+        network_name = self._resolve_network_name()
         try:
-            networks = container.attrs.get('NetworkSettings', {}).get('Networks', {})
-            if network_name in networks:
-                return networks[network_name].get('IPAddress', '')
-            # Fallback to first available network IP
-            for net_name, net_config in networks.items():
-                ip = net_config.get('IPAddress', '')
-                if ip:
-                    logger.warning(f"Container not on {network_name}, using {net_name} IP: {ip}")
-                    return ip
-            return ''
+            return self.runtime.get_container_network_ip(container_name_or_id, network_name)
         except Exception as e:
             logger.error(f"Failed to get container IP: {e}")
             return ''
@@ -343,49 +325,54 @@ class MCPContainerManager:
 
         logger.info(f"Starting MCP instance {instance_id} (container {instance.container_name})")
 
-        container = None
+        container_found = False
 
         # Try to get container by ID first
         try:
-            container = self.docker.containers.get(instance.container_id)
-        except docker.errors.NotFound:
+            self.runtime.get_container(instance.container_id)
+            container_found = True
+        except ContainerNotFoundError:
             logger.warning(f"Container {instance.container_id} not found by ID, trying by name...")
 
         # Try by name if ID failed
-        if not container:
+        if not container_found:
             try:
-                container = self.docker.containers.get(instance.container_name)
+                container = self.runtime.get_container(instance.container_name)
                 # Update container_id in database
-                instance.container_id = container.id
+                container_id = container.id if hasattr(container, 'id') else str(container)
+                instance.container_id = container_id
                 db.commit()
-                logger.info(f"Found container by name, updated ID to {container.id}")
-            except docker.errors.NotFound:
+                logger.info(f"Found container by name, updated ID to {container_id}")
+                container_found = True
+            except ContainerNotFoundError:
                 logger.warning(f"Container {instance.container_name} not found, will recreate...")
 
         # If container exists, just start it
-        if container:
+        if container_found:
+            # Determine which identifier to use
+            container_ref = instance.container_name
             try:
-                container.start()
+                self.runtime.start_container(container_ref)
 
                 # Ensure container is connected to tsushin network for backend communication
-                self._ensure_container_on_tsushin_network(container)
+                self._ensure_container_on_tsushin_network(container_ref)
 
                 instance.status = "starting"
                 instance.last_started_at = datetime.utcnow()
                 db.commit()
                 logger.info(f"Container {instance.container_name} started")
                 return
-            except docker.errors.APIError as e:
+            except ContainerRuntimeError as e:
                 logger.error(f"Failed to start existing container: {e}")
                 # Container might be corrupted, try to recreate
                 try:
-                    container.remove(force=True)
-                except:
+                    self.runtime.remove_container(container_ref, force=True)
+                except (ContainerNotFoundError, ContainerRuntimeError):
                     pass
-                container = None
+                container_found = False
 
         # Recreate container if it doesn't exist
-        if not container:
+        if not container_found:
             logger.info(f"Recreating container for instance {instance_id}")
             try:
                 # Extract session directory from stored path
@@ -402,12 +389,13 @@ class MCPContainerManager:
                 )
 
                 # Update database with new container ID
-                instance.container_id = new_container.id
+                new_container_id = new_container.id if hasattr(new_container, 'id') else str(new_container)
+                instance.container_id = new_container_id
                 instance.status = "starting"
                 instance.last_started_at = datetime.utcnow()
                 db.commit()
 
-                logger.info(f"Recreated container {instance.container_name} with ID {new_container.id}")
+                logger.info(f"Recreated container {instance.container_name} with ID {new_container_id}")
                 return
 
             except Exception as e:
@@ -437,8 +425,7 @@ class MCPContainerManager:
         logger.info(f"Stopping MCP instance {instance_id} (container {instance.container_name})")
 
         try:
-            container = self.docker.containers.get(instance.container_id)
-            container.stop(timeout=timeout)
+            self.runtime.stop_container(instance.container_id, timeout=timeout)
 
             instance.status = "stopped"
             instance.last_stopped_at = datetime.utcnow()
@@ -446,13 +433,13 @@ class MCPContainerManager:
 
             logger.info(f"Container {instance.container_name} stopped")
 
-        except docker.errors.NotFound:
+        except ContainerNotFoundError:
             logger.warning(f"Container {instance.container_id} not found (already removed?)")
             instance.status = "stopped"
             instance.health_status = "unavailable"
             db.commit()
 
-        except docker.errors.APIError as e:
+        except ContainerRuntimeError as e:
             logger.error(f"Failed to stop container: {e}")
             raise RuntimeError(f"Failed to stop container: {e}")
 
@@ -500,15 +487,14 @@ class MCPContainerManager:
 
         # 1. Stop and remove container
         try:
-            container = self.docker.containers.get(instance.container_id)
-            container.stop(timeout=10)
-            container.remove()
+            self.runtime.stop_container(instance.container_id, timeout=10)
+            self.runtime.remove_container(instance.container_id)
             logger.info(f"Container {instance.container_name} removed")
 
-        except docker.errors.NotFound:
+        except ContainerNotFoundError:
             logger.warning(f"Container {instance.container_id} not found (already removed?)")
 
-        except docker.errors.APIError as e:
+        except ContainerRuntimeError as e:
             logger.error(f"Failed to remove container: {e}")
             # Continue with database cleanup even if container removal fails
 
@@ -639,51 +625,56 @@ class MCPContainerManager:
         backup_path = None
 
         try:
-            # Helper to get container by ID or name (IDs can become stale after rebuild)
-            def get_container():
+            # Helper to get container identifier (tries ID then name)
+            def find_container_ref() -> Optional[str]:
                 try:
-                    return self.docker.containers.get(instance.container_id)
-                except docker.errors.NotFound:
+                    self.runtime.get_container(instance.container_id)
+                    return instance.container_id
+                except ContainerNotFoundError:
                     logger.warning(f"Container {instance.container_id} not found by ID, trying by name...")
                     try:
-                        container = self.docker.containers.get(instance.container_name)
+                        container = self.runtime.get_container(instance.container_name)
                         # Update container_id in database
-                        instance.container_id = container.id
+                        new_id = container.id if hasattr(container, 'id') else str(container)
+                        instance.container_id = new_id
                         db.commit()
-                        logger.info(f"Found container by name, updated ID to {container.id}")
-                        return container
-                    except docker.errors.NotFound:
+                        logger.info(f"Found container by name, updated ID to {new_id}")
+                        return instance.container_name
+                    except ContainerNotFoundError:
                         return None
 
             # 2. Call WhatsApp logout API (if container is running)
-            container = get_container()
-            if container and container.status == 'running':
-                logger.info("Calling WhatsApp logout API to unpair device")
-                try:
-                    # Phase Security-1: Include auth headers for MCP API requests
-                    from services.mcp_auth_service import get_auth_headers
-                    headers = get_auth_headers(instance.api_secret)
-                    logout_response = requests.post(
-                        f"{instance.mcp_api_url}/logout",
-                        headers=headers,
-                        timeout=10
-                    )
-                    if logout_response.status_code == 200:
-                        logger.info("WhatsApp logout API call successful")
-                    else:
-                        logger.warning(f"WhatsApp logout API returned {logout_response.status_code}: {logout_response.text}")
-                except requests.exceptions.RequestException as e:
-                    logger.warning(f"Failed to call WhatsApp logout API (continuing anyway): {e}")
-            elif not container:
+            container_ref = find_container_ref()
+            if container_ref:
+                container_status = self.runtime.get_container_status(container_ref)
+                if container_status == 'running':
+                    logger.info("Calling WhatsApp logout API to unpair device")
+                    try:
+                        from services.mcp_auth_service import get_auth_headers
+                        headers = get_auth_headers(instance.api_secret)
+                        logout_response = requests.post(
+                            f"{instance.mcp_api_url}/logout",
+                            headers=headers,
+                            timeout=10
+                        )
+                        if logout_response.status_code == 200:
+                            logger.info("WhatsApp logout API call successful")
+                        else:
+                            logger.warning(f"WhatsApp logout API returned {logout_response.status_code}: {logout_response.text}")
+                    except requests.exceptions.RequestException as e:
+                        logger.warning(f"Failed to call WhatsApp logout API (continuing anyway): {e}")
+            else:
                 logger.info("Container not found, skipping logout API call")
 
             # 3. Stop container
             logger.info(f"Stopping container {instance.container_name}")
-            container = get_container()  # Refresh container reference
-            if container and container.status == 'running':
-                container.stop(timeout=10)
-                logger.info("Container stopped")
-            elif not container:
+            container_ref = find_container_ref()  # Refresh reference
+            if container_ref:
+                container_status = self.runtime.get_container_status(container_ref)
+                if container_status == 'running':
+                    self.runtime.stop_container(container_ref, timeout=10)
+                    logger.info("Container stopped")
+            else:
                 logger.warning(f"Container {instance.container_name} not found, continuing...")
 
             # 4. Get session file path
@@ -705,18 +696,18 @@ class MCPContainerManager:
 
             # 7. Start container
             logger.info("Starting container to regenerate QR code")
-            container = get_container()  # Use helper that tries ID then name
-            if not container:
+            container_ref = find_container_ref()
+            if not container_ref:
                 raise RuntimeError("Container not found, cannot restart")
             try:
-                container.start()
+                self.runtime.start_container(container_ref)
                 logger.info("Container started")
 
                 instance.status = "starting"
                 instance.last_started_at = datetime.utcnow()
                 db.commit()
 
-            except docker.errors.APIError as e:
+            except ContainerRuntimeError as e:
                 # Try to restore backup if start fails
                 if backup_path and Path(backup_path).exists():
                     logger.error(f"Container failed to start, attempting to restore backup: {e}")
@@ -863,24 +854,25 @@ class MCPContainerManager:
             'last_activity_sec': 0
         }
 
-        container = None
+        container_ref = None
 
         try:
             # 1. Check container status - try by ID first, then by name
             try:
-                container = self.docker.containers.get(instance.container_id)
+                self.runtime.get_container(instance.container_id)
+                container_ref = instance.container_id
                 logger.debug(f"Found container by ID: {instance.container_id}")
-            except docker.errors.NotFound:
+            except ContainerNotFoundError:
                 # Try by container name as fallback (more robust to ID changes)
                 try:
-                    container = self.docker.containers.get(instance.container_name)
+                    self.runtime.get_container(instance.container_name)
+                    container_ref = instance.container_name
                     logger.info(f"Found container by name (ID was stale): {instance.container_name}")
-                except docker.errors.NotFound:
-                    raise docker.errors.NotFound(f"Container not found by ID or name")
+                except ContainerNotFoundError:
+                    raise ContainerNotFoundError(f"Container not found by ID or name")
 
             # Get container state with detailed info
-            container.reload()  # Refresh container attributes
-            container_state = container.status  # running, exited, restarting, paused, dead, created
+            container_state = self.runtime.get_container_status(container_ref)
             health_data['container_state'] = container_state
 
             logger.debug(f"Container {instance.container_name} state: {container_state}")
@@ -892,7 +884,7 @@ class MCPContainerManager:
                 return health_data
 
             # 2.5. Ensure container is on the correct network (self-healing)
-            self._ensure_container_on_tsushin_network(container)
+            self._ensure_container_on_tsushin_network(container_ref)
 
             # 3. Check API health endpoint with retry logic
             api_healthy = False
@@ -928,21 +920,21 @@ class MCPContainerManager:
                             # Alert if re-authentication is needed
                             if health_data['needs_reauth']:
                                 logger.warning(
-                                    f"⚠️  MCP instance {instance.id} ({instance.phone_number}) requires re-authentication. "
+                                    f"MCP instance {instance.id} ({instance.phone_number}) requires re-authentication. "
                                     f"QR code scan needed."
                                 )
 
                             # Alert if reconnection attempts are high
                             if health_data['reconnect_attempts'] >= 5:
                                 logger.warning(
-                                    f"⚠️  MCP instance {instance.id} ({instance.phone_number}) has {health_data['reconnect_attempts']} "
+                                    f"MCP instance {instance.id} ({instance.phone_number}) has {health_data['reconnect_attempts']} "
                                     f"reconnection attempts. Session may be unstable."
                                 )
 
                             # Alert if session has been inactive for too long (>5 minutes)
                             if health_data['last_activity_sec'] > 300:
                                 logger.warning(
-                                    f"⚠️  MCP instance {instance.id} ({instance.phone_number}) has been inactive for "
+                                    f"MCP instance {instance.id} ({instance.phone_number}) has been inactive for "
                                     f"{health_data['last_activity_sec']//60} minutes."
                                 )
 
@@ -988,15 +980,15 @@ class MCPContainerManager:
             else:
                 health_data['status'] = 'unhealthy'
 
-        except docker.errors.NotFound:
+        except ContainerNotFoundError:
             health_data['status'] = 'unavailable'
             health_data['container_state'] = 'not_found'
             health_data['error'] = 'Container not found'
             logger.error(f"Container not found for instance {instance.id} (id={instance.container_id}, name={instance.container_name})")
 
-        except docker.errors.APIError as e:
+        except ContainerRuntimeError as e:
             health_data['status'] = 'error'
             health_data['error'] = str(e)
-            logger.error(f"Docker API error for instance {instance.id}: {e}")
+            logger.error(f"Runtime error for instance {instance.id}: {e}")
 
         return health_data

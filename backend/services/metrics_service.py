@@ -1,0 +1,104 @@
+"""
+Prometheus metrics definitions and middleware for Tsushin.
+
+Guarded by TSN_METRICS_ENABLED (default: true).
+When disabled, the /metrics endpoint returns 404 and the middleware is a no-op.
+"""
+
+import time
+
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
+
+import settings
+
+# ---------------------------------------------------------------------------
+# Metric definitions (created only when metrics are enabled)
+# ---------------------------------------------------------------------------
+
+if settings.METRICS_ENABLED:
+    from prometheus_client import Counter, Histogram, Info, generate_latest, CONTENT_TYPE_LATEST
+
+    SERVICE_INFO = Info("tsn_service", "Tsushin service metadata")
+    SERVICE_INFO.info({
+        "version": settings.SERVICE_VERSION,
+        "service": settings.SERVICE_NAME,
+    })
+
+    HTTP_REQUESTS_TOTAL = Counter(
+        "http_requests_total",
+        "Total HTTP requests",
+        ["method", "path_template", "status"],
+    )
+
+    HTTP_REQUEST_DURATION = Histogram(
+        "http_request_duration_seconds",
+        "HTTP request duration in seconds",
+        ["method", "path_template"],
+        buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _normalise_path(path: str) -> str:
+    """
+    Collapse numeric / UUID path segments to keep cardinality low.
+    e.g. /api/agents/42/chat -> /api/agents/{id}/chat
+    """
+    import re
+    parts = path.rstrip("/").split("/")
+    normalised = []
+    for part in parts:
+        if re.fullmatch(r"\d+", part):
+            normalised.append("{id}")
+        elif re.fullmatch(
+            r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+            part,
+            re.IGNORECASE,
+        ):
+            normalised.append("{uuid}")
+        else:
+            normalised.append(part)
+    return "/".join(normalised) or "/"
+
+
+# ---------------------------------------------------------------------------
+# /metrics endpoint
+# ---------------------------------------------------------------------------
+
+async def metrics_endpoint(request: Request) -> Response:
+    """Prometheus scrape endpoint."""
+    if not settings.METRICS_ENABLED:
+        return Response(status_code=404, content="Metrics disabled")
+
+    body = generate_latest()
+    return Response(content=body, media_type=CONTENT_TYPE_LATEST)
+
+
+# ---------------------------------------------------------------------------
+# Middleware
+# ---------------------------------------------------------------------------
+
+class PrometheusMiddleware(BaseHTTPMiddleware):
+    """Record request count and duration for every HTTP request."""
+
+    async def dispatch(self, request: Request, call_next):
+        if not settings.METRICS_ENABLED:
+            return await call_next(request)
+
+        method = request.method
+        path = _normalise_path(request.url.path)
+
+        start = time.perf_counter()
+        response = await call_next(request)
+        duration = time.perf_counter() - start
+
+        status = str(response.status_code)
+        HTTP_REQUESTS_TOTAL.labels(method=method, path_template=path, status=status).inc()
+        HTTP_REQUEST_DURATION.labels(method=method, path_template=path).observe(duration)
+
+        return response

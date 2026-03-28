@@ -80,6 +80,53 @@ def health_check():
     }
 
 
+@router.get("/api/readiness")
+def readiness_check():
+    """
+    Readiness probe — checks that critical dependencies are available.
+
+    Returns 200 when all components are healthy, 503 when any is degraded.
+    /api/health remains a lightweight liveness probe; this endpoint performs
+    real connectivity checks suitable for Kubernetes readiness gates.
+    """
+    from datetime import datetime
+    from fastapi.responses import JSONResponse
+    import settings
+    import logging
+
+    logger = logging.getLogger(__name__)
+    components = {}
+
+    # --- PostgreSQL check ---
+    try:
+        from sqlalchemy.orm import sessionmaker
+        SessionLocal = sessionmaker(bind=_engine)
+        db = SessionLocal()
+        try:
+            db.execute(
+                __import__("sqlalchemy").text("SELECT 1")
+            )
+            components["postgresql"] = {"status": "healthy"}
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning(f"Readiness: PostgreSQL check failed: {exc}")
+        components["postgresql"] = {"status": "unhealthy", "error": str(exc)}
+
+    # --- Aggregate ---
+    all_healthy = all(c["status"] == "healthy" for c in components.values())
+    payload = {
+        "status": "ready" if all_healthy else "degraded",
+        "service": settings.SERVICE_NAME,
+        "version": settings.SERVICE_VERSION,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "components": components,
+    }
+
+    status_code = 200 if all_healthy else 503
+    return JSONResponse(content=payload, status_code=status_code)
+
+
 @router.get("/api/config", response_model=ConfigResponse)
 def get_config(
     db: Session = Depends(get_db),

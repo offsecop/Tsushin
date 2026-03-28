@@ -29,15 +29,29 @@ if sys.stderr.encoding != 'utf-8':
     sys.stderr.reconfigure(encoding='utf-8')
 
 # Setup logging with TSN configuration (UTF-8 encoding for Unicode support)
-logging.basicConfig(
-    level=settings.LOG_LEVEL,
-    format="%(asctime)s - [%(name)s] - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler(settings.LOG_FILE, encoding='utf-8'),
-        logging.StreamHandler()
-    ],
-    force=True  # Ensure config is applied even if root logger was initialized by imports
-)
+# When TSN_LOG_FORMAT=json, use JsonFormatter for structured output.
+if settings.LOG_FORMAT.lower() == "json":
+    from services.logging_service import JsonFormatter
+    _json_fmt = JsonFormatter()
+    _file_handler = logging.FileHandler(settings.LOG_FILE, encoding='utf-8')
+    _file_handler.setFormatter(_json_fmt)
+    _stream_handler = logging.StreamHandler()
+    _stream_handler.setFormatter(_json_fmt)
+    logging.basicConfig(
+        level=settings.LOG_LEVEL,
+        handlers=[_file_handler, _stream_handler],
+        force=True,
+    )
+else:
+    logging.basicConfig(
+        level=settings.LOG_LEVEL,
+        format="%(asctime)s - [%(name)s] - %(levelname)s - %(message)s",
+        handlers=[
+            logging.FileHandler(settings.LOG_FILE, encoding='utf-8'),
+            logging.StreamHandler()
+        ],
+        force=True,  # Ensure config is applied even if root logger was initialized by imports
+    )
 
 logger = logging.getLogger(__name__)
 logger.info(f"Starting {settings.SERVICE_NAME} v{settings.SERVICE_VERSION}")
@@ -918,6 +932,14 @@ app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 # Public API v1: Rate limiting middleware
 app.add_middleware(ApiV1RateLimitMiddleware)
 
+# Request ID middleware — generates a UUID per request for log correlation
+from services.logging_service import RequestIdMiddleware
+app.add_middleware(RequestIdMiddleware)
+
+# Prometheus metrics middleware — tracks request count and duration
+from services.metrics_service import PrometheusMiddleware
+app.add_middleware(PrometheusMiddleware)
+
 
 # Security headers middleware
 @app.middleware("http")
@@ -1044,6 +1066,10 @@ app.include_router(sentinel_profiles_router, prefix="/api")  # v1.6.0: Sentinel 
 app.include_router(queue_router)  # Message Queue System
 app.include_router(api_clients_router)  # Public API v1: Client Management (UI-facing)
 app.include_router(v1_router)  # Public API v1: All /api/v1/ endpoints
+
+# Prometheus metrics endpoint (unauthenticated — scrape target)
+from services.metrics_service import metrics_endpoint
+app.add_api_route("/metrics", metrics_endpoint, methods=["GET"], include_in_schema=False)
 
 # Phase 6.11.2: WebSocket endpoint for real-time updates
 @app.websocket("/ws")
