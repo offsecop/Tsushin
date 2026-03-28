@@ -58,7 +58,6 @@ import {
   BookOpenIcon,
   WhatsAppIcon,
   TelegramIcon,
-  PauseIcon,
   LightbulbIcon,
   FileTextIcon,
   ClipboardIcon,
@@ -166,26 +165,14 @@ export default function FlowsPage() {
   // Selected rows for bulk actions
   const [selectedFlows, setSelectedFlows] = useState<Set<number>>(new Set())
 
-  // Emergency Stop state
-  const [emergencyStop, setEmergencyStop] = useState(false)
-  const [checkingEmergencyStop, setCheckingEmergencyStop] = useState(false)
-
   useEffect(() => {
     loadData()
-    checkEmergencyStopStatus()
 
-    const handleRefresh = () => {
-      loadData()
-      checkEmergencyStopStatus()
-    }
+    const handleRefresh = () => loadData()
     window.addEventListener('tsushin:refresh', handleRefresh)
-
-    // Poll emergency stop status
-    const interval = setInterval(checkEmergencyStopStatus, 10000)
 
     return () => {
       window.removeEventListener('tsushin:refresh', handleRefresh)
-      clearInterval(interval)
     }
   }, [])
 
@@ -371,49 +358,6 @@ export default function FlowsPage() {
     }
   }
 
-  async function checkEmergencyStopStatus() {
-    try {
-      const response = await fetch('http://localhost:8081/api/system/status', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('tsushin_auth_token')}`
-        }
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setEmergencyStop(data.emergency_stop || false)
-      }
-    } catch (error) {
-      console.error('Failed to check emergency stop status:', error)
-    }
-  }
-
-  async function toggleEmergencyStop() {
-    if (!emergencyStop && !confirm('EMERGENCY STOP will halt all message processing immediately. Continue?')) return
-
-    setCheckingEmergencyStop(true)
-    try {
-      const endpoint = emergencyStop ? '/api/system/resume' : '/api/system/emergency-stop'
-      const response = await fetch(`http://localhost:8081${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('tsushin_auth_token')}`
-        }
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setEmergencyStop(data.emergency_stop || false)
-      } else {
-        toast.error('Emergency Stop', 'Failed to toggle emergency stop')
-      }
-    } catch (error) {
-      console.error('Failed to toggle emergency stop:', error)
-      toast.error('Emergency Stop', 'Failed to toggle emergency stop')
-    } finally {
-      setCheckingEmergencyStop(false)
-    }
-  }
-
   // Stats calculation (based on all flows, not filtered)
   const stats = {
     totalFlows: allFlows.length,
@@ -455,37 +399,6 @@ export default function FlowsPage() {
             <p className="text-slate-500 mt-1 text-sm">Manage automated workflows, conversations, and notifications</p>
           </div>
           <div className="flex items-center gap-3">
-            {/* Emergency Stop Button */}
-            <button
-              onClick={toggleEmergencyStop}
-              disabled={checkingEmergencyStop}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${emergencyStop
-                  ? 'bg-red-500/20 text-red-400 border-2 border-red-500/50 hover:bg-red-500/30 shadow-lg shadow-red-500/20'
-                  : 'bg-slate-800/80 text-slate-400 border border-slate-700/50 hover:bg-slate-700/80 hover:text-white hover:border-slate-600'
-                }`}
-              title={emergencyStop ? "Click to resume message processing" : "Emergency Stop - Immediately halt all message processing"}
-            >
-              {checkingEmergencyStop ? (
-                <>
-                  <span className="animate-spin">⟳</span>
-                  <span>Processing...</span>
-                </>
-              ) : emergencyStop ? (
-                <>
-                  <span className="text-lg">🚨</span>
-                  <div className="flex flex-col items-start">
-                    <span className="font-bold">STOPPED</span>
-                    <span className="text-xs opacity-75">Click to resume</span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <PauseIcon size={20} />
-                  <span>Emergency Stop</span>
-                </>
-              )}
-            </button>
-
             {/* New Flow Button */}
             <button
               onClick={() => setShowCreateFlow(true)}
@@ -571,12 +484,12 @@ export default function FlowsPage() {
             {/* Refresh */}
             <button
               onClick={loadData}
-              className="ml-auto px-3 py-2 text-sm text-slate-400 hover:text-white transition-colors flex items-center gap-1"
+              title="Refresh"
+              className="ml-auto p-2 text-slate-400 hover:text-white transition-colors"
             >
               <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              Refresh
             </button>
           </div>
 

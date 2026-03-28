@@ -5,12 +5,15 @@
  * Premium UI with animated navigation, glass effects, and polished interactions
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import RefreshButton from '@/components/RefreshButton'
 import { useAuth, useRequireAuth } from '@/contexts/AuthContext'
 import { useOnboarding } from '@/contexts/OnboardingContext'
+import { useToast } from '@/contexts/ToastContext'
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8081'
 
 // Navigation items configuration
 const navItems = [
@@ -29,6 +32,12 @@ export default function LayoutContent({ children }: { children: React.ReactNode 
 
   // Mobile menu state
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  // Emergency Stop state
+  const toast = useToast()
+  const [emergencyStop, setEmergencyStop] = useState(false)
+  const [checkingEmergencyStop, setCheckingEmergencyStop] = useState(false)
+  const [showStopConfirm, setShowStopConfirm] = useState(false)
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -58,6 +67,61 @@ export default function LayoutContent({ children }: { children: React.ReactNode 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/'
     return pathname?.startsWith(href)
+  }
+
+  // Emergency stop status polling
+  const checkEmergencyStopStatus = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/system/status`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('tsushin_auth_token')}` }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setEmergencyStop(data.emergency_stop || false)
+      }
+    } catch { /* silent */ }
+  }, [])
+
+  useEffect(() => {
+    checkEmergencyStopStatus()
+    const interval = setInterval(checkEmergencyStopStatus, 10000)
+    return () => clearInterval(interval)
+  }, [checkEmergencyStopStatus])
+
+  async function handleEmergencyToggle() {
+    if (!emergencyStop) {
+      setShowStopConfirm(true)
+      return
+    }
+    // Resume directly
+    await executeEmergencyToggle()
+  }
+
+  async function executeEmergencyToggle() {
+    setShowStopConfirm(false)
+    setCheckingEmergencyStop(true)
+    try {
+      const endpoint = emergencyStop ? '/api/system/resume' : '/api/system/emergency-stop'
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('tsushin_auth_token')}` }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setEmergencyStop(data.emergency_stop || false)
+        if (data.emergency_stop) {
+          toast.error('Emergency Stop', 'All message processing has been halted')
+        } else {
+          toast.success('Resumed', 'Message processing has been resumed')
+        }
+      } else {
+        toast.error('Error', 'Failed to toggle emergency stop')
+      }
+    } catch {
+      toast.error('Error', 'Failed to toggle emergency stop')
+    } finally {
+      setCheckingEmergencyStop(false)
+    }
   }
 
   if (isAuthPage) {
@@ -167,14 +231,45 @@ export default function LayoutContent({ children }: { children: React.ReactNode 
               {/* Refresh button */}
               <RefreshButton />
 
-              {/* Status indicator with pulse animation */}
-              <div className="flex items-center space-x-2 px-3 py-1.5 rounded-full glass-card">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-tsushin-success opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-tsushin-success"></span>
-                </span>
-                <span className="text-xs font-medium text-tsushin-success">Online</span>
-              </div>
+              {/* System status toggle — doubles as emergency stop */}
+              <button
+                onClick={handleEmergencyToggle}
+                disabled={checkingEmergencyStop}
+                title={emergencyStop
+                  ? 'STOPPED — Click to resume message processing'
+                  : 'Online — Click for emergency stop'
+                }
+                className={`flex items-center space-x-2 px-3 py-1.5 rounded-full transition-all duration-300 cursor-pointer ${
+                  emergencyStop
+                    ? 'bg-red-500/15 border border-red-500/40 hover:bg-red-500/25'
+                    : 'glass-card hover:bg-tsushin-surface/60'
+                } ${checkingEmergencyStop ? 'opacity-60' : ''}`}
+              >
+                {checkingEmergencyStop ? (
+                  <>
+                    <span className="relative flex h-2 w-2">
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400 animate-pulse"></span>
+                    </span>
+                    <span className="text-xs font-medium text-amber-400">...</span>
+                  </>
+                ) : emergencyStop ? (
+                  <>
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </span>
+                    <span className="text-xs font-bold text-red-400">STOPPED</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-tsushin-success opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-tsushin-success"></span>
+                    </span>
+                    <span className="text-xs font-medium text-tsushin-success">Online</span>
+                  </>
+                )}
+              </button>
 
               {/* Divider */}
               <div className="h-8 w-px bg-tsushin-border/50"></div>
@@ -331,6 +426,50 @@ export default function LayoutContent({ children }: { children: React.ReactNode 
             </div>
           </div>
         </>
+      )}
+
+      {/* Emergency Stop Confirmation Dialog */}
+      {showStopConfirm && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-slate-800 rounded-2xl max-w-md w-full shadow-2xl border border-red-500/30 overflow-hidden">
+            <div className="bg-red-500/10 px-6 py-4 border-b border-red-500/20">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-red-400">Emergency Stop</h3>
+                  <p className="text-sm text-red-300/70">This action affects the entire system</p>
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-4">
+              <p className="text-slate-300 text-sm">
+                This will <strong className="text-white">immediately halt all message processing</strong> across
+                all channels (WhatsApp, Telegram, API). No messages will be sent or received until you resume.
+              </p>
+              <p className="text-slate-400 text-xs mt-3">
+                Active flow runs will be cancelled. You can resume at any time by clicking the status badge again.
+              </p>
+            </div>
+            <div className="px-6 py-4 border-t border-slate-700 flex justify-end gap-3">
+              <button
+                onClick={() => setShowStopConfirm(false)}
+                className="px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={executeEmergencyToggle}
+                className="px-5 py-2 bg-red-500 hover:bg-red-400 text-white font-medium text-sm rounded-lg transition-colors"
+              >
+                Stop All Processing
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Main Content */}
