@@ -927,7 +927,10 @@ app.add_middleware(
 # Proxy headers — reads X-Forwarded-For/Proto from reverse proxy (Caddy/Nginx)
 # Ensures get_remote_address returns real client IP for rate limiting behind proxy.
 # No-op when running without a proxy.
-app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
+# BUG-074 FIX: Use configurable trusted hosts instead of wildcard
+_trusted_proxy_hosts = os.environ.get("TSN_TRUSTED_PROXY_HOSTS", "127.0.0.1,::1")
+_trusted_hosts_list = [h.strip() for h in _trusted_proxy_hosts.split(",") if h.strip()]
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=_trusted_hosts_list)
 
 # Public API v1: Rate limiting middleware
 app.add_middleware(ApiV1RateLimitMiddleware)

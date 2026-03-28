@@ -307,10 +307,13 @@ class ConversationSearchService:
         # Search in Memory table (messages stored as JSON)
         from models import Memory, Agent, ConversationThread
 
-        query_obj = self.db.query(Memory).filter(
-            Memory.tenant_id == tenant_id,
-            Memory.user_id == user_id,
-            Memory.sender_key.like('playground_%')
+        # BUG-083 FIX: Join through Agent table for tenant isolation
+        # (Memory model has no tenant_id or user_id columns)
+        query_obj = self.db.query(Memory).join(
+            Agent, Memory.agent_id == Agent.id
+        ).filter(
+            Agent.tenant_id == tenant_id,
+            Memory.sender_key.like(f'playground_{user_id}_%')
         )
 
         if agent_id:

@@ -81,6 +81,7 @@ class ApiClientService:
         created_by: Optional[int] = None,
         expires_at: Optional[datetime] = None,
         custom_scopes: Optional[List[str]] = None,
+        creator_permissions: Optional[List[str]] = None,
     ) -> Tuple[ApiClient, str]:
         """
         Create a new API client. Returns (client, raw_secret).
@@ -98,6 +99,15 @@ class ApiClientService:
             invalid = set(custom_scopes) - valid_perms
             if invalid:
                 raise ValueError(f"Invalid scopes: {invalid}")
+
+        # BUG-070 FIX: Prevent privilege escalation
+        if creator_permissions is not None:
+            effective_scopes = custom_scopes if role == "custom" else API_ROLE_SCOPES.get(role, [])
+            escalated = set(effective_scopes) - set(creator_permissions)
+            if escalated:
+                raise ValueError(
+                    f"Privilege escalation denied: cannot grant permissions you don't hold: {', '.join(sorted(escalated))}"
+                )
 
         # Generate client_id and secret
         client_id = f"tsn_ci_{secrets.token_urlsafe(16)}"

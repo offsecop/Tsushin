@@ -127,6 +127,13 @@ async def create_api_client(
     """Create a new API client. Returns the client secret (shown only once)."""
     service = ApiClientService(db)
 
+    # BUG-070 FIX: Pass creator permissions for escalation check
+    creator_perms = None
+    if not current_user.is_global_admin:
+        from auth_service import AuthService
+        auth_svc = AuthService(db)
+        creator_perms = auth_svc.get_user_permissions(current_user.id)
+
     try:
         client, raw_secret = service.create_client(
             tenant_id=current_user.tenant_id,
@@ -137,6 +144,7 @@ async def create_api_client(
             created_by=current_user.id,
             expires_at=request.expires_at,
             custom_scopes=request.custom_scopes,
+            creator_permissions=creator_perms,
         )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
