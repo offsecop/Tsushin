@@ -1085,6 +1085,10 @@ function CreateFlowModal({ agents, contacts, personas, customTools, onClose, onS
     steps: []
   })
   const [submitting, setSubmitting] = useState(false)
+  const flowDataRef = useRef(flowData)
+  flowDataRef.current = flowData
+  // Flush callbacks registered by each StepConfigForm
+  const createFlushRef = useRef<Map<number, () => void>>(new Map())
 
   async function handleSubmit() {
     if (!flowData.name.trim()) {
@@ -1096,9 +1100,13 @@ function CreateFlowModal({ agents, contacts, personas, customTools, onClose, onS
       return
     }
 
+    // Flush all pending step config form changes before submitting
+    createFlushRef.current.forEach(flush => flush())
+    await new Promise(r => setTimeout(r, 0))
+
     setSubmitting(true)
     try {
-      await api.createFlowV2(flowData)
+      await api.createFlowV2(flowDataRef.current)
       onSuccess()
     } catch (error) {
       console.error('Failed to create flow:', error)
@@ -1263,6 +1271,7 @@ function CreateFlowModal({ agents, contacts, personas, customTools, onClose, onS
               personas={personas}
               customTools={customTools}
               onChange={(steps) => setFlowData(prev => ({ ...prev, steps }))}
+              flushCallbacksRef={createFlushRef}
             />
           )}
         </div>
@@ -1297,13 +1306,14 @@ function CreateFlowModal({ agents, contacts, personas, customTools, onClose, onS
 
 // ==================== STEP BUILDER ====================
 
-function StepBuilder({ steps, agents, contacts, personas, customTools, onChange }: {
+function StepBuilder({ steps, agents, contacts, personas, customTools, onChange, flushCallbacksRef }: {
   steps: CreateFlowStepData[]
   agents: Agent[]
   contacts: Contact[]
   personas: Persona[]
   customTools: CustomTool[]
   onChange: (steps: CreateFlowStepData[]) => void
+  flushCallbacksRef?: React.MutableRefObject<Map<number, () => void>>
 }) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [showAddStep, setShowAddStep] = useState(steps.length === 0)
@@ -1435,6 +1445,8 @@ function StepBuilder({ steps, agents, contacts, personas, customTools, onChange 
                     customTools={customTools}
                     onChange={(update) => updateStep(index, update)}
                     allSteps={steps}
+                    flushCallbacksRef={flushCallbacksRef}
+                    stepIndex={index}
                   />
                 </div>
               )}
@@ -1750,7 +1762,7 @@ function ToolParameterForm({
 
 // ==================== STEP CONFIG FORM ====================
 
-function StepConfigForm({ step, agents, contacts, personas, customTools, onChange, allSteps }: {
+function StepConfigForm({ step, agents, contacts, personas, customTools, onChange, allSteps, flushCallbacksRef, stepIndex }: {
   step: CreateFlowStepData
   agents: Agent[]
   contacts: Contact[]
@@ -1758,6 +1770,8 @@ function StepConfigForm({ step, agents, contacts, personas, customTools, onChang
   customTools: CustomTool[]
   onChange: (update: Partial<CreateFlowStepData>) => void
   allSteps: CreateFlowStepData[]
+  flushCallbacksRef?: React.MutableRefObject<Map<number, () => void>>
+  stepIndex?: number
 }) {
   const [recipientInput, setRecipientInput] = useState(step.config?.recipient || '')
   const [showContactSuggestions, setShowContactSuggestions] = useState(false)
@@ -1776,6 +1790,24 @@ function StepConfigForm({ step, agents, contacts, personas, customTools, onChang
       saveTimeoutRef.current = null
     }
   }, [step.position])
+
+  // Register flush callback so Create Flow can force-flush pending changes
+  useEffect(() => {
+    if (!flushCallbacksRef || stepIndex === undefined) return
+    const flush = () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+        saveTimeoutRef.current = null
+      }
+      const pending = pendingChangesRef.current
+      if (Object.keys(pending).length > 0) {
+        onChangeRef.current(pending)
+        pendingChangesRef.current = {}
+      }
+    }
+    flushCallbacksRef.current.set(stepIndex, flush)
+    return () => { flushCallbacksRef.current.delete(stepIndex) }
+  }, [stepIndex, flushCallbacksRef])
 
   useEffect(() => {
     return () => {
