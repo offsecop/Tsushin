@@ -37,6 +37,7 @@ import {
   editableToCreatePayload
 } from '@/lib/client'
 import FlowsStatCards from '@/components/flows/FlowsStatCards'
+import TemplateTextarea from '@/components/flows/TemplateTextarea'
 import {
   MessageIcon,
   BellIcon,
@@ -1433,6 +1434,7 @@ function StepBuilder({ steps, agents, contacts, personas, customTools, onChange 
                     personas={personas}
                     customTools={customTools}
                     onChange={(update) => updateStep(index, update)}
+                    allSteps={steps}
                   />
                 </div>
               )}
@@ -1748,19 +1750,22 @@ function ToolParameterForm({
 
 // ==================== STEP CONFIG FORM ====================
 
-function StepConfigForm({ step, agents, contacts, personas, customTools, onChange }: {
+function StepConfigForm({ step, agents, contacts, personas, customTools, onChange, allSteps }: {
   step: CreateFlowStepData
   agents: Agent[]
   contacts: Contact[]
   personas: Persona[]
   customTools: CustomTool[]
   onChange: (update: Partial<CreateFlowStepData>) => void
+  allSteps: CreateFlowStepData[]
 }) {
   const [recipientInput, setRecipientInput] = useState(step.config?.recipient || '')
   const [showContactSuggestions, setShowContactSuggestions] = useState(false)
   const [localChanges, setLocalChanges] = useState<Partial<CreateFlowStepData>>({})
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const pendingChangesRef = useRef<Partial<CreateFlowStepData>>({})
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
 
   useEffect(() => {
     setRecipientInput(step.config?.recipient || '')
@@ -1776,6 +1781,12 @@ function StepConfigForm({ step, agents, contacts, personas, customTools, onChang
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current)
+      }
+      // Flush any pending changes on unmount so edits are not lost
+      const pending = pendingChangesRef.current
+      if (Object.keys(pending).length > 0) {
+        onChangeRef.current(pending)
+        pendingChangesRef.current = {}
       }
     }
   }, [])
@@ -1920,8 +1931,10 @@ function StepConfigForm({ step, agents, contacts, personas, customTools, onChang
           <label className="block text-sm font-medium text-slate-300 mb-1.5">
             {step.type === 'notification' ? 'Notification Text' : 'Message Template'}
           </label>
-          <CursorSafeTextarea
-            value={currentConfig?.message_template || currentConfig?.content || ''}
+          <TemplateTextarea
+            value={step.type === 'notification'
+              ? (currentConfig?.content || '')
+              : (currentConfig?.message_template || '')}
             onValueChange={(v) => updateConfig(step.type === 'notification' ? 'content' : 'message_template', v)}
             rows={3}
             placeholder={step.type === 'notification'
@@ -1929,11 +1942,9 @@ function StepConfigForm({ step, agents, contacts, personas, customTools, onChang
               : 'Enter your message... Use {{step_1.field}} to inject previous step outputs'}
             className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm
                        focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none resize-none"
+            allSteps={allSteps.map(s => ({ name: s.name, type: s.type, position: s.position, config: s.config }))}
+            currentStepPosition={step.position}
           />
-          <p className="text-xs text-slate-500 mt-1">
-            <span className="inline-flex items-center gap-1"><LightbulbIcon size={12} /> Use {'{{'}step_N.field{'}}'} or {'{{'}step_name.field{'}}'} to inject outputs from previous steps.</span>
-            Helpers: {'{{'}value | truncate:100{'}}'}, {'{{'}value | upper{'}}'}, {'{{'}value | json{'}}'}
-          </p>
         </div>
       )}
 
@@ -2375,7 +2386,8 @@ function EditableStepBuilder({
   contacts,
   personas,
   customTools,
-  onStepsChange
+  onStepsChange,
+  flushCallbacksRef
 }: {
   flowId: number
   steps: EditableStepData[]
@@ -2384,6 +2396,7 @@ function EditableStepBuilder({
   personas: Persona[]
   customTools: CustomTool[]
   onStepsChange: (steps: EditableStepData[]) => void
+  flushCallbacksRef?: React.MutableRefObject<Map<number, () => void>>
 }) {
   const toast = useToast()
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
@@ -2634,6 +2647,8 @@ function EditableStepBuilder({
                     personas={personas}
                     customTools={customTools}
                     onChange={(update) => updateStep(index, update)}
+                    flushCallbacksRef={flushCallbacksRef}
+                    allSteps={steps}
                   />
                 </div>
               )}
@@ -2692,19 +2707,23 @@ function EditableStepBuilder({
 
 // ==================== EDITABLE STEP CONFIG FORM ====================
 
-function EditableStepConfigForm({ step, agents, contacts, personas, customTools, onChange }: {
+function EditableStepConfigForm({ step, agents, contacts, personas, customTools, onChange, flushCallbacksRef, allSteps }: {
   step: EditableStepData
   agents: Agent[]
   contacts: Contact[]
   personas: Persona[]
   customTools: CustomTool[]
   onChange: (update: Partial<EditableStepData>) => void
+  flushCallbacksRef?: React.MutableRefObject<Map<number, () => void>>
+  allSteps: EditableStepData[]
 }) {
   const [recipientInput, setRecipientInput] = useState(step.config?.recipient || '')
   const [showContactSuggestions, setShowContactSuggestions] = useState(false)
   const [localChanges, setLocalChanges] = useState<Partial<EditableStepData>>({})
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const pendingChangesRef = useRef<Partial<EditableStepData>>({})
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
 
   useEffect(() => {
     setRecipientInput(step.config?.recipient || '')
@@ -2716,10 +2735,34 @@ function EditableStepConfigForm({ step, agents, contacts, personas, customTools,
     }
   }, [step.id])
 
+  // Register flush callback so handleSave can force-flush pending changes before closing
+  useEffect(() => {
+    if (!flushCallbacksRef || !step.id) return
+    const flush = () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+        saveTimeoutRef.current = null
+      }
+      const pending = pendingChangesRef.current
+      if (Object.keys(pending).length > 0) {
+        onChangeRef.current(pending)
+        pendingChangesRef.current = {}
+      }
+    }
+    flushCallbacksRef.current.set(step.id, flush)
+    return () => { flushCallbacksRef.current.delete(step.id) }
+  }, [step.id, flushCallbacksRef])
+
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current)
+      }
+      // Flush any pending changes on unmount so edits are not lost
+      const pending = pendingChangesRef.current
+      if (Object.keys(pending).length > 0) {
+        onChangeRef.current(pending)
+        pendingChangesRef.current = {}
       }
     }
   }, [])
@@ -2866,8 +2909,10 @@ function EditableStepConfigForm({ step, agents, contacts, personas, customTools,
           <label className="block text-sm font-medium text-slate-300 mb-1.5">
             {step.type === 'notification' ? 'Notification Text' : 'Message Template'}
           </label>
-          <CursorSafeTextarea
-            value={currentConfig?.message_template || currentConfig?.content || ''}
+          <TemplateTextarea
+            value={step.type === 'notification'
+              ? (currentConfig?.content || '')
+              : (currentConfig?.message_template || '')}
             onValueChange={(v) => updateConfig(step.type === 'notification' ? 'content' : 'message_template', v)}
             rows={3}
             placeholder={step.type === 'notification'
@@ -2875,10 +2920,9 @@ function EditableStepConfigForm({ step, agents, contacts, personas, customTools,
               : 'Enter your message... Use {{step_1.field}} to inject previous step outputs'}
             className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white text-sm
                        focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 outline-none resize-none"
+            allSteps={allSteps.map(s => ({ name: s.name, type: s.type, position: s.position, config: s.config }))}
+            currentStepPosition={step.position}
           />
-          <p className="text-xs text-slate-500 mt-1">
-            <span className="inline-flex items-center gap-1"><LightbulbIcon size={12} /> Use {'{{'}step_N.field{'}}'} or {'{{'}step_name.field{'}}'} to inject outputs from previous steps.</span>
-          </p>
         </div>
       )}
 
@@ -3310,9 +3354,15 @@ function EditFlowModal({ flowId, agents, contacts, personas, customTools, onClos
   const toast = useToast()
   const [flow, setFlow] = useState<FlowDefinition | null>(null)
   const [steps, setSteps] = useState<EditableStepData[]>([])
+  const stepsRef = useRef<EditableStepData[]>([])
   const [loading, setLoading] = useState(true)
+  // Flush callbacks registered by each EditableStepConfigForm to force-save pending edits
+  const flushCallbacksRef = useRef<Map<number, () => void>>(new Map())
   const [saving, setSaving] = useState(false)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
+
+  // Keep stepsRef in sync for use inside handleSave after flush
+  useEffect(() => { stepsRef.current = steps }, [steps])
 
   useEffect(() => {
     loadFlow()
@@ -3359,6 +3409,15 @@ function EditFlowModal({ flowId, agents, contacts, personas, customTools, onClos
     if (!flow) return
     setSaving(true)
     try {
+      // 1. Flush all pending form edits into the steps state synchronously.
+      //    This ensures text field changes that are still in the 500ms debounce window
+      //    are propagated to the steps array before we save.
+      flushCallbacksRef.current.forEach(flush => flush())
+
+      // 2. Wait one microtask for React to process the flushed state updates
+      await new Promise(r => setTimeout(r, 0))
+
+      // 3. Save flow-level data
       await api.patchFlow(flowId, {
         name: flow.name,
         description: flow.description || undefined,
@@ -3368,6 +3427,15 @@ function EditFlowModal({ flowId, agents, contacts, personas, customTools, onClos
         recurrence_rule: flow.recurrence_rule as any,
         default_agent_id: flow.default_agent_id ?? 0,
       })
+
+      // 4. Explicitly save all steps using the latest ref (updated after flush)
+      const latestSteps = stepsRef.current
+      await Promise.all(
+        latestSteps.filter(s => s.id).map(s =>
+          api.updateFlowStep(flowId, s.id!, editableToUpdatePayload(s))
+        )
+      )
+
       onSuccess()
     } catch (error) {
       console.error('Failed to save flow:', error)
@@ -3535,6 +3603,7 @@ function EditFlowModal({ flowId, agents, contacts, personas, customTools, onClos
               personas={personas}
               customTools={customTools}
               onStepsChange={setSteps}
+              flushCallbacksRef={flushCallbacksRef}
             />
           </div>
         </div>
