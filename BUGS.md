@@ -1,9 +1,138 @@
 # Tsushin Bug Tracker
-**Open:** 0 | **In Progress:** 0 | **Resolved:** 50
-**Source:** v0.6.0 Comprehensive Platform Audit (2026-03-27)
+**Open:** 13 | **In Progress:** 0 | **Resolved:** 50
+**Source:** v0.6.1 Security Vulnerability Audit (2026-03-28)
 
 ## Open Issues
-(none)
+
+### BUG-051: BOLA — Persona assignment allows cross-tenant resource theft
+- **Status:** Open
+- **Severity:** Critical
+- **Category:** Broken Object Level Authorization
+- **File:** `backend/api/v1/routes_agents.py:576-581` (update), `backend/api/v1/routes_agents.py:372` (create)
+- **Description:** Persona lookup during agent create/update has no tenant_id filter. Tenant A can assign Tenant B's persona to their agent via `persona_id`, gaining access to that tenant's persona configuration (embedded in agent context during inference).
+- **Proof:** `persona = db.query(Persona).filter(Persona.id == request.persona_id).first()` — no tenant scoping.
+- **Impact:** Cross-tenant data leakage of persona configurations. Attacker gains another tenant's prompt engineering / persona content.
+- **Remediation:** Add tenant filter: `(Persona.is_system == True) | (Persona.tenant_id == caller.tenant_id) | (Persona.tenant_id.is_(None))`
+
+### BUG-052: BOLA — Sentinel profile assignment allows cross-tenant security bypass
+- **Status:** Open
+- **Severity:** Critical
+- **Category:** Broken Object Level Authorization
+- **File:** `backend/api/v1/routes_studio.py:523-528`, `backend/api/routes_agent_builder.py:673-674`
+- **Description:** SentinelProfile lookup during agent configuration has no tenant_id filter. Tenant A can assign Tenant B's sentinel security profile to their agent, either stealing a hardened config or applying a permissive one to bypass content filtering.
+- **Proof:** `profile = db.query(SentinelProfile).filter(SentinelProfile.id == data.sentinel.profile_id).first()` — no tenant scoping.
+- **Impact:** Cross-tenant security policy manipulation. Attacker can weaken their agent's security controls or steal another tenant's security configuration.
+- **Remediation:** Add tenant filter: `(SentinelProfile.is_system == True) | (SentinelProfile.tenant_id == caller.tenant_id) | (SentinelProfile.tenant_id.is_(None))`
+
+### BUG-053: Admin password reset transmits password in URL query string
+- **Status:** Open
+- **Severity:** Critical
+- **Category:** Sensitive Data Exposure
+- **File:** `backend/api/routes_global_users.py:560`
+- **Description:** The `new_password` parameter is defined as `Query(...)`, meaning the password is sent in the URL: `POST /api/admin/users/5/reset-password?new_password=MyPass123`. URLs are logged by HTTP servers, proxies, load balancers, CDNs, and stored in browser history.
+- **Proof:** `new_password: str = Query(..., min_length=8)` — password as query parameter.
+- **Impact:** Plaintext passwords exposed in access logs, proxy logs, and log aggregation systems (Datadog, CloudWatch, ELK).
+- **Remediation:** Change from `Query(...)` to a Pydantic request body model `ResetPasswordRequest(BaseModel)`.
+
+### BUG-054: JWT secret key uses ephemeral fallback — sessions lost on restart
+- **Status:** Open
+- **Severity:** Critical
+- **Category:** Broken Authentication
+- **File:** `backend/auth_utils.py:17`
+- **Description:** `JWT_SECRET_KEY` defaults to `secrets.token_urlsafe(32)` when env var is missing. This generates a new key on every container restart, invalidating all active sessions. In production, if `JWT_SECRET_KEY` is accidentally omitted, the system silently works during dev but breaks on every deploy.
+- **Proof:** `JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", secrets.token_urlsafe(32))`
+- **Impact:** All user sessions invalidated on container restart. Silent misconfiguration risk in production deployments.
+- **Remediation:** Remove the fallback. Raise `RuntimeError` at startup if `JWT_SECRET_KEY` is not set or is shorter than 32 bytes.
+
+### BUG-055: Backend container runs as root with Docker socket mounted
+- **Status:** Open
+- **Severity:** Critical
+- **Category:** Container Escape / Privilege Escalation
+- **File:** `docker-compose.yml:49,58`
+- **Description:** The backend container runs as `user: root` and mounts `/var/run/docker.sock`. Any RCE vulnerability in the backend gives the attacker full Docker API access as root — effectively host-level access. This bypasses the non-root `USER tsushin` set in the Dockerfile.
+- **Proof:** `user: root` (line 49) + `- /var/run/docker.sock:/var/run/docker.sock` (line 58)
+- **Impact:** Container escape to host. An attacker with RCE can create privileged containers, read host filesystem, or pivot to other services.
+- **Remediation:** Create a `docker` group in the container and run as non-root user in that group. Use Docker socket proxy (e.g., Tecnativa/docker-socket-proxy) to restrict API access to only needed endpoints.
+
+### BUG-056: Stored XSS via search snippets rendered with dangerouslySetInnerHTML
+- **Status:** Open
+- **Severity:** Critical
+- **Category:** Cross-Site Scripting (XSS) + Token Theft
+- **File:** `frontend/components/playground/SearchResults.tsx:170,219` (render), `backend/services/conversation_search_service.py:549` (snippet generation)
+- **Description:** Search snippets are generated from raw conversation message content with `<mark>` highlighting, then rendered in the frontend via `dangerouslySetInnerHTML={{ __html: result.snippet }}`. If a WhatsApp user sends a message containing `<script>` or `<img onerror=...>`, it gets stored and rendered unsanitized when any tenant user searches conversations. Combined with auth tokens stored in `localStorage`, this enables full account takeover.
+- **Proof:** Backend: `snippet = pattern.sub(lambda m: f"<mark>{m.group(0)}</mark>", snippet)` — no HTML escaping of content. Frontend: `dangerouslySetInnerHTML={{ __html: result.snippet }}`.
+- **Impact:** Account takeover. External attacker sends crafted WhatsApp message → stored in DB → rendered as HTML when searched → steals JWT from localStorage.
+- **Remediation:** HTML-escape the snippet content before wrapping with `<mark>` tags in the backend. Or sanitize with DOMPurify in the frontend, allowing only `<mark>` tags.
+
+### BUG-057: Rate limiter ignores per-client rate_limit_rpm configuration
+- **Status:** Open
+- **Severity:** High
+- **Category:** Broken Rate Limiting
+- **File:** `backend/middleware/rate_limiter.py:74-92`
+- **Description:** The rate limiting middleware hardcodes `rate_limit = 60` RPM for all clients, ignoring the per-client `rate_limit_rpm` stored in `ApiClient` model. Clients configured with 10 RPM get 60, and clients configured with 600 RPM are throttled at 60.
+- **Proof:** `rate_limit = 60  # Default RPM` — never reads client's configured value.
+- **Impact:** Rate limiting policy is unenforced. Low-trust clients get 6x their intended limit. Premium clients are over-throttled.
+- **Remediation:** Auth layer should set `request.state.rate_limit_rpm` from the resolved `ApiClient`; middleware reads it instead of the hardcoded value.
+
+### BUG-058: JWT tokens valid for 7 days with no revocation mechanism
+- **Status:** Open
+- **Severity:** High
+- **Category:** Broken Authentication
+- **File:** `backend/auth_utils.py:19`, `backend/auth_routes.py` (logout endpoint)
+- **Description:** JWT access tokens expire after 7 days. The logout endpoint does nothing server-side (returns a success message without blacklisting the token). A stolen token remains valid for up to 7 days with no way to revoke it. For a platform with WhatsApp automation, MCP instances, and shell command execution, this is a significant exposure window.
+- **Proof:** `JWT_ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7` and logout: `return MessageResponse(message="Logged out successfully")`.
+- **Impact:** Stolen JWT provides 7-day access to send WhatsApp messages, execute tools, and manage agents with no way to revoke.
+- **Remediation:** Implement token revocation table, reduce lifetime to 24h with refresh tokens, or add `user.last_password_change` validation on decode.
+
+### BUG-059: 44 remaining exception string leaks in API 500 responses
+- **Status:** Open
+- **Severity:** High
+- **Category:** Information Disclosure
+- **File:** 15 files including `routes_mcp_instances.py` (13), `routes_tts_providers.py` (4), `routes_sandboxed_tools.py` (4), `routes_prompts.py` (4), `routes_user_contact_mapping.py` (4)
+- **Description:** BUG-035 fixed some files but 44 occurrences of `detail=f"...{str(e)}"` remain across 15 route files. Raw Python exceptions in responses leak file paths, library versions, SQL details, Docker errors, and internal network addresses.
+- **Proof:** 44 matches of `detail=f".*{str(e)}"` pattern across backend route files.
+- **Impact:** Attacker fingerprints internal infrastructure, database schema, and container topology to plan further attacks.
+- **Remediation:** Replace all `str(e)` in HTTPException details with generic messages. Log full exceptions server-side with `logger.exception()`.
+
+### BUG-060: Open redirect in Asana OAuth callback
+- **Status:** Open
+- **Severity:** High
+- **Category:** Open Redirect
+- **File:** `frontend/app/hub/asana/callback/page.tsx:61`
+- **Description:** The Asana OAuth callback redirects to `data.redirect_url` from the backend response without validating it's a relative path or same-origin URL. If an attacker can control the `redirect_url` stored in the OAuth state, they can redirect authenticated users to a phishing page.
+- **Proof:** `window.location.href = data.redirect_url || '/hub'` — no URL validation.
+- **Impact:** Phishing via OAuth flow. User completes legitimate Asana OAuth, then gets redirected to attacker-controlled page.
+- **Remediation:** Validate `redirect_url` is a relative path (starts with `/` and does not contain `//` or `@`). Reject absolute URLs.
+
+### BUG-061: Setup wizard TOCTOU race condition
+- **Status:** Open
+- **Severity:** High
+- **Category:** Race Condition / Authentication Bypass
+- **File:** `backend/auth_routes.py:328-330`
+- **Description:** The setup wizard checks `db.query(User).count() == 0` before allowing first-user creation. Two simultaneous requests can both pass this check before either commits, creating duplicate admin accounts. The `3/hour` rate limit (per IP) is insufficient during initial deployment if the container is reachable before setup completes.
+- **Proof:** `@limiter.limit("3/hour")` with TOCTOU on user count check — no transactional lock.
+- **Impact:** During initial deployment, attacker could race to create the first admin account before the legitimate operator.
+- **Remediation:** Use a database-level lock or `SELECT ... FOR UPDATE` on the user table. Add a `SETUP_WIZARD_TOKEN` env var requirement.
+
+### BUG-062: Weak default PostgreSQL password in docker-compose
+- **Status:** Open
+- **Severity:** High
+- **Category:** Weak Credentials
+- **File:** `docker-compose.yml:28`
+- **Description:** PostgreSQL defaults to `POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tsushin_dev}`. If the operator doesn't set the env var, the database uses a trivially guessable password. While PostgreSQL isn't exposed to the host by default, any SSRF or container escape gives direct database access.
+- **Proof:** `POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tsushin_dev}` — weak default.
+- **Impact:** Database compromise via SSRF or lateral movement from any compromised container on the Docker network.
+- **Remediation:** Generate a random password at first startup (via init script) or require `POSTGRES_PASSWORD` to be set explicitly. Add a startup health check that rejects weak defaults.
+
+### BUG-063: Tone preset name/description fields lack HTML sanitization
+- **Status:** Open
+- **Severity:** High
+- **Category:** Stored XSS
+- **File:** `backend/api/routes_agents.py:59-66`
+- **Description:** `TonePresetCreate` and `TonePresetUpdate` models have TODO comments for HTML sanitization but no `@field_validator` is implemented. The `AgentCreate` model correctly sanitizes with `strip_html_tags()`, but tone presets do not. These fields are rendered in the frontend.
+- **Proof:** `# TODO: Add HTML sanitization validators` at lines 59-66 — validators never implemented.
+- **Impact:** Stored XSS via tone preset name/description. Any tenant user with preset creation access can inject scripts rendered for other users.
+- **Remediation:** Add `@field_validator` with `strip_html_tags()` matching the pattern already used in `AgentCreate`.
 
 ## Closed Issues
 
