@@ -6172,6 +6172,75 @@ export const api = {
     })
     if (!res.ok) await handleApiError(res, 'Failed to remove custom skill assignment')
   },
+
+  // ==================== MCP Servers (Phase 26) ====================
+
+  async getMCPServers(): Promise<any[]> {
+    const res = await authenticatedFetch(`${API_URL}/api/mcp-servers`)
+    if (!res.ok) await handleApiError(res, 'Failed to fetch MCP servers')
+    return res.json()
+  },
+
+  async createMCPServer(data: any): Promise<any> {
+    const res = await authenticatedFetch(`${API_URL}/api/mcp-servers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    if (!res.ok) await handleApiError(res, 'Failed to create MCP server')
+    return res.json()
+  },
+
+  async deleteMCPServer(id: number): Promise<void> {
+    const res = await authenticatedFetch(`${API_URL}/api/mcp-servers/${id}`, {
+      method: 'DELETE',
+    })
+    if (!res.ok) await handleApiError(res, 'Failed to delete MCP server')
+  },
+
+  async connectMCPServer(id: number): Promise<any> {
+    const res = await authenticatedFetch(`${API_URL}/api/mcp-servers/${id}/connect`, {
+      method: 'POST',
+    })
+    if (!res.ok) await handleApiError(res, 'Failed to connect MCP server')
+    return res.json()
+  },
+
+  async disconnectMCPServer(id: number): Promise<any> {
+    const res = await authenticatedFetch(`${API_URL}/api/mcp-servers/${id}/disconnect`, {
+      method: 'POST',
+    })
+    if (!res.ok) await handleApiError(res, 'Failed to disconnect MCP server')
+    return res.json()
+  },
+
+  async testMCPServer(id: number): Promise<any> {
+    const res = await authenticatedFetch(`${API_URL}/api/mcp-servers/${id}/test`, {
+      method: 'POST',
+    })
+    if (!res.ok) await handleApiError(res, 'Failed to test MCP server')
+    return res.json()
+  },
+
+  async refreshMCPTools(id: number): Promise<any> {
+    const res = await authenticatedFetch(`${API_URL}/api/mcp-servers/${id}/refresh-tools`, {
+      method: 'POST',
+    })
+    if (!res.ok) await handleApiError(res, 'Failed to refresh MCP tools')
+    return res.json()
+  },
+
+  async getMCPServerTools(serverId: number): Promise<any[]> {
+    const res = await authenticatedFetch(`${API_URL}/api/mcp-servers/${serverId}/tools`)
+    if (!res.ok) await handleApiError(res, 'Failed to fetch MCP server tools')
+    return res.json()
+  },
+
+  async getAllowedBinaries(): Promise<{ binaries: string[] }> {
+    const res = await authenticatedFetch(`${API_URL}/api/mcp-servers/allowed-binaries`)
+    if (!res.ok) await handleApiError(res, 'Failed to fetch allowed binaries')
+    return res.json()
+  },
 }
 
 // Default export for convenience (used by prompts page and others)

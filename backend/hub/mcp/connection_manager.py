@@ -122,6 +122,9 @@ class MCPConnectionManager:
         if config.transport_type in ('sse', 'streamable_http'):
             from hub.mcp.sse_transport import SSETransport
             return SSETransport(config)
+        elif config.transport_type == 'stdio':
+            from hub.mcp.stdio_transport import StdioTransport
+            return StdioTransport(config)
         else:
             raise ValueError(f"Unsupported transport type: {config.transport_type}")
 

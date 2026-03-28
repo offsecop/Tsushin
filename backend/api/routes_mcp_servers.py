@@ -222,6 +222,15 @@ def list_mcp_servers(
     return [_to_server_response(s, db) for s in servers]
 
 
+@router.get("/mcp-servers/allowed-binaries")
+def get_allowed_binaries(
+    _user: User = Depends(require_permission("skills.mcp_server.manage")),
+):
+    """Return list of allowed stdio binary names."""
+    from hub.mcp.stdio_transport import ALLOWED_MCP_STDIO_BINARIES
+    return {"binaries": ALLOWED_MCP_STDIO_BINARIES}
+
+
 @router.post("/mcp-servers", response_model=MCPServerResponse, status_code=201)
 def create_mcp_server(
     data: MCPServerCreate,
@@ -255,9 +264,33 @@ def create_mcp_server(
     if data.transport_type in ('sse', 'streamable_http') and not data.server_url:
         raise HTTPException(status_code=400, detail="server_url is required for SSE/HTTP transports")
 
-    # stdio transport requires stdio_binary
-    if data.transport_type == 'stdio' and not data.stdio_binary:
-        raise HTTPException(status_code=400, detail="stdio_binary is required for stdio transport")
+    # stdio transport validation
+    if data.transport_type == 'stdio':
+        if not data.stdio_binary:
+            raise HTTPException(status_code=400, detail="stdio_binary is required for stdio transport")
+
+        from hub.mcp.stdio_transport import ALLOWED_MCP_STDIO_BINARIES
+
+        # Reject path traversal in binary name
+        if '/' in data.stdio_binary or '..' in data.stdio_binary or '\\' in data.stdio_binary:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Binary name contains path characters: '{data.stdio_binary}'"
+            )
+
+        # Validate binary is in allowlist
+        if data.stdio_binary not in ALLOWED_MCP_STDIO_BINARIES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Binary '{data.stdio_binary}' not allowed. Must be one of: {', '.join(ALLOWED_MCP_STDIO_BINARIES)}"
+            )
+
+        # server_url should be null/empty for stdio
+        if data.server_url:
+            raise HTTPException(
+                status_code=400,
+                detail="server_url should not be set for stdio transport"
+            )
 
     # SSRF validate URL
     if data.server_url:

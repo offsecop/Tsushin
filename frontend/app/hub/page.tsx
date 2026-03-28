@@ -57,7 +57,7 @@ import {
   type IconProps
 } from '@/components/ui/icons'
 
-type TabType = 'ai-providers' | 'communication' | 'productivity' | 'developer' | 'tool-apis' | 'sandboxed-tools'
+type TabType = 'ai-providers' | 'communication' | 'productivity' | 'developer' | 'tool-apis' | 'sandboxed-tools' | 'mcp-servers'
 
 // SVG Icons for Hub Tabs
 const BotIcon = () => (
@@ -101,6 +101,15 @@ const BoxIcon = () => (
     <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
     <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
     <line x1="12" y1="22.08" x2="12" y2="12" />
+  </svg>
+)
+
+const ServerIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
+    <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
+    <line x1="6" y1="6" x2="6.01" y2="6" />
+    <line x1="6" y1="18" x2="6.01" y2="18" />
   </svg>
 )
 
@@ -234,6 +243,26 @@ export default function HubPage() {
   const [selectedVendor, setSelectedVendor] = useState<string>('')
   const [instanceMenuOpen, setInstanceMenuOpen] = useState<number | null>(null)
 
+  // MCP Servers state (Phase 26)
+  const [mcpServers, setMcpServers] = useState<any[]>([])
+  const [mcpServersLoading, setMcpServersLoading] = useState(false)
+  const [showMcpServerModal, setShowMcpServerModal] = useState(false)
+  const [mcpServerForm, setMcpServerForm] = useState({
+    server_name: '',
+    description: '',
+    transport_type: 'sse' as string,
+    server_url: '',
+    auth_type: 'none' as string,
+    auth_token: '',
+    auth_header_name: '',
+    stdio_binary: '',
+    stdio_args: [] as string[],
+    trust_level: 'untrusted' as string,
+    timeout_seconds: 30,
+    idle_timeout_seconds: 300,
+  })
+  const [mcpServerActionLoading, setMcpServerActionLoading] = useState<number | null>(null)
+
   // UI state
   const [loading, setLoading] = useState(true)
   const [showApiKeyModal, setShowApiKeyModal] = useState(false)
@@ -297,6 +326,9 @@ export default function HubPage() {
       if (activeTab === 'communication') {
         loadMcpInstances()
         loadTelegramInstances()  // Phase 10.1.1
+      }
+      if (activeTab === 'mcp-servers') {
+        loadMcpServers()  // Phase 26
       }
     }, 10000)
     return () => clearInterval(interval)
@@ -433,6 +465,7 @@ export default function HubPage() {
         loadGoogleCredentials(),
         loadSystemConfig(),
         fetchProviderInstances(),  // Phase 21: Provider Instances
+        loadMcpServers(),  // Phase 26: MCP Servers
       ])
     } finally {
       setLoading(false)
@@ -480,6 +513,117 @@ export default function HubPage() {
       setProviderInstances(instances)
     } catch (error) {
       console.error('Failed to fetch provider instances:', error)
+    }
+  }
+
+  // Phase 26: MCP Servers
+  const loadMcpServers = async () => {
+    try {
+      setMcpServersLoading(true)
+      const servers = await api.getMCPServers()
+      setMcpServers(servers)
+    } catch (error) {
+      console.error('Failed to fetch MCP servers:', error)
+    } finally {
+      setMcpServersLoading(false)
+    }
+  }
+
+  const handleCreateMcpServer = async () => {
+    if (!mcpServerForm.server_name.trim()) {
+      toast.error('Server name is required')
+      return
+    }
+    setSaving(true)
+    try {
+      const payload: any = {
+        server_name: mcpServerForm.server_name,
+        description: mcpServerForm.description || undefined,
+        transport_type: mcpServerForm.transport_type,
+        auth_type: mcpServerForm.auth_type,
+        trust_level: mcpServerForm.trust_level,
+        timeout_seconds: mcpServerForm.timeout_seconds,
+        idle_timeout_seconds: mcpServerForm.idle_timeout_seconds,
+      }
+      if (mcpServerForm.transport_type === 'stdio') {
+        payload.stdio_binary = mcpServerForm.stdio_binary
+        payload.stdio_args = mcpServerForm.stdio_args.filter(a => a.trim())
+      } else {
+        payload.server_url = mcpServerForm.server_url
+      }
+      if (mcpServerForm.auth_type !== 'none' && mcpServerForm.auth_token) {
+        payload.auth_token = mcpServerForm.auth_token
+      }
+      if (mcpServerForm.auth_header_name) {
+        payload.auth_header_name = mcpServerForm.auth_header_name
+      }
+
+      await api.createMCPServer(payload)
+      toast.success('MCP server created successfully')
+      setShowMcpServerModal(false)
+      setMcpServerForm({
+        server_name: '', description: '', transport_type: 'sse', server_url: '',
+        auth_type: 'none', auth_token: '', auth_header_name: '', stdio_binary: '',
+        stdio_args: [], trust_level: 'untrusted', timeout_seconds: 30, idle_timeout_seconds: 300,
+      })
+      loadMcpServers()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create MCP server')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleConnectMcpServer = async (serverId: number) => {
+    setMcpServerActionLoading(serverId)
+    try {
+      await api.connectMCPServer(serverId)
+      toast.success('MCP server connected')
+      loadMcpServers()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to connect')
+    } finally {
+      setMcpServerActionLoading(null)
+    }
+  }
+
+  const handleDisconnectMcpServer = async (serverId: number) => {
+    setMcpServerActionLoading(serverId)
+    try {
+      await api.disconnectMCPServer(serverId)
+      toast.success('MCP server disconnected')
+      loadMcpServers()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to disconnect')
+    } finally {
+      setMcpServerActionLoading(null)
+    }
+  }
+
+  const handleRefreshMcpTools = async (serverId: number) => {
+    setMcpServerActionLoading(serverId)
+    try {
+      const result = await api.refreshMCPTools(serverId)
+      toast.success(`Refreshed: ${result.total_tools} tools found (${result.new_tools} new)`)
+      loadMcpServers()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to refresh tools')
+    } finally {
+      setMcpServerActionLoading(null)
+    }
+  }
+
+  const handleDeleteMcpServer = async (serverId: number, serverName: string) => {
+    if (!confirm(`Delete MCP server "${serverName}"? This will remove the server and all discovered tools.`)) return
+    setMcpServerActionLoading(serverId)
+    try {
+      await api.deleteMCPServer(serverId)
+      toast.success('MCP server deleted')
+      loadMcpServers()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete MCP server')
+    } finally {
+      setMcpServerActionLoading(null)
     }
   }
 
@@ -1268,6 +1412,7 @@ export default function HubPage() {
     { key: 'developer', label: 'Developer Tools', Icon: TerminalIcon, color: 'text-purple-400', iconBg: 'bg-purple-400/10' },
     { key: 'tool-apis', label: 'Tool APIs', Icon: WrenchIcon, color: 'text-tsushin-success', iconBg: 'bg-tsushin-success/10' },
     { key: 'sandboxed-tools', label: 'Sandboxed Tools', Icon: BoxIcon, color: 'text-pink-400', iconBg: 'bg-pink-400/10' },
+    { key: 'mcp-servers', label: 'MCP Servers', Icon: ServerIcon, color: 'text-cyan-400', iconBg: 'bg-cyan-400/10' },
   ]
 
   return (
@@ -2576,9 +2721,316 @@ export default function HubPage() {
                 </div>
               </div>
             )}
+
+            {/* ==================== MCP SERVERS TAB ==================== */}
+            {activeTab === 'mcp-servers' && (
+              <div className="space-y-6 animate-fade-in">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h2 className="text-lg font-display font-semibold text-white">MCP Servers</h2>
+                    <p className="text-sm text-tsushin-slate">Connect external Model Context Protocol servers for tool discovery</p>
+                  </div>
+                  <button
+                    onClick={() => setShowMcpServerModal(true)}
+                    className="btn-primary"
+                  >
+                    + Add Server
+                  </button>
+                </div>
+
+                {/* MCP Server Cards */}
+                {mcpServersLoading ? (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-tsushin-accent mx-auto mb-3" />
+                    <p className="text-tsushin-slate text-sm">Loading MCP servers...</p>
+                  </div>
+                ) : mcpServers.length === 0 ? (
+                  <div className="text-center py-16">
+                    <div className="w-16 h-16 rounded-2xl bg-cyan-400/10 flex items-center justify-center mx-auto mb-4">
+                      <ServerIcon />
+                    </div>
+                    <h3 className="text-white font-semibold mb-2">No MCP Servers</h3>
+                    <p className="text-tsushin-slate text-sm mb-4">Add an MCP server to discover and use external tools</p>
+                    <button
+                      onClick={() => setShowMcpServerModal(true)}
+                      className="btn-primary"
+                    >
+                      + Add Server
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {mcpServers.map(server => {
+                      const isActionLoading = mcpServerActionLoading === server.id
+                      const statusColor = server.connection_status === 'healthy' ? 'bg-green-400'
+                        : server.connection_status === 'degraded' ? 'bg-yellow-400'
+                        : server.connection_status === 'connecting' ? 'bg-yellow-400 animate-pulse'
+                        : server.connection_status === 'disconnected' ? 'bg-red-400'
+                        : 'bg-gray-400'
+                      const transportLabel = server.transport_type === 'sse' ? 'SSE'
+                        : server.transport_type === 'streamable_http' ? 'HTTP'
+                        : server.transport_type === 'stdio' ? 'Stdio'
+                        : server.transport_type
+
+                      return (
+                        <div key={server.id} className="bg-tsushin-surface border border-white/10 rounded-xl p-4 hover:border-white/20 transition-colors">
+                          {/* Header */}
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${statusColor}`} />
+                              <h3 className="text-white font-semibold text-sm truncate">{server.server_name}</h3>
+                            </div>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-tsushin-indigo/20 text-tsushin-accent flex-shrink-0 ml-2">
+                              {transportLabel}
+                            </span>
+                          </div>
+
+                          {/* Description */}
+                          {server.description && (
+                            <p className="text-xs text-tsushin-slate mb-3 line-clamp-2">{server.description}</p>
+                          )}
+
+                          {/* Info row */}
+                          <div className="flex items-center gap-3 text-xs text-tsushin-slate mb-3">
+                            <span className="flex items-center gap-1">
+                              <WrenchIcon />
+                              {server.tool_count} tools
+                            </span>
+                            {server.last_connected_at && (
+                              <span title={server.last_connected_at}>
+                                Last: {new Date(server.last_connected_at).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Error display */}
+                          {server.last_error && (
+                            <div className="text-xs text-tsushin-vermilion bg-tsushin-vermilion/10 rounded-lg px-2 py-1.5 mb-3 truncate" title={server.last_error}>
+                              {server.last_error}
+                            </div>
+                          )}
+
+                          {/* Actions */}
+                          <div className="flex flex-wrap gap-1.5">
+                            {server.connection_status === 'healthy' ? (
+                              <button
+                                onClick={() => handleDisconnectMcpServer(server.id)}
+                                disabled={isActionLoading}
+                                className="text-xs px-2.5 py-1.5 rounded-lg bg-white/5 text-tsushin-slate hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50"
+                              >
+                                {isActionLoading ? 'Working...' : 'Disconnect'}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleConnectMcpServer(server.id)}
+                                disabled={isActionLoading}
+                                className="text-xs px-2.5 py-1.5 rounded-lg bg-tsushin-accent/10 text-tsushin-accent hover:bg-tsushin-accent/20 transition-colors disabled:opacity-50"
+                              >
+                                {isActionLoading ? 'Working...' : 'Connect'}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleRefreshMcpTools(server.id)}
+                              disabled={isActionLoading}
+                              className="text-xs px-2.5 py-1.5 rounded-lg bg-white/5 text-tsushin-slate hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50"
+                            >
+                              Refresh Tools
+                            </button>
+                            <button
+                              onClick={() => handleDeleteMcpServer(server.id, server.server_name)}
+                              disabled={isActionLoading}
+                              className="text-xs px-2.5 py-1.5 rounded-lg bg-white/5 text-tsushin-vermilion/80 hover:bg-tsushin-vermilion/10 hover:text-tsushin-vermilion transition-colors disabled:opacity-50"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Info Box */}
+                <div className="bg-cyan-500/5 border border-cyan-500/20 rounded-xl p-5">
+                  <h3 className="text-sm font-semibold text-cyan-300 mb-2 flex items-center gap-2">
+                    <LightbulbIcon size={16} className="text-cyan-300" /> MCP Server Integration
+                  </h3>
+                  <p className="text-xs text-tsushin-slate">
+                    MCP (Model Context Protocol) servers expose tools that your agents can use. Connect via SSE, HTTP, or Stdio transport.
+                    Stdio transport runs MCP binaries (uvx, npx, node) inside your tenant toolbox container for maximum isolation.
+                    After connecting, use &ldquo;Refresh Tools&rdquo; to discover available tools from the server.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* MCP Server Create Modal */}
+      <Modal
+        isOpen={showMcpServerModal}
+        onClose={() => setShowMcpServerModal(false)}
+        title="Add MCP Server"
+        footer={
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => setShowMcpServerModal(false)}
+              className="px-4 py-2 bg-gray-700 text-white rounded"
+              disabled={saving}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCreateMcpServer}
+              disabled={saving}
+              className="px-4 py-2 bg-teal-500 text-white rounded disabled:opacity-50"
+            >
+              {saving ? 'Creating...' : 'Create Server'}
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Server Name *</label>
+            <input
+              type="text"
+              value={mcpServerForm.server_name}
+              onChange={e => setMcpServerForm({ ...mcpServerForm, server_name: e.target.value })}
+              placeholder="e.g. my-asana-mcp"
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Description</label>
+            <input
+              type="text"
+              value={mcpServerForm.description}
+              onChange={e => setMcpServerForm({ ...mcpServerForm, description: e.target.value })}
+              placeholder="Optional description"
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Transport Type *</label>
+            <select
+              value={mcpServerForm.transport_type}
+              onChange={e => setMcpServerForm({ ...mcpServerForm, transport_type: e.target.value })}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+            >
+              <option value="sse">SSE (Server-Sent Events)</option>
+              <option value="streamable_http">Streamable HTTP</option>
+              <option value="stdio">Stdio (Container Binary)</option>
+            </select>
+          </div>
+
+          {/* Conditional fields based on transport type */}
+          {mcpServerForm.transport_type !== 'stdio' ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Server URL *</label>
+              <input
+                type="url"
+                value={mcpServerForm.server_url}
+                onChange={e => setMcpServerForm({ ...mcpServerForm, server_url: e.target.value })}
+                placeholder="https://mcp-server.example.com/sse"
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+              />
+            </div>
+          ) : (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Binary *</label>
+                <select
+                  value={mcpServerForm.stdio_binary}
+                  onChange={e => setMcpServerForm({ ...mcpServerForm, stdio_binary: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+                >
+                  <option value="">Select binary...</option>
+                  <option value="uvx">uvx (Python/uv)</option>
+                  <option value="npx">npx (Node.js)</option>
+                  <option value="node">node</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Arguments (one per line)</label>
+                <textarea
+                  value={mcpServerForm.stdio_args.join('\n')}
+                  onChange={e => setMcpServerForm({ ...mcpServerForm, stdio_args: e.target.value.split('\n') })}
+                  placeholder={"e.g.\nmcp-server-package\n--port\n3000"}
+                  rows={3}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white font-mono text-sm"
+                />
+              </div>
+            </>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Authentication</label>
+            <select
+              value={mcpServerForm.auth_type}
+              onChange={e => setMcpServerForm({ ...mcpServerForm, auth_type: e.target.value })}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+            >
+              <option value="none">None</option>
+              <option value="bearer">Bearer Token</option>
+              <option value="api_key">API Key</option>
+              <option value="header">Custom Header</option>
+            </select>
+          </div>
+          {mcpServerForm.auth_type !== 'none' && (
+            <>
+              {(mcpServerForm.auth_type === 'api_key' || mcpServerForm.auth_type === 'header') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Header Name</label>
+                  <input
+                    type="text"
+                    value={mcpServerForm.auth_header_name}
+                    onChange={e => setMcpServerForm({ ...mcpServerForm, auth_header_name: e.target.value })}
+                    placeholder={mcpServerForm.auth_type === 'api_key' ? 'X-API-Key' : 'Authorization'}
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Token / API Key</label>
+                <input
+                  type="password"
+                  value={mcpServerForm.auth_token}
+                  onChange={e => setMcpServerForm({ ...mcpServerForm, auth_token: e.target.value })}
+                  placeholder="Enter token or key"
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+                />
+              </div>
+            </>
+          )}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Trust Level</label>
+              <select
+                value={mcpServerForm.trust_level}
+                onChange={e => setMcpServerForm({ ...mcpServerForm, trust_level: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+              >
+                <option value="untrusted">Untrusted</option>
+                <option value="verified">Verified</option>
+                <option value="system">System</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Timeout (s)</label>
+              <input
+                type="number"
+                min={5}
+                max={300}
+                value={mcpServerForm.timeout_seconds}
+                onChange={e => setMcpServerForm({ ...mcpServerForm, timeout_seconds: parseInt(e.target.value) || 30 })}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"
+              />
+            </div>
+          </div>
+        </div>
+      </Modal>
 
       {/* API Key Modal */}
       {showApiKeyModal && (

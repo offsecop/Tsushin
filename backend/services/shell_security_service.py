@@ -570,6 +570,40 @@ class ShellSecurityService:
 
         return True, None
 
+    @staticmethod
+    def scan_for_network_imports(script_content: str) -> list:
+        """Check script content for network-related imports that may indicate data exfiltration.
+
+        Scans Python import statements and shell commands that could be used
+        to make outbound network connections from within a sandboxed environment.
+
+        Args:
+            script_content: Source code or script text to analyze.
+
+        Returns:
+            List of warning strings describing detected network imports.
+        """
+        NETWORK_PATTERNS = [
+            (r'\bimport\s+requests\b', 'requests'),
+            (r'\bfrom\s+requests\b', 'requests'),
+            (r'\bimport\s+urllib\b', 'urllib'),
+            (r'\bfrom\s+urllib\b', 'urllib'),
+            (r'\bimport\s+httpx\b', 'httpx'),
+            (r'\bfrom\s+httpx\b', 'httpx'),
+            (r'\bimport\s+aiohttp\b', 'aiohttp'),
+            (r'\bimport\s+socket\b', 'socket'),
+            (r'\bimport\s+http\.client\b', 'http.client'),
+            (r'\bcurl\s+', 'curl command'),
+            (r'\bwget\s+', 'wget command'),
+        ]
+
+        warnings = []
+        for pattern, name in NETWORK_PATTERNS:
+            if re.search(pattern, script_content):
+                warnings.append(f"Network import detected: {name}")
+
+        return warnings
+
     def get_risk_summary(self, result: SecurityCheckResult) -> str:
         """Generate a human-readable summary of security check result."""
         if not result.allowed:
