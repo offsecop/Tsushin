@@ -528,12 +528,65 @@ Return JSON array only:"""
                 script=params.get('script', '')
             )
 
+        # 35b: Rich action set
+        elif action_name == 'scroll':
+            return await provider.scroll(
+                selector=params.get('selector', 'body'),
+                x=params.get('x', 0),
+                y=params.get('y', 300),
+            )
+        elif action_name == 'select_option':
+            return await provider.select_option(
+                selector=params.get('selector', ''),
+                value=params.get('value', ''),
+            )
+        elif action_name == 'hover':
+            return await provider.hover(
+                selector=params.get('selector', ''),
+            )
+        elif action_name == 'wait_for':
+            return await provider.wait_for(
+                selector=params.get('selector', ''),
+                state=params.get('state', 'visible'),
+                timeout_ms=params.get('timeout_ms'),
+            )
+        elif action_name == 'go_back':
+            return await provider.go_back()
+        elif action_name == 'go_forward':
+            return await provider.go_forward()
+        elif action_name == 'get_attribute':
+            return await provider.get_attribute(
+                selector=params.get('selector', ''),
+                attribute=params.get('attribute', ''),
+            )
+        elif action_name == 'get_page_url':
+            return await provider.get_page_url()
+        elif action_name == 'type_text':
+            return await provider.type_text(
+                selector=params.get('selector', ''),
+                text=params.get('text', params.get('value', '')),
+                delay_ms=params.get('delay_ms', 0),
+            )
+
+        # 35c: Multi-tab actions
+        elif action_name == 'open_tab':
+            return await provider.open_tab(url=params.get('url'))
+        elif action_name == 'switch_tab':
+            return await provider.switch_tab(tab_id=params.get('tab_id', ''))
+        elif action_name == 'close_tab':
+            return await provider.close_tab(tab_id=params.get('tab_id', ''))
+        elif action_name == 'list_tabs':
+            return await provider.list_tabs()
+
         else:
+            from hub.providers.browser_automation_provider import BrowserErrorCode
             return BrowserResult(
                 success=False,
                 action=action_name,
                 data={},
-                error=f"Unknown action: {action_name}"
+                error=f"Unknown action: {action_name}",
+                error_code=BrowserErrorCode.UNKNOWN,
+                suggestions=[f"Available actions: navigate, click, fill, extract, screenshot, execute_script, scroll, select_option, hover, wait_for, go_back, go_forward, get_attribute, get_page_url, type_text, open_tab, switch_tab, close_tab, list_tabs"],
             )
 
     def _format_results(self, results: List[BrowserResult]) -> str:
@@ -584,7 +637,14 @@ Return JSON array only:"""
                     lines.append(f"{result.action}: Success")
 
             else:
-                lines.append(f"{result.action}: Failed - {result.error}")
+                # 35f: Structured error feedback
+                msg = f"{result.action}: Failed"
+                if result.error_code:
+                    msg += f" [{result.error_code.value}]"
+                msg += f" — {result.error}"
+                if result.suggestions:
+                    msg += "\n  Suggestions:\n" + "\n".join(f"  - {s}" for s in result.suggestions)
+                lines.append(msg)
 
         return "\n\n".join(lines) if lines else "No actions executed."
 
@@ -709,28 +769,38 @@ Return JSON array only:"""
             "title": "Browser Control",
             "description": (
                 "Control a web browser to navigate websites, take screenshots, click elements, "
-                "fill forms, and extract content. Use 'container' mode for public websites, "
-                "'host' mode for sites requiring your logged-in browser session (requires authorization)."
+                "fill forms, extract content, scroll, hover, wait for elements, manage tabs, "
+                "and more. Use 'container' mode for public websites."
             ),
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["navigate", "screenshot", "click", "fill", "extract"],
-                        "description": "Browser action to perform"
+                        "enum": [
+                            "navigate", "screenshot", "click", "fill", "extract", "execute_script",
+                            "scroll", "select_option", "hover", "wait_for",
+                            "go_back", "go_forward", "get_attribute", "get_page_url", "type_text",
+                            "open_tab", "switch_tab", "close_tab", "list_tabs",
+                        ],
+                        "description": (
+                            "Browser action to perform. Core: navigate, click, fill, extract, screenshot. "
+                            "Interaction: scroll, hover, select_option, wait_for, type_text, execute_script. "
+                            "Navigation: go_back, go_forward, get_page_url, get_attribute. "
+                            "Tabs: open_tab, switch_tab, close_tab, list_tabs."
+                        ),
                     },
                     "url": {
                         "type": "string",
-                        "description": "URL to navigate to (required for 'navigate' action)"
+                        "description": "URL for navigate/open_tab actions"
                     },
                     "selector": {
                         "type": "string",
-                        "description": "CSS selector for element targeting (for click/fill/extract/screenshot). Examples: '#login-btn', 'input[name=email]', '.submit-button'"
+                        "description": "CSS selector for element targeting. Examples: '#login-btn', 'input[name=email]', '.submit-button'"
                     },
                     "value": {
                         "type": "string",
-                        "description": "Text value to fill (required for 'fill' action)"
+                        "description": "Text value for fill/select_option/type_text actions"
                     },
                     "full_page": {
                         "type": "boolean",
@@ -740,20 +810,57 @@ Return JSON array only:"""
                     "mode": {
                         "type": "string",
                         "enum": ["container", "host"],
-                        "description": "container=isolated browser (default), host=user's authenticated browser (requires whitelist)",
+                        "description": "container=isolated browser (default), host=user's authenticated browser",
                         "default": "container"
                     },
                     "wait_until": {
                         "type": "string",
                         "enum": ["load", "domcontentloaded", "networkidle"],
-                        "description": "When to consider navigation complete (for navigate action)",
+                        "description": "When to consider navigation complete",
                         "default": "load"
-                    }
+                    },
+                    "x": {
+                        "type": "integer",
+                        "description": "Horizontal scroll amount in pixels (for scroll action)",
+                        "default": 0
+                    },
+                    "y": {
+                        "type": "integer",
+                        "description": "Vertical scroll amount in pixels (for scroll action). Positive=down, negative=up",
+                        "default": 300
+                    },
+                    "state": {
+                        "type": "string",
+                        "enum": ["visible", "hidden", "attached", "detached"],
+                        "description": "Element state to wait for (for wait_for action)",
+                        "default": "visible"
+                    },
+                    "attribute": {
+                        "type": "string",
+                        "description": "Element attribute name to read (for get_attribute action). Examples: 'href', 'src', 'class', 'data-id'"
+                    },
+                    "delay_ms": {
+                        "type": "integer",
+                        "description": "Delay between keystrokes in ms (for type_text action, 0=instant)",
+                        "default": 0
+                    },
+                    "tab_id": {
+                        "type": "string",
+                        "description": "Tab identifier (for switch_tab/close_tab actions). Use list_tabs to see available IDs"
+                    },
+                    "script": {
+                        "type": "string",
+                        "description": "JavaScript code to execute (for execute_script action)"
+                    },
+                    "timeout_ms": {
+                        "type": "integer",
+                        "description": "Custom timeout in milliseconds (for wait_for action)"
+                    },
                 },
                 "required": ["action"]
             },
             "annotations": {
-                "destructive": True,  # Can modify page state
+                "destructive": True,
                 "idempotent": False,
                 "audience": ["user", "assistant"]
             }
@@ -787,10 +894,17 @@ Return JSON array only:"""
         """
         action = arguments.get("action")
 
+        ALL_ACTIONS = [
+            "navigate", "screenshot", "click", "fill", "extract", "execute_script",
+            "scroll", "select_option", "hover", "wait_for",
+            "go_back", "go_forward", "get_attribute", "get_page_url", "type_text",
+            "open_tab", "switch_tab", "close_tab", "list_tabs",
+        ]
+
         if not action:
             return SkillResult(
                 success=False,
-                output="Action is required. Use 'navigate', 'screenshot', 'click', 'fill', or 'extract'.",
+                output=f"Action is required. Available actions: {', '.join(ALL_ACTIONS)}",
                 metadata={"error": "missing_action", "skip_ai": True}
             )
 
@@ -865,10 +979,38 @@ Return JSON array only:"""
                     result = await self._execute_tool_fill(provider, arguments)
                 elif action == "extract":
                     result = await self._execute_tool_extract(provider, arguments)
+                elif action in ALL_ACTIONS:
+                    # 35b/35c: Delegate all other valid actions via _execute_action
+                    action_def = {"action": action, "params": arguments}
+                    browser_result = await self._execute_action(provider, action_def)
+                    if browser_result.success:
+                        # Format data for output
+                        data_summary = ", ".join(f"{k}={v}" for k, v in browser_result.data.items() if k != "tabs")
+                        output = f"{action}: {data_summary}" if data_summary else f"{action}: Success"
+                        result = SkillResult(
+                            success=True, output=output,
+                            metadata={**browser_result.data, "skip_ai": True}
+                        )
+                    else:
+                        # 35f: Include structured error info
+                        error_info = browser_result.error or "Unknown error"
+                        suggestions_text = ""
+                        if browser_result.suggestions:
+                            suggestions_text = "\nSuggestions:\n" + "\n".join(f"- {s}" for s in browser_result.suggestions)
+                        result = SkillResult(
+                            success=False,
+                            output=f"{action} failed: {error_info}{suggestions_text}",
+                            metadata={
+                                "error": error_info,
+                                "error_code": browser_result.error_code.value if browser_result.error_code else None,
+                                "suggestions": browser_result.suggestions,
+                                "skip_ai": True,
+                            }
+                        )
                 else:
                     result = SkillResult(
                         success=False,
-                        output=f"Unknown action: {action}. Use 'navigate', 'screenshot', 'click', 'fill', or 'extract'.",
+                        output=f"Unknown action: {action}. Available: {', '.join(ALL_ACTIONS)}",
                         metadata={"error": "invalid_action", "skip_ai": True}
                     )
 

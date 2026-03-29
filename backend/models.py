@@ -2974,6 +2974,10 @@ class BrowserAutomationIntegration(HubIntegration):
     require_approval_per_action = Column(Boolean, default=False)
     blocked_domains_json = Column(Text, nullable=True)  # JSON array of blocked domains
 
+    # Session persistence (Phase 35a)
+    session_persistence = Column(Boolean, default=False)
+    session_ttl_seconds = Column(Integer, default=300)  # 5-minute idle timeout
+
     # Polymorphic configuration
     __mapper_args__ = {
         'polymorphic_identity': 'browser_automation',

@@ -697,6 +697,49 @@ class MCPBrowserProvider(BrowserAutomationProvider):
         """Check if MCP connection is established."""
         return self._initialized and self._http_session is not None
 
+    # -------------------------------------------------------------------
+    # 35b/35c stubs — host mode does not implement these yet
+    # -------------------------------------------------------------------
+
+    async def scroll(self, selector="body", x=0, y=300):
+        raise NotImplementedError("Host mode does not support this action yet")
+
+    async def select_option(self, selector, value):
+        raise NotImplementedError("Host mode does not support this action yet")
+
+    async def hover(self, selector):
+        raise NotImplementedError("Host mode does not support this action yet")
+
+    async def wait_for(self, selector, state="visible", timeout_ms=None):
+        raise NotImplementedError("Host mode does not support this action yet")
+
+    async def go_back(self):
+        raise NotImplementedError("Host mode does not support this action yet")
+
+    async def go_forward(self):
+        raise NotImplementedError("Host mode does not support this action yet")
+
+    async def get_attribute(self, selector, attribute):
+        raise NotImplementedError("Host mode does not support this action yet")
+
+    async def get_page_url(self):
+        raise NotImplementedError("Host mode does not support this action yet")
+
+    async def type_text(self, selector, text, delay_ms=0):
+        raise NotImplementedError("Host mode does not support this action yet")
+
+    async def open_tab(self, url=None):
+        raise NotImplementedError("Host mode does not support this action yet")
+
+    async def switch_tab(self, tab_id):
+        raise NotImplementedError("Host mode does not support this action yet")
+
+    async def close_tab(self, tab_id):
+        raise NotImplementedError("Host mode does not support this action yet")
+
+    async def list_tabs(self):
+        raise NotImplementedError("Host mode does not support this action yet")
+
     @classmethod
     def get_provider_info(cls) -> Dict[str, Any]:
         """Get provider metadata."""

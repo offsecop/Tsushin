@@ -249,3 +249,6 @@ test_documents/
 methodology/
 brand/
 BUGS.md
+
+# Reference repos (not tracked)
+.tmp/
