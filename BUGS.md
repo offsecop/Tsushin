@@ -1,11 +1,12 @@
 # Tsushin Bug Tracker
-**Open:** 6 | **In Progress:** 0 | **Resolved:** 98
+**Open:** 0 | **In Progress:** 0 | **Resolved:** 104
 **Source:** v0.6.1 RBAC & Multi-Tenancy Audit + Security Vulnerability Audit + GKE Readiness Audit + Hub AI Providers Audit (2026-03-28)
 
 ## Open Issues
 
 ### BUG-100: DeepSeek provider has zero backend implementation despite being listed in System AI Config
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 104-03-28
 - **Severity:** High
 - **Category:** Missing Implementation
 - **Found:** 2026-03-28 (Hub AI Providers audit)
@@ -15,7 +16,8 @@
 - **Remediation:** Add `deepseek` to all 5 backend registries using OpenAI-compat client with `base_url="https://api.deepseek.com"`. Add `deepseek` to Hub frontend: `AI_PROVIDERS`, `VENDOR_LABELS`, `VENDOR_ICONS`, `allVendors` seed array.
 
 ### BUG-101: ElevenLabs missing from Provider Instances system — only in legacy Service API Keys
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 104-03-28
 - **Severity:** Low
 - **Category:** Incomplete Feature
 - **Found:** 2026-03-28 (Hub AI Providers audit)
@@ -25,7 +27,8 @@
 - **Remediation:** Either move ElevenLabs out of the AI_PROVIDERS array into its own "TTS Providers" section, or add it to VENDOR_LABELS/VENDOR_ICONS for proper rendering in both systems.
 
 ### BUG-102: Groq and Grok share identical LightningIcon — no visual distinction
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 104-03-28
 - **Severity:** Low
 - **Category:** UX / Visual
 - **Found:** 2026-03-28 (Hub AI Providers audit)
@@ -35,7 +38,8 @@
 - **Remediation:** Use a distinct icon for Grok (e.g., an "X" mark icon matching xAI branding) or for Groq (e.g., a chip/processor icon).
 
 ### BUG-103: Dead code in Settings > Integrations — unreachable handler functions
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 104-03-28
 - **Severity:** Low
 - **Category:** Code Quality / Dead Code
 - **Found:** 2026-03-28 (Hub AI Providers audit)
@@ -45,7 +49,8 @@
 - **Remediation:** Remove the dead handler functions and associated state variables from the integrations page.
 
 ### BUG-104: Dual API key storage — legacy api_keys table and provider_instances table can hold keys for same provider
-- **Status:** Open
+- **Status:** Resolved
+- **Resolved:** 104-03-28
 - **Severity:** Medium
 - **Category:** Architecture / Data Consistency
 - **Found:** 2026-03-28 (Hub AI Providers audit)
@@ -56,7 +61,7 @@
 
 ### BUG-065: SSRF via ollama_base_url — zero URL validation on user-controlled endpoint
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Critical
 - **Category:** Server-Side Request Forgery (CWE-918)
 - **Found:** 2026-03-28 (URL Rebase security design review)
@@ -67,7 +72,7 @@
 
 ### BUG-066: Scraper and Playwright SSRF blocklists bypassable via DNS rebinding
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Critical
 - **Category:** Server-Side Request Forgery (CWE-918)
 - **Found:** 2026-03-28 (URL Rebase security design review)
@@ -78,7 +83,7 @@
 
 ### BUG-067: Config table is global singleton — ollama_base_url affects all tenants
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** High
 - **Category:** Broken Access Control / Multi-Tenancy Isolation (CWE-284)
 - **Found:** 2026-03-28 (URL Rebase security design review)
@@ -89,7 +94,7 @@
 
 ### BUG-068: Sentinel SSRF detection only covers 2 tool names — misses provider URL paths
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Medium
 - **Category:** Insufficient Security Controls (CWE-693)
 - **Found:** 2026-03-28 (URL Rebase security design review)
@@ -100,7 +105,7 @@
 
 ### BUG-063: Command injection in toolbox install_package via unsanitized package_name
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Critical
 - **Category:** Command Injection (CWE-78)
 - **Found:** 2026-03-28 (GKE readiness security review)
@@ -111,7 +116,7 @@
 
 ### BUG-064: Workspace directories created with 0o777 permissions
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Medium
 - **Category:** Insecure File Permissions (CWE-732)
 - **Found:** 2026-03-28 (GKE readiness security review)
@@ -122,7 +127,7 @@
 
 ### BUG-069: REGRESSION — Cross-tenant default agent operations (internal API)
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Critical
 - **Category:** Broken Object Level Authorization / Cross-Tenant Data Corruption (CWE-284)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -137,7 +142,7 @@
 
 ### BUG-070: API client custom scope allows privilege escalation beyond creator's permissions
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Critical
 - **Category:** Privilege Escalation (CWE-269)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -148,7 +153,7 @@
 
 ### BUG-071: Password reset tokens stored in plaintext in database
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Critical
 - **Category:** Sensitive Data Exposure (CWE-312)
 - **Found:** 2026-03-28 (Security Vulnerability Audit)
@@ -160,7 +165,7 @@
 
 ### BUG-072: Soft-deleted users can still authenticate
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Critical
 - **Category:** Broken Authentication (CWE-287)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -171,7 +176,7 @@
 
 ### BUG-073: SSO user password login causes unhandled 500 error
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** High
 - **Category:** Error Handling / Denial of Service (CWE-755)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -182,7 +187,7 @@
 
 ### BUG-074: Wildcard trusted proxy enables rate limit bypass via IP spoofing
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** High
 - **Category:** Rate Limiting Bypass (CWE-799)
 - **Found:** 2026-03-28 (Security Vulnerability Audit)
@@ -193,7 +198,7 @@
 
 ### BUG-075: Sentinel logs, stats, and agent-config endpoints missing permission checks
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** High
 - **Category:** Broken Access Control (CWE-862)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -204,7 +209,7 @@
 
 ### BUG-076: Duplicate get_current_user bypasses is_active check
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** High
 - **Category:** Broken Authentication (CWE-287)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -215,7 +220,7 @@
 
 ### BUG-077: Hub Shell page has no frontend permission gate
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** High
 - **Category:** Broken Access Control — Frontend (CWE-862)
 - **Found:** 2026-03-28 (Frontend RBAC Audit)
@@ -226,7 +231,7 @@
 
 ### BUG-078: Hub Sandboxed Tools page has no frontend permission gate
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** High
 - **Category:** Broken Access Control — Frontend (CWE-862)
 - **Found:** 2026-03-28 (Frontend RBAC Audit)
@@ -237,7 +242,7 @@
 
 ### BUG-079: Five sensitive settings pages accessible to any authenticated user
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** High
 - **Category:** Broken Access Control — Frontend (CWE-862)
 - **Found:** 2026-03-28 (Frontend RBAC Audit)
@@ -254,7 +259,7 @@
 
 ### BUG-080: Hard user delete fails with FK violation on PostgreSQL
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** High
 - **Category:** Data Integrity / Broken Delete Flow (CWE-404)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -265,7 +270,7 @@
 
 ### BUG-081: SSO config endpoint uses inverted logic for global admin tenant context
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** High
 - **Category:** Broken Access Control (CWE-863)
 - **Found:** 2026-03-28 (Security Vulnerability Audit)
@@ -276,7 +281,7 @@
 
 ### BUG-082: Analytics includes NULL-tenant agents for all users
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** High
 - **Category:** Information Disclosure / Multi-Tenancy Leakage (CWE-200)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -287,7 +292,7 @@
 
 ### BUG-083: conversation_search_service references non-existent Memory columns
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** High
 - **Category:** Runtime Error / Dead Code (CWE-476)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -298,7 +303,7 @@
 
 ### BUG-084: RBAC migration seed out of sync — missing 9 permissions
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Medium
 - **Category:** Configuration Drift (CWE-1188)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -309,7 +314,7 @@
 
 ### BUG-085: Blind setattr mass assignment pattern on agent update
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Medium
 - **Category:** Mass Assignment (CWE-915)
 - **Found:** 2026-03-28 (Security Vulnerability Audit)
@@ -320,7 +325,7 @@
 
 ### BUG-086: Password reset flow non-functional — no email delivery
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Medium
 - **Category:** Broken Functionality (CWE-440)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -331,7 +336,7 @@
 
 ### BUG-087: No self-service profile update or password change endpoints
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Medium
 - **Category:** Missing Feature / Broken User Management
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -342,7 +347,7 @@
 
 ### BUG-088: Tenant ID generation collision at second-precision timestamps
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Medium
 - **Category:** Data Integrity / Race Condition (CWE-362)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -353,7 +358,7 @@
 
 ### BUG-089: Flow template validate/render endpoints lack permission check
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Medium
 - **Category:** Broken Access Control (CWE-862)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -364,7 +369,7 @@
 
 ### BUG-090: No audit logging for tenant-level role changes
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Medium
 - **Category:** Insufficient Logging (CWE-778)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -375,7 +380,7 @@
 
 ### BUG-091: Global email uniqueness blocks re-registration after soft delete
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Medium
 - **Category:** Data Integrity / Design Flaw (CWE-1289)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -386,7 +391,7 @@
 
 ### BUG-092: Missing HSTS security header
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Medium
 - **Category:** Transport Security (CWE-319)
 - **Found:** 2026-03-28 (Security Vulnerability Audit)
@@ -397,7 +402,7 @@
 
 ### BUG-093: PermissionGate component and matchesPermission() are dead code
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Low
 - **Category:** Dead Code / Technical Debt
 - **Found:** 2026-03-28 (Frontend RBAC Audit)
@@ -408,7 +413,7 @@
 
 ### BUG-094: Settings audit-logs and team member detail pages use mock data
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Low
 - **Category:** Incomplete Implementation
 - **Found:** 2026-03-28 (Frontend RBAC Audit)
@@ -419,7 +424,7 @@
 
 ### BUG-095: Inconsistent 403/401 error handling across frontend API methods
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Low
 - **Category:** Error Handling (CWE-755)
 - **Found:** 2026-03-28 (Frontend RBAC Audit)
@@ -430,7 +435,7 @@
 
 ### BUG-096: Stale JWT role/tenant claims not revalidated after changes
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Low
 - **Category:** Session Management (CWE-613)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -441,7 +446,7 @@
 
 ### BUG-097: rbac_middleware.py decorator functions are unused dead code
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Low
 - **Category:** Dead Code / Technical Debt
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -452,7 +457,7 @@
 
 ### BUG-098: Tenant user limit check has race condition on concurrent invites
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Low
 - **Category:** Race Condition (CWE-362)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -463,7 +468,7 @@
 
 ### BUG-099: Team invite error reveals email domain exists in another tenant
 - **Status:** Resolved
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **Severity:** Low
 - **Category:** Information Disclosure (CWE-200)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -476,7 +481,7 @@
 - **Status:** Resolved
 - **Severity:** Critical
 - **Category:** Broken Object Level Authorization
-- **Resolved:** 2026-03-28
+- **Resolved:** 104-03-28
 - **File:** `backend/api/v1/routes_agents.py:576-581` (update), `backend/api/v1/routes_agents.py:372` (create)
 - **Description:** Persona lookup during agent create/update has no tenant_id filter. Tenant A can assign Tenant B's persona to their agent via `persona_id`, gaining access to that tenant's persona configuration (embedded in agent context during inference).
 - **Proof:** `persona = db.query(Persona).filter(Persona.id == request.persona_id).first()` — no tenant scoping.
@@ -608,287 +613,287 @@
 ### BUG-042: enabled_channels always null in internal agent listing
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Added enabled_channels, whatsapp_integration_id, telegram_integration_id to list_agents agent_dict in routes_agents.py with JSON parsing logic.
 
 ### BUG-043: No validation on enabled_channels values
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Added field_validator on enabled_channels in all 4 Pydantic models (v1 and internal create/update). Only playground, whatsapp, telegram accepted. Invalid values return clear error. Deduplication applied.
 
 ### BUG-044: Duplicate nuclei tool commands
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Added deduplicate_tool_commands() to startup, UniqueConstraint on (tool_id, command_name) and (command_id, parameter_name). Rewrote update_existing_tools() to handle duplicates and orphans.
 
 ### BUG-045: Resource existence oracle via 403/404 differential
 - **Status:** Resolved
 - **Severity:** Low
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Changed all cross-tenant access denied responses from 403 to 404 across 23 route files. Global admin access preserved via can_access_resource(). Legitimate business rule 403s kept.
 
 ### BUG-046: CORS allows all origins
 - **Status:** Resolved
 - **Severity:** Low
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Made CORS configurable via TSN_CORS_ORIGINS env var. Default * for dev, comma-separated origins for production. Handles allow_credentials correctly per CORS spec. Added to docker-compose.yml and env.docker.example.
 
 ### BUG-029: Async queue dead-letters all API channel messages
 - **Status:** Resolved
 - **Severity:** Critical
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Added "api" channel handler in queue_worker.py. API messages now processed and results persisted for polling.
 
 ### BUG-030: DELETE /api/v1/agents/{id} returns 204 but doesn't delete
 - **Status:** Resolved
 - **Severity:** Critical
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Changed from soft-delete (is_active=False) to actual db.delete() with tenant-scoped default agent promotion.
 
 ### BUG-031: Contact uniqueness checks missing tenant_id scope
 - **Status:** Resolved
 - **Severity:** Critical
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Added Contact.tenant_id filter to friendly_name, whatsapp_id, telegram_id uniqueness checks in update_contact.
 
 ### BUG-032: Agent is_default update affects all tenants
 - **Status:** Resolved
 - **Severity:** Critical
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Scoped is_default unset queries to current tenant in create_agent and update_agent.
 
 ### BUG-033: Agent delete count/fallback picks from any tenant
 - **Status:** Resolved
 - **Severity:** Critical
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Added tenant_id filter to agent count and next_agent fallback queries in delete_agent.
 
 ### BUG-034: Queue poll returns null result for completed items
 - **Status:** Resolved
 - **Severity:** High
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** mark_completed() now persists result dict into queue item payload for poll endpoint retrieval.
 
 ### BUG-035: 33+ raw exception string leaks in API responses
 - **Status:** Resolved
 - **Severity:** High
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Replaced str(e) with generic messages in routes_flows, routes_agent_builder, routes_flight_providers, routes_contacts. Errors logged server-side via logger.exception().
 
 ### BUG-036: GET /api/agents/{id}/skills returns 500 instead of 404
 - **Status:** Resolved
 - **Severity:** High
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Added `except HTTPException: raise` before generic exception handler in get_agent_skills.
 
 ### BUG-037: Agent description field aliased to system_prompt
 - **Status:** Resolved
 - **Severity:** High
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Added dedicated description column to Agent model with migration 0005. Public API now supports independent description field with backward-compatible fallback.
 
 ### BUG-038: Flow stats active_threads count unscoped across tenants
 - **Status:** Resolved
 - **Severity:** High
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Applied filter_by_tenant to ConversationThread and FlowRun queries in get_flow_stats. Added permission checks to stats, conversations, and template endpoints.
 
 ### BUG-039: XSS payload stored unescaped in agent name
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Added sanitizers.py with strip_html_tags(). Applied Pydantic field_validator on agent name/description in v1 API.
 
 ### BUG-040: Contacts page uses 34 gray-800 class elements
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Migrated all gray-800/900/700/600 tokens to tsushin design system tokens in contacts/page.tsx.
 
 ### BUG-041: SandboxedTool query loads all tenants into memory
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Pushed tenant filter to database using SQLAlchemy or_() in routes_agent_builder.py.
 
 ### BUG-041b: Sentinel GET /config missing permission check
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Added require_permission("org.settings.read") to get_sentinel_config endpoint.
 
 ### BUG-041c: Contact error message leaks cross-tenant contact_id
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Removed contact_id from update_user_contact_mapping error message.
 
 ### BUG-001: No mobile navigation — hamburger menu added
 - **Status:** Resolved
 - **Severity:** Critical
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Added hamburger menu button (visible below md: breakpoint) and slide-in mobile nav drawer with all 6 nav links, user info, and logout. Implemented in LayoutContent.tsx.
 
 ### BUG-002: Login page uses wrong background color
 - **Status:** Resolved
 - **Severity:** High
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Replaced `bg-gray-50 dark:bg-gray-900` with `bg-tsushin-ink`.
 
 ### BUG-003: Login form card uses gray-800 instead of tsushin design tokens
 - **Status:** Resolved
 - **Severity:** High
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Replaced with `bg-tsushin-surface border border-tsushin-border rounded-2xl`.
 
 ### BUG-004: Login "Sign In" button uses bg-blue-600 instead of .btn-primary
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Replaced with `btn-primary` class.
 
 ### BUG-005: Agent Detail page uses completely different design language
 - **Status:** Resolved
 - **Severity:** High
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Full migration: header, tabs, buttons all using tsushin tokens and teal accents.
 
 ### BUG-006: Undefined tsushin-dark and tsushin-text CSS tokens
 - **Status:** Resolved
 - **Severity:** High
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Added `dark`, `darker`, `text` tokens to tailwind.config.ts.
 
 ### BUG-007: Undefined tsushin-darker token
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Added `darker: '#080B10'` token to tailwind.config.ts.
 
 ### BUG-008: Modal.tsx uses gray-800 instead of tsushin-elevated
 - **Status:** Resolved
 - **Severity:** High
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Rewritten with `bg-tsushin-elevated`, backdrop blur, scale-in animation, rounded-2xl.
 
 ### BUG-009: form-input.tsx uses gray-800 instead of tsushin-deep
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Migrated to `bg-tsushin-deep`, `border-tsushin-border`, teal focus ring.
 
 ### BUG-010: Auth pages use gray-900 backgrounds
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** All auth pages migrated to `bg-tsushin-ink`.
 
 ### BUG-011: Settings Team "Invite Member" button uses blue-600
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Migrated to `btn-primary`.
 
 ### BUG-012: Sentinel page uses gray-600 borders and gray-800 textareas
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Fixed by form-input.tsx base class migration.
 
 ### BUG-013: Settings Organization uses gray-800 inputs and blue-600 buttons
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Fixed by form-input.tsx migration.
 
 ### BUG-014: Settings Security page uses gray-600 input backgrounds
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Fixed by form-input.tsx migration.
 
 ### BUG-015: Settings Billing "View All Plans" button uses blue
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Migrated to design system button.
 
 ### BUG-016: System Tenants uses purple-600 button and gray-800 inputs
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Purple → `btn-primary`, inputs fixed by form-input migration.
 
 ### BUG-017: Agent sub-components use bg-white dark:bg-gray-800
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** All 6 agent component managers migrated to tsushin tokens.
 
 ### BUG-018: System admin pages use light-mode-first patterns
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** All 4 system admin pages migrated.
 
 ### BUG-019: Contacts create modal uses gray-800 and blue buttons
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Modal.tsx wrapper fixed globally.
 
 ### BUG-020: Playground cockpit.css overrides tsushin-accent with purple
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Changed `--tsushin-accent` from #8b5cf6 to #00D9FF. Also aligned --tsushin-deep, --tsushin-surface, --tsushin-elevated variables.
 
 ### BUG-021: Playground references unloaded fonts
 - **Status:** Resolved
 - **Severity:** Low
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Font fallback acceptable; tsushin-text token added.
 
 ### BUG-022: Hardcoded hex colors in playground components
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Replaced all hardcoded hex backgrounds in 8 components with tsushin tokens.
 
 ### BUG-023: MessageActions.tsx uses inline style hex colors
 - **Status:** Resolved
 - **Severity:** Low
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** tsushin-dark token now defined; values align.
 
 ### BUG-024: ThreadHeader uses !important JSX style block
 - **Status:** Resolved
 - **Severity:** Low
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Removed entire `<style jsx>` block. Elements use existing inline styles that match tsushin-deep.
 
 ### BUG-025: playground.css uses 38+ !important declarations
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Removed 41 of 42 !important declarations. Aligned :root variables with tsushin tokens. 1 kept (required to override inline style).
 
 ### BUG-026: Inconsistent z-index scale
 - **Status:** Resolved
 - **Severity:** Low
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Standardized 12 z-index values across 9 files. Removed z-[9999] and inline zIndex styles, replaced with consistent scale (z-30 dropdowns, z-40 sidebars, z-50 modals, z-[80] toasts, z-[90] onboarding).
 
 ### BUG-027: No global toast/notification system
 - **Status:** Resolved
 - **Severity:** Medium
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Created ToastContext + ToastContainer with design system styling. Migrated 40 alert() calls in 6 priority files (agents, contacts, personas, flows, hub). Remaining files can be migrated incrementally.
 
 ### BUG-028: Agent Projects page has duplicate Security tab
 - **Status:** Resolved
 - **Severity:** Low
-- **Resolved:** 2026-03-27
+- **Resolved:** 104-03-27
 - **Resolution:** Removed duplicate Security link. Empty state was already properly implemented.

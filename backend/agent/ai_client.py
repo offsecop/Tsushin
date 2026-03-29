@@ -31,7 +31,7 @@ class AIClient:
         Initialize AI client with database session for API key loading.
 
         Args:
-            provider: AI provider ('anthropic', 'openai', 'gemini', 'ollama', 'openrouter', 'groq', 'grok')
+            provider: AI provider ('anthropic', 'openai', 'gemini', 'ollama', 'openrouter', 'groq', 'grok', 'deepseek')
             model_name: Model identifier
             db: Database session for loading API keys (optional, falls back to env vars)
             token_tracker: TokenTracker instance for usage tracking (Phase 7.2)
@@ -179,6 +179,14 @@ class AIClient:
                 base_url="https://api.x.ai/v1"
             )
             self.logger.info(f"Initialized Grok (xAI) client with model: {model_name}")
+        elif self.provider == "deepseek":
+            # DeepSeek: Affordable reasoning and chat models
+            # Uses OpenAI-compatible API with custom base URL
+            self.client = AsyncOpenAI(
+                api_key=api_key,
+                base_url="https://api.deepseek.com/v1"
+            )
+            self.logger.info(f"Initialized DeepSeek client with model: {model_name}")
         else:
             raise ValueError(f"Unsupported provider: {provider}")
 
@@ -225,8 +233,8 @@ class AIClient:
             elif self.provider == "openrouter":
                 # OpenRouter uses OpenAI-compatible API
                 result = await self._call_openai(system_prompt, user_message)
-            elif self.provider in ("groq", "grok"):
-                # Groq and Grok use OpenAI-compatible API
+            elif self.provider in ("groq", "grok", "deepseek"):
+                # Groq, Grok, and DeepSeek use OpenAI-compatible API
                 result = await self._call_openai(system_prompt, user_message)
             else:
                 raise ValueError(f"Unsupported provider: {self.provider}")
@@ -598,8 +606,8 @@ class AIClient:
                 # OpenRouter uses OpenAI-compatible streaming API
                 async for chunk in self._stream_openai(system_prompt, user_message):
                     yield chunk
-            elif self.provider in ("groq", "grok"):
-                # Groq and Grok use OpenAI-compatible streaming API
+            elif self.provider in ("groq", "grok", "deepseek"):
+                # Groq, Grok, and DeepSeek use OpenAI-compatible streaming API
                 async for chunk in self._stream_openai(system_prompt, user_message):
                     yield chunk
             else:

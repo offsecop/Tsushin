@@ -29,6 +29,7 @@ ENV_KEY_MAP = {
     'openrouter': 'OPENROUTER_API_KEY',
     'groq': 'GROQ_API_KEY',
     'grok': 'GROK_API_KEY',
+    'deepseek': 'DEEPSEEK_API_KEY',
     'elevenlabs': 'ELEVENLABS_API_KEY',
 }
 

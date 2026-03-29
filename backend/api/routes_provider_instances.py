@@ -100,7 +100,7 @@ class UrlValidationResponse(BaseModel):
 
 # ==================== Helpers ====================
 
-VALID_VENDORS = {"openai", "anthropic", "gemini", "groq", "grok", "openrouter", "ollama", "custom"}
+VALID_VENDORS = {"openai", "anthropic", "gemini", "groq", "grok", "deepseek", "openrouter", "ollama", "custom"}
 
 
 def _encrypt_provider_key(plaintext_key: str, tenant_id: str, instance_id: int, db: Session) -> Optional[str]:
@@ -674,6 +674,9 @@ async def discover_models(
             ],
             "grok": [
                 "grok-3", "grok-3-mini", "grok-2",
+            ],
+            "deepseek": [
+                "deepseek-chat", "deepseek-reasoner",
             ],
             "openrouter": [
                 "google/gemini-2.5-flash", "anthropic/claude-sonnet-4",

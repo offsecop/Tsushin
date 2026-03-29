@@ -83,6 +83,7 @@ SUPPORTED_SERVICES = {
     'openrouter': 'OpenRouter',
     'groq': 'Groq (LLaMA/Mixtral)',
     'grok': 'Grok (xAI)',
+    'deepseek': 'DeepSeek',
     'elevenlabs': 'ElevenLabs (TTS)',
     'brave_search': 'Brave Search API',
     'openweather': 'OpenWeatherMap',

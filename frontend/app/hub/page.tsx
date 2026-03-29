@@ -40,6 +40,7 @@ import {
   SearchIcon,
   CloudSunIcon,
   BotIcon as BotIconSvg,
+  BrainIcon,
   BeakerIcon,
   LightbulbIcon,
   RocketIcon,
@@ -172,6 +173,13 @@ interface ToolboxStatus {
   image?: string
 }
 
+// Grok (xAI) icon — X-shaped to match xAI branding
+const GrokIcon = ({ size, className }: IconProps) => (
+  <svg className={className} width={size || 20} height={size || 20} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+  </svg>
+)
+
 // ============================================
 // Service Definitions by Category
 // ============================================
@@ -182,7 +190,7 @@ const AI_PROVIDERS: { value: string; label: string; Icon: React.FC<IconProps>; d
   { value: 'anthropic', label: 'Anthropic Claude', Icon: AnthropicIcon, description: 'Claude 3.5, reasoning models', status: 'available' },
   { value: 'openrouter', label: 'OpenRouter', Icon: GlobeIcon, description: '100+ models via single API', status: 'available' },
   { value: 'groq', label: 'Groq', Icon: LightningIcon, description: 'Ultra-fast inference', status: 'available' },
-  { value: 'grok', label: 'Grok (xAI)', Icon: LightningIcon, description: 'xAI Grok models', status: 'available' },
+  { value: 'grok', label: 'Grok (xAI)', Icon: GrokIcon, description: 'xAI Grok models', status: 'available' },
   { value: 'elevenlabs', label: 'ElevenLabs', Icon: MicrophoneIcon, description: 'Voice AI & TTS synthesis', status: 'available' },
 ]
 
@@ -1463,6 +1471,7 @@ export default function HubPage() {
   ) => {
     const apiKey = getApiKeyForService(item.value)
     const isComingSoon = item.status === 'coming_soon'
+    const hasProviderInstance = type === 'ai' && providerInstances.some(i => i.vendor === item.value)
     const ItemIcon = item.Icon
 
     return (
@@ -1476,7 +1485,12 @@ export default function HubPage() {
               }`}>
               <ItemIcon size={20} />
             </div>
-            <h3 className="font-semibold text-white">{item.label}</h3>
+            <div>
+              <h3 className="font-semibold text-white">{item.label}</h3>
+              {hasProviderInstance && apiKey && (
+                <span className="text-[10px] text-amber-400/80">Fallback — instance key takes priority</span>
+              )}
+            </div>
           </div>
           {isComingSoon ? (
             <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-600/30 text-gray-400 border border-gray-600/50">
@@ -1657,6 +1671,7 @@ export default function HubPage() {
                     gemini: 'Google Gemini',
                     groq: 'Groq',
                     grok: 'Grok (xAI)',
+                    deepseek: 'DeepSeek',
                     openrouter: 'OpenRouter',
                     ollama: 'Ollama',
                     custom: 'Custom',
@@ -1667,7 +1682,8 @@ export default function HubPage() {
                     anthropic: AnthropicIcon,
                     gemini: GeminiIcon,
                     groq: LightningIcon,
-                    grok: LightningIcon,
+                    grok: GrokIcon,
+                    deepseek: BrainIcon,
                     openrouter: GlobeIcon,
                     ollama: BotIconSvg,
                     custom: BeakerIcon,
@@ -1679,6 +1695,7 @@ export default function HubPage() {
                     gemini: 'text-blue-400',
                     groq: 'text-yellow-400',
                     grok: 'text-red-400',
+                    deepseek: 'text-cyan-400',
                     openrouter: 'text-teal-400',
                     ollama: 'text-purple-400',
                     custom: 'text-pink-400',
@@ -1695,7 +1712,7 @@ export default function HubPage() {
 
                   const allVendors = Array.from(new Set([
                     ...Object.keys(vendorGroups),
-                    'openai', 'anthropic', 'gemini', 'groq', 'grok', 'openrouter',
+                    'openai', 'anthropic', 'gemini', 'groq', 'grok', 'deepseek', 'openrouter',
                   ])).filter(v => v !== 'ollama').sort()
 
                   return (
@@ -2106,7 +2123,8 @@ export default function HubPage() {
 
                 {/* Service API Keys Section */}
                 <div className="pt-2">
-                  <h3 className="text-sm font-semibold text-tsushin-fog mb-3">Service API Keys</h3>
+                  <h3 className="text-sm font-semibold text-tsushin-fog mb-1">Service API Keys</h3>
+                  <p className="text-xs text-tsushin-slate mb-3">API keys for non-LLM integrations (e.g. ElevenLabs TTS) and LLM provider fallbacks</p>
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {AI_PROVIDERS.map(provider => renderIntegrationCard(provider, 'ai'))}
                   </div>

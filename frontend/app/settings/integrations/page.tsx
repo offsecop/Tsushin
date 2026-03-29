@@ -4,7 +4,6 @@
  * Integrations Settings Page
  * Centralized configuration for third-party integrations:
  * - Google OAuth (SSO, Gmail, Calendar)
- * - AI Provider API Keys (Groq, Grok/xAI, ElevenLabs TTS)
  */
 
 import { useState, useEffect, useCallback } from 'react'
@@ -19,25 +18,6 @@ interface GoogleCredentials {
   created_at: string
 }
 
-interface ApiKeyStatus {
-  id?: number
-  service: string
-  api_key_preview?: string
-  is_active: boolean
-  exists: boolean
-}
-
-interface TestResult {
-  success: boolean
-  message: string
-  provider: string
-  details?: Record<string, any>
-  error?: string
-}
-
-// AI Provider API keys are now managed in Hub > AI Providers (v0.6.0)
-// This page only handles non-LLM service integrations (Google OAuth, etc.)
-const AI_PROVIDERS: any[] = []
 
 export default function IntegrationsSettingsPage() {
   const { user, loading: authLoading, hasPermission } = useRequireAuth()
@@ -53,13 +33,6 @@ export default function IntegrationsSettingsPage() {
   const [showGoogleModal, setShowGoogleModal] = useState(false)
   const [googleClientId, setGoogleClientId] = useState('')
   const [googleClientSecret, setGoogleClientSecret] = useState('')
-
-  // AI Provider API Key state
-  const [apiKeyStatuses, setApiKeyStatuses] = useState<Record<string, ApiKeyStatus>>({})
-  const [testingProvider, setTestingProvider] = useState<string | null>(null)
-  const [testResults, setTestResults] = useState<Record<string, TestResult>>({})
-  const [showApiKeyModal, setShowApiKeyModal] = useState<string | null>(null)
-  const [apiKeyInput, setApiKeyInput] = useState('')
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'
 
@@ -128,104 +101,22 @@ export default function IntegrationsSettingsPage() {
     } finally { setSaving(false) }
   }
 
-  // ---- AI Provider API Key functions ----
-
-  const fetchApiKeyStatuses = useCallback(async () => {
-    try {
-      const response = await fetch(`${apiUrl}/api/api-keys`, { headers: getAuthHeaders() })
-      if (response.ok) {
-        const keys = await response.json()
-        const statuses: Record<string, ApiKeyStatus> = {}
-        for (const provider of AI_PROVIDERS) {
-          const key = keys.find((k: any) => k.service === provider.service)
-          statuses[provider.service] = key
-            ? { id: key.id, service: key.service, api_key_preview: key.api_key_preview, is_active: key.is_active, exists: true }
-            : { service: provider.service, is_active: false, exists: false }
-        }
-        setApiKeyStatuses(statuses)
-      }
-    } catch (err) {
-      console.error('Error fetching API key statuses:', err)
-    }
-  }, [apiUrl, getAuthHeaders])
-
-  const handleSaveApiKey = async (service: string) => {
-    if (!apiKeyInput.trim()) { setError('API key is required'); return }
-    setSaving(true); setError(null)
-    try {
-      const response = await fetch(`${apiUrl}/api/api-keys`, {
-        method: 'POST', headers: getAuthHeaders(),
-        body: JSON.stringify({ service, api_key: apiKeyInput.trim() })
-      })
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }))
-        throw new Error(errorData.detail || `HTTP ${response.status}`)
-      }
-      await fetchApiKeyStatuses()
-      setShowApiKeyModal(null); setApiKeyInput('')
-      const providerName = AI_PROVIDERS.find(p => p.service === service)?.name || service
-      setSuccess(`${providerName} API key saved successfully`)
-      setTimeout(() => setSuccess(null), 3000)
-    } catch (err: any) {
-      setError(`Failed to save: ${err.message}`)
-    } finally { setSaving(false) }
-  }
-
-  const handleDeleteApiKey = async (service: string) => {
-    const providerName = AI_PROVIDERS.find(p => p.service === service)?.name || service
-    if (!confirm(`Remove ${providerName} API key? This will disable ${providerName} integration.`)) return
-    setSaving(true); setError(null)
-    try {
-      const response = await fetch(`${apiUrl}/api/api-keys/${service}`, { method: 'DELETE', headers: getAuthHeaders() })
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }))
-        throw new Error(errorData.detail || `HTTP ${response.status}`)
-      }
-      await fetchApiKeyStatuses()
-      setTestResults(prev => { const next = { ...prev }; delete next[service]; return next })
-      setSuccess(`${providerName} API key removed`)
-      setTimeout(() => setSuccess(null), 3000)
-    } catch (err: any) {
-      setError(`Failed to remove: ${err.message}`)
-    } finally { setSaving(false) }
-  }
-
-  const handleTestConnection = async (service: string) => {
-    setTestingProvider(service)
-    setTestResults(prev => { const next = { ...prev }; delete next[service]; return next })
-    try {
-      const response = await fetch(`${apiUrl}/api/integrations/${service}/test`, {
-        method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({})
-      })
-      const result = await response.json()
-      setTestResults(prev => ({ ...prev, [service]: result }))
-      if (result.success) {
-        setTimeout(() => setTestResults(prev => { const next = { ...prev }; delete next[service]; return next }), 5000)
-      }
-    } catch (err: any) {
-      setTestResults(prev => ({
-        ...prev,
-        [service]: { success: false, message: `Connection failed: ${err.message}`, provider: service, error: err.message }
-      }))
-    } finally { setTestingProvider(null) }
-  }
-
   // ---- Effects ----
 
   useEffect(() => {
     if (!authLoading && user) {
       setLoading(true)
-      Promise.all([fetchGoogleCredentials(), fetchApiKeyStatuses()]).finally(() => setLoading(false))
+      fetchGoogleCredentials().finally(() => setLoading(false))
     }
-  }, [authLoading, user, fetchGoogleCredentials, fetchApiKeyStatuses])
+  }, [authLoading, user, fetchGoogleCredentials])
 
   useEffect(() => {
     const handleRefresh = () => {
-      if (!authLoading && user) { fetchGoogleCredentials(); fetchApiKeyStatuses() }
+      if (!authLoading && user) { fetchGoogleCredentials() }
     }
     window.addEventListener('tsushin:refresh', handleRefresh)
     return () => window.removeEventListener('tsushin:refresh', handleRefresh)
-  }, [authLoading, user, fetchGoogleCredentials, fetchApiKeyStatuses])
+  }, [authLoading, user, fetchGoogleCredentials])
 
   if (authLoading || loading) {
     return (
@@ -281,140 +172,6 @@ export default function IntegrationsSettingsPage() {
           {success}
         </div>
       )}
-
-      {/* ============================================================ */}
-      {/* AI Provider API Keys Section — Migrated to Hub > AI Providers in v0.6.0 */}
-      {/* ============================================================ */}
-      {AI_PROVIDERS.length > 0 && <div>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">AI Providers</h2>
-        <div className="space-y-4">
-          {AI_PROVIDERS.map(provider => {
-            const status = apiKeyStatuses[provider.service]
-            const testResult = testResults[provider.service]
-            const isTesting = testingProvider === provider.service
-
-            return (
-              <div key={provider.service} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden">
-                {/* Card Header */}
-                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${provider.gradient} flex items-center justify-center`}>
-                      {provider.icon}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{provider.name}</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{provider.description}</p>
-                    </div>
-                    {status?.exists && status.is_active && (
-                      <span className="px-3 py-1 text-xs font-medium rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
-                        Connected
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Card Body */}
-                <div className="p-6">
-                  {status?.exists ? (
-                    <div className="space-y-4">
-                      {/* Key preview */}
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
-                          API Key
-                        </label>
-                        <code className="block text-sm text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-900 rounded px-3 py-2 font-mono">
-                          {status.api_key_preview || '••••••••••••••••'}
-                        </code>
-                      </div>
-
-                      {/* Features */}
-                      <div className="flex flex-wrap gap-2">
-                        {provider.features.map(feature => (
-                          <span key={feature} className="inline-flex items-center px-2.5 py-1 bg-gray-100 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300 text-xs rounded-md">
-                            {feature}
-                          </span>
-                        ))}
-                      </div>
-
-                      {/* Test result */}
-                      {testResult && (
-                        <div className={`rounded-lg p-3 text-sm ${
-                          testResult.success
-                            ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800'
-                            : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800'
-                        }`}>
-                          <div className="flex items-center gap-2">
-                            {testResult.success ? (
-                              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                            ) : (
-                              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                            )}
-                            <span>{testResult.message}</span>
-                            <button onClick={() => setTestResults(prev => { const next = { ...prev }; delete next[provider.service]; return next })} className="ml-auto text-gray-400 hover:text-gray-300">×</button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Actions */}
-                      {canEdit && (
-                        <div className="flex gap-3 pt-2">
-                          <button
-                            onClick={() => handleTestConnection(provider.service)}
-                            disabled={isTesting || saving}
-                            className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium text-sm transition-colors disabled:opacity-50"
-                          >
-                            {isTesting ? (
-                              <span className="flex items-center gap-2">
-                                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                                Testing...
-                              </span>
-                            ) : 'Test Connection'}
-                          </button>
-                          <button
-                            onClick={() => { setShowApiKeyModal(provider.service); setApiKeyInput('') }}
-                            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg font-medium text-sm transition-colors"
-                          >
-                            Update Key
-                          </button>
-                          <button
-                            onClick={() => handleDeleteApiKey(provider.service)}
-                            disabled={saving}
-                            className="px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg font-medium text-sm transition-colors disabled:opacity-50"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center py-6">
-                      <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mx-auto mb-3">
-                        <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                        </svg>
-                      </div>
-                      <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-1">
-                        Not Configured
-                      </h4>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 max-w-sm mx-auto">
-                        Add your {provider.name} API key to enable this integration
-                      </p>
-                      {canEdit && (
-                        <button
-                          onClick={() => { setShowApiKeyModal(provider.service); setApiKeyInput('') }}
-                          className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium text-sm transition-colors"
-                        >
-                          Add API Key
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>}
 
       {/* ============================================================ */}
       {/* Google OAuth Section */}
@@ -548,61 +305,6 @@ export default function IntegrationsSettingsPage() {
           </div>
         </div>
       </div>
-
-      {/* ============================================================ */}
-      {/* Shared API Key Modal */}
-      {/* ============================================================ */}
-      {showApiKeyModal && (() => {
-        const provider = AI_PROVIDERS.find(p => p.service === showApiKeyModal)
-        const existingKey = apiKeyStatuses[showApiKeyModal]
-        if (!provider) return null
-        return (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-lg w-full">
-              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {existingKey?.exists ? `Update ${provider.name} API Key` : `Configure ${provider.name}`}
-                </h3>
-              </div>
-              <div className="p-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    API Key <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="password"
-                    value={apiKeyInput}
-                    onChange={(e) => setApiKeyInput(e.target.value)}
-                    placeholder={provider.placeholder}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                    onKeyDown={(e) => { if (e.key === 'Enter' && apiKeyInput.trim()) handleSaveApiKey(showApiKeyModal) }}
-                  />
-                  {existingKey?.exists && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Current key: {existingKey.api_key_preview} — enter a new key to replace it
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
-                <button
-                  onClick={() => { setShowApiKeyModal(null); setApiKeyInput(''); setError(null) }}
-                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg font-medium transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => handleSaveApiKey(showApiKeyModal)}
-                  disabled={saving || !apiKeyInput.trim()}
-                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {saving ? 'Saving...' : 'Save API Key'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
 
       {/* Google Modal */}
       {showGoogleModal && (

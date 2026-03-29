@@ -23,6 +23,7 @@ VENDOR_DEFAULT_BASE_URLS = {
     "gemini": None,
     "groq": "https://api.groq.com/openai/v1",
     "grok": "https://api.x.ai/v1",
+    "deepseek": "https://api.deepseek.com/v1",
     "openrouter": "https://openrouter.ai/api/v1",
     "ollama": "http://host.docker.internal:11434",
 }

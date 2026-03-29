@@ -18,6 +18,7 @@ const MODEL_PROVIDERS = [
   { value: 'anthropic', label: 'Anthropic', models: ['claude-sonnet-4.5', 'claude-3-5-sonnet-20241022', 'claude-3-opus-20240229'] },
   { value: 'openai', label: 'OpenAI', models: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'] },
   { value: 'gemini', label: 'Google Gemini', models: ['gemini-3-pro-preview', 'gemini-3-flash-preview', 'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.0-flash-lite'] },
+  { value: 'deepseek', label: 'DeepSeek', models: ['deepseek-chat', 'deepseek-reasoner'] },
   { value: 'ollama', label: 'Ollama (Local)', models: ['Gemma3:4b', 'llama3.1:8b', 'deepseek-r1:8b', 'MFDoom/deepseek-r1-tool-calling:8b'] },
   {
     value: 'openrouter',

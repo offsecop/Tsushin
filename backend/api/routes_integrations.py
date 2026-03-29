@@ -25,6 +25,7 @@ PROVIDER_TEST_MODELS = {
     "anthropic": "claude-3-5-haiku-20241022",
     "gemini": "gemini-2.5-flash",
     "openrouter": "meta-llama/llama-3.1-8b-instruct:free",
+    "deepseek": "deepseek-chat",
 }
 
 SUPPORTED_PROVIDERS = list(PROVIDER_TEST_MODELS.keys()) + ["elevenlabs"]
