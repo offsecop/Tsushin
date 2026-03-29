@@ -1,8 +1,49 @@
 # Tsushin Bug Tracker
-**Open:** 0 | **In Progress:** 0 | **Resolved:** 104
-**Source:** v0.6.1 RBAC & Multi-Tenancy Audit + Security Vulnerability Audit + GKE Readiness Audit + Hub AI Providers Audit (2026-03-28)
+**Open:** 0 | **In Progress:** 0 | **Resolved:** 108
+**Source:** v0.6.1 RBAC & Multi-Tenancy Audit + Security Vulnerability Audit + GKE Readiness Audit + Hub AI Providers Audit + Platform Hardening (2026-03-29)
 
 ## Open Issues
+
+### BUG-108: Kokoro TTS health check fails when /health endpoint is temporarily unavailable
+- **Status:** Resolved
+- **Resolved:** 2026-03-29
+- **Severity:** Low
+- **Category:** Resilience
+- **Found:** 2026-03-29 (Platform Hardening)
+- **Files:** `backend/hub/providers/kokoro_tts_provider.py`
+- **Description:** Kokoro TTS health check only tried `/health` endpoint. If that returned ConnectError, the provider was marked unavailable even if `/v1/audio/voices` responded correctly.
+- **Resolution:** Added fallback to `/v1/audio/voices` endpoint when `/health` fails with ConnectError.
+
+### BUG-107: MCP servers never auto-connect on startup, always show "disconnected"
+- **Status:** Resolved
+- **Resolved:** 2026-03-29
+- **Severity:** Medium
+- **Category:** Missing Feature
+- **Found:** 2026-03-29 (Platform Hardening)
+- **Files:** `backend/app.py`, `backend/hub/mcp/connection_manager.py`
+- **Description:** MCP server connections were purely reactive (only established on manual connect). After container restart, all servers showed "disconnected" requiring manual intervention.
+- **Resolution:** Added auto-connect background task on startup that connects all active MCP servers after a 5-second delay.
+
+### BUG-106: Playground thread loading fails for threads with sender_key format mismatches
+- **Status:** Resolved
+- **Resolved:** 2026-03-29
+- **Severity:** Medium
+- **Category:** Data Compatibility
+- **Found:** 2026-03-29 (Platform Hardening)
+- **Files:** `backend/services/playground_thread_service.py`, `frontend/app/playground/page.tsx`, `frontend/lib/client.ts`
+- **Description:** Threads created before sender_key format changes could not be loaded. Error "Failed to Load Conversation - Could not locate messages for thread N. Tried 10 sender_keys and full Memory scan." was shown.
+- **Resolution:** Added LIKE-based fallback query for partial sender_key matches. Changed error response to return empty messages with warning instead of error code. Updated frontend to show info state instead of error.
+
+### BUG-105: Flow SummarizationStepHandler cannot summarize tool/skill output, only conversation threads
+- **Status:** Resolved
+- **Resolved:** 2026-03-29
+- **Severity:** High
+- **Category:** Missing Feature / Bug
+- **Found:** 2026-03-29 (Platform Hardening)
+- **Files:** `backend/flows/flow_engine.py`
+- **Description:** SummarizationStepHandler only supported summarizing ConversationThread objects via thread_id. When source_step was a tool step (e.g., nmap scan), it failed silently because tool steps don't produce thread_ids. Additionally, the nested dict lookup at line 1314 used flat key access (`input_data.get("step_1.thread_id")`) which never matched the nested context structure.
+- **Impact:** Agentic summarization in multi-step flows was completely non-functional for tool/skill step outputs. Template variable `{{step_2.summary}}` resolved to empty string.
+- **Resolution:** Added raw text summarization path (Path B) that extracts `raw_output` from source step and summarizes it using AIClient. Fixed nested dict lookup to use proper `input_data.get(source_step, {}).get("thread_id")`. Added `previous_step` fallback. Verified end-to-end with "Multi-Step FIXED - Nmap + Notification" flow.
 
 ### BUG-100: DeepSeek provider has zero backend implementation despite being listed in System AI Config
 - **Status:** Resolved
