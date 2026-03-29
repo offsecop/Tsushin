@@ -16,7 +16,51 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 #### Weather Skill Deprecation
 - Removed Weather skill (OpenWeatherMap integration) from the platform
 - Removed `OPENWEATHER_API_KEY` from all environment configuration files
+- Cleaned up weather references from backend, frontend, tests, and documentation
+- Auto-cleanup of weather skill records and slash commands on startup
 - Updated skill count from 21 to 20
+
+### Changed
+
+#### Skills UI Overhaul — "Add Skill" Pattern
+- Redesigned Studio > Skills tab to only show enabled/configured skills (instead of listing all available skills)
+- Added "Add Skill" button with categorized modal (Communication, Search & Web, Audio & Media, Automation & Tools, Intelligence, Travel)
+- Skills are now added as enabled with config modal opening immediately on add
+- Each skill card now has a "Remove" action to disable and return to the available pool
+- Custom skills integrated into the same Add Skill modal alongside built-in skills
+- Search and category filtering in the Add Skill modal
+- Consistent card styling with teal gradient theme for all active skills
+- Decomposed skill constants into `frontend/components/skills/skill-constants.ts`
+- Created reusable `AddSkillModal` component at `frontend/components/skills/AddSkillModal.tsx`
+
+### Security
+
+#### Slash Command Security Hardening
+- **CRITICAL:** Fixed shell RBAC bypass via WhatsApp/Telegram channels — `/shell` permission check was skipped when `user_id=None` (non-playground channels). Now denies execution without authenticated user.
+- **HIGH:** Fixed cross-tenant thread manipulation — `/thread end`, `/thread list`, `/thread status` queries now filter by `tenant_id` to prevent tenant A from accessing tenant B's threads.
+- **HIGH:** Added agent ownership validation on `/api/commands/execute` — `agent_id` parameter is now verified against the authenticated user's tenant.
+- **MEDIUM:** Escaped LIKE wildcards in sandboxed tool lookup — prevents `/tool %` from matching all tools in the tenant.
+- **MEDIUM:** Added `shlex.quote()` to sandboxed tool command template rendering — prevents shell metacharacter injection via tool parameters.
+
+### Added
+
+#### Slash Command Webhook Handler
+- Implemented the webhook handler for custom slash commands (`handler_type: "webhook"`)
+- Async HTTP calls with configurable method, headers, timeout (max 30s), and HMAC-SHA256 signing
+- SSRF protection: blocks private/internal IP ranges and localhost
+- Response body capped at 64KB
+
+#### Slash Command Help Text in UI
+- Inline autocomplete (/) now shows `help_text` for the selected command
+- Command palette (Cmd+K) now shows `help_text` for the selected command
+- Displayed in a compact monospace format below the command description
+
+### Fixed
+
+#### Playground Markdown Rendering
+- AI/system message content in ExpertMode now renders with ReactMarkdown + GFM support
+- Previously, slash command responses with markdown (`**bold**`, lists, code blocks) were displayed as raw text
+- User messages remain as plain text to avoid unintended formatting
 
 ### Added
 

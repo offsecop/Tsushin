@@ -384,21 +384,84 @@ class SlashCommandService:
             "args": detection["groups"]
         }
 
-    async def _execute_webhook(self, cmd: Dict, detection: Dict) -> Dict[str, Any]:
-        """Execute a webhook command handler."""
+    async def _execute_webhook(self, cmd: Dict, detection: Dict, **kwargs) -> Dict[str, Any]:
+        """Execute a webhook command handler by making an HTTP call."""
+        import httpx
+        import hashlib
+        import hmac
+        from urllib.parse import urlparse
+        import ipaddress
+
         handler_config = json.loads(cmd.get("handler_config", "{}"))
         webhook_url = handler_config.get("url")
 
         if not webhook_url:
-            return {"status": "error", "error": "No webhook URL configured"}
+            return {"status": "error", "message": "No webhook URL configured for this command."}
 
-        # TODO: Implement webhook call
-        return {
-            "status": "webhook",
-            "command": cmd["command_name"],
-            "url": webhook_url,
-            "args": detection["groups"]
+        # SSRF protection: deny private/internal IP ranges
+        try:
+            parsed = urlparse(webhook_url)
+            hostname = parsed.hostname or ""
+            if hostname in ("localhost", ""):
+                return {"status": "error", "message": "Webhook URL cannot target localhost."}
+            try:
+                ip = ipaddress.ip_address(hostname)
+                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                    return {"status": "error", "message": "Webhook URL cannot target private/internal networks."}
+            except ValueError:
+                pass  # hostname is a domain, not an IP — allow DNS resolution by httpx
+        except Exception:
+            return {"status": "error", "message": "Invalid webhook URL."}
+
+        method = handler_config.get("method", "POST").upper()
+        custom_headers = handler_config.get("headers", {})
+        timeout_seconds = min(handler_config.get("timeout_seconds", 10), 30)
+        hmac_secret = handler_config.get("hmac_secret")
+
+        payload = {
+            "command_name": cmd.get("command_name"),
+            "category": cmd.get("category"),
+            "args": detection.get("groups", ()),
+            "raw_message": detection.get("message", ""),
+            "sender_key": kwargs.get("sender_key"),
+            "tenant_id": kwargs.get("tenant_id"),
+            "channel": kwargs.get("channel"),
+            "agent_id": kwargs.get("agent_id"),
+            "timestamp": datetime.utcnow().isoformat()
         }
+
+        headers = {"Content-Type": "application/json", **custom_headers}
+
+        # Optional HMAC signature
+        if hmac_secret:
+            payload_bytes = json.dumps(payload, sort_keys=True).encode()
+            signature = hmac.new(hmac_secret.encode(), payload_bytes, hashlib.sha256).hexdigest()
+            headers["X-Tsushin-Signature"] = signature
+
+        try:
+            async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+                response = await client.request(method, webhook_url, json=payload, headers=headers)
+
+                # Cap response body read to 64KB
+                body = response.text[:65536]
+
+                if response.status_code >= 400:
+                    self.logger.warning(f"Webhook returned {response.status_code} for {cmd['command_name']}: {body[:200]}")
+                    return {
+                        "status": "error",
+                        "message": f"Webhook returned HTTP {response.status_code}."
+                    }
+
+                return {
+                    "status": "success",
+                    "action": "webhook_executed",
+                    "message": body or "Webhook executed successfully."
+                }
+        except httpx.TimeoutException:
+            return {"status": "error", "message": f"Webhook timed out after {timeout_seconds}s."}
+        except httpx.RequestError as e:
+            self.logger.error(f"Webhook request failed for {cmd['command_name']}: {e}")
+            return {"status": "error", "message": "Webhook request failed. Check the URL and try again."}
 
     # =========================================================================
     # Helper Methods
@@ -1615,18 +1678,21 @@ Type `/help all` to see syntax for all commands.
         """Execute a sandboxed tool by name."""
         from models import SandboxedTool, SandboxedToolCommand, AgentSkill
 
+        # Escape LIKE wildcards to prevent matching arbitrary tools
+        escaped_name = tool_name.replace('%', '\\%').replace('_', '\\_')
+
         # First check if this is an enabled skill/tool for the agent
         # Note: AgentSkill uses skill_type (e.g., "audio_transcript") not skill_name
         skill = self.db.query(AgentSkill).filter(
             AgentSkill.agent_id == agent_id,
-            AgentSkill.skill_type.ilike(f"%{tool_name}%"),
+            AgentSkill.skill_type.ilike(f"%{escaped_name}%"),
             AgentSkill.is_enabled == True
         ).first()
 
         # Look for sandboxed tool
         tool = self.db.query(SandboxedTool).filter(
             SandboxedTool.tenant_id == tenant_id,
-            SandboxedTool.name.ilike(f"%{tool_name}%"),
+            SandboxedTool.name.ilike(f"%{escaped_name}%"),
             SandboxedTool.is_enabled == True
         ).first()
 
@@ -1836,8 +1902,9 @@ Type `/help all` to see syntax for all commands.
             f"{normalized_sender}@lid"
         ]
 
-        # Find active thread
+        # Find active thread (scoped to tenant for multi-tenant isolation)
         thread = self.db.query(ConversationThread).filter(
+            ConversationThread.tenant_id == tenant_id,
             ConversationThread.recipient.in_(possible_recipients),
             ConversationThread.status == 'active'
         ).first()
@@ -1879,8 +1946,9 @@ Type `/help all` to see syntax for all commands.
             f"{normalized_sender}@lid"
         ]
 
-        # Find all active threads for this user
+        # Find all active threads for this user (scoped to tenant)
         threads = self.db.query(ConversationThread).filter(
+            ConversationThread.tenant_id == tenant_id,
             ConversationThread.recipient.in_(possible_recipients),
             ConversationThread.status == 'active'
         ).order_by(ConversationThread.started_at.desc()).all()
@@ -1930,8 +1998,9 @@ Type `/help all` to see syntax for all commands.
             f"{normalized_sender}@lid"
         ]
 
-        # Find active thread
+        # Find active thread (scoped to tenant for multi-tenant isolation)
         thread = self.db.query(ConversationThread).filter(
+            ConversationThread.tenant_id == tenant_id,
             ConversationThread.recipient.in_(possible_recipients),
             ConversationThread.status == 'active'
         ).order_by(ConversationThread.last_activity_at.desc()).first()
@@ -1998,21 +2067,34 @@ Type `/help all` to see syntax for all commands.
         # MED-010 FIX: Permission check - User must have shell.execute permission
         # This ensures users without proper shell permissions cannot execute commands
         # via slash commands, even if the agent has shell skill enabled
-        if user_id:
-            user = self.db.query(User).filter(User.id == user_id).first()
-            if user and not check_permission(user, "shell.execute", self.db):
-                self.logger.warning(
-                    f"Permission denied: user {user.email} attempted /shell without shell.execute permission"
+        if not user_id:
+            self.logger.warning(
+                f"Permission denied: /shell attempted without authenticated user (channel={kwargs.get('channel')})"
+            )
+            return {
+                "status": "error",
+                "action": "permission_denied",
+                "message": (
+                    "🔒 **Permission Denied**\n\n"
+                    "Shell commands require an authenticated user with `shell.execute` permission.\n\n"
+                    "This command is not available via this channel."
                 )
-                return {
-                    "status": "error",
-                    "action": "permission_denied",
-                    "message": (
-                        "🔒 **Permission Denied**\n\n"
-                        "You need the `shell.execute` permission to run shell commands.\n\n"
-                        "Contact your administrator to request access."
-                    )
-                }
+            }
+
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user or not check_permission(user, "shell.execute", self.db):
+            self.logger.warning(
+                f"Permission denied: user {user.email if user else user_id} attempted /shell without shell.execute permission"
+            )
+            return {
+                "status": "error",
+                "action": "permission_denied",
+                "message": (
+                    "🔒 **Permission Denied**\n\n"
+                    "You need the `shell.execute` permission to run shell commands.\n\n"
+                    "Contact your administrator to request access."
+                )
+            }
 
         # Parse groups - pattern captures (target, command)
         target = groups[0] if groups and groups[0] else "default"

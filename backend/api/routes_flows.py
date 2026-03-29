@@ -984,21 +984,6 @@ def get_tool_metadata(
                         ]
                     }]
                 },
-                "weather": {
-                    "id": "weather",
-                    "name": "Weather",
-                    "commands": [{
-                        "id": "current",
-                        "name": "current",
-                        "parameters": [
-                            {
-                                "name": "location",
-                                "required": True,
-                                "description": "City name or coordinates"
-                            }
-                        ]
-                    }]
-                },
                 "web_scraping": {
                     "id": "web_scraping",
                     "name": "Web Scraping",

@@ -1675,8 +1675,7 @@ async def edit_message(
 
     service = PlaygroundMessageService(db)
 
-    print(f"[DEBUG] Edit request: agent_id={agent_id}, thread_id={thread_id}, message_id={request.message_id}")
-    logger.warning(f"[EDIT API] Received request: agent_id={agent_id}, thread_id={thread_id}, message_id={request.message_id}")
+    logger.debug(f"Edit request: agent_id={agent_id}, thread_id={thread_id}, message_id={request.message_id}")
 
     result = await service.edit_message(
         tenant_id=current_user.tenant_id,
@@ -1712,8 +1711,7 @@ async def regenerate_message(
 
     service = PlaygroundMessageService(db)
 
-    print(f"[DEBUG REGENERATE] Query params: agent_id={agent_id}, thread_id={thread_id}")
-    logger.warning(f"[REGENERATE API] agent_id={agent_id}, thread_id={thread_id}, message_id={request.message_id}")
+    logger.debug(f"Regenerate request: agent_id={agent_id}, thread_id={thread_id}, message_id={request.message_id}")
 
     result = await service.regenerate_response(
         tenant_id=current_user.tenant_id,
@@ -1724,11 +1722,10 @@ async def regenerate_message(
     )
 
     if result.get("status") == "error":
-        print(f"[DEBUG REGENERATE] Service returned error: {result.get('error')}")
         logger.error(f"Regenerate failed: {result.get('error')}")
         raise HTTPException(status_code=400, detail=result.get("error"))
 
-    print(f"[DEBUG REGENERATE] Success!")
+    logger.debug("Regenerate completed successfully")
     return result
 
 
@@ -1778,12 +1775,7 @@ async def bookmark_message(
     Phase 14.2: Message Operations
     """
     try:
-        # Log request details
-        body = await raw_request.body()
-        print(f"[DEBUG BOOKMARK] Query params: agent_id={agent_id}, thread_id={thread_id}")
-        print(f"[DEBUG BOOKMARK] Request body: {body.decode('utf-8')}")
-        print(f"[DEBUG BOOKMARK] Parsed request: message_id={request.message_id}, bookmarked={request.bookmarked}")
-        logger.warning(f"[BOOKMARK API] agent_id={agent_id}, thread_id={thread_id}, message_id={request.message_id}, bookmarked={request.bookmarked}")
+        logger.debug(f"Bookmark request: agent_id={agent_id}, thread_id={thread_id}, message_id={request.message_id}, bookmarked={request.bookmarked}")
 
         from services.playground_message_service import PlaygroundMessageService
 
@@ -1799,16 +1791,14 @@ async def bookmark_message(
         )
 
         if result.get("status") == "error":
-            print(f"[DEBUG BOOKMARK] Service returned error: {result.get('error')}")
             logger.error(f"Bookmark failed: {result.get('error')}")
             raise HTTPException(status_code=400, detail=result.get("error"))
 
-        print(f"[DEBUG BOOKMARK] Success!")
+        logger.debug("Bookmark completed successfully")
         return result
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[DEBUG BOOKMARK] Unexpected error: {e}")
         logger.error(f"Bookmark unexpected error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Bookmark operation failed. Check server logs for details.")
 

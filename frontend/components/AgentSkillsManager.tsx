@@ -9,6 +9,8 @@ import {
   SearchIcon, AlertTriangleIcon, CheckIcon, MessageIcon, FileTextIcon,
   IconProps,
 } from '@/components/ui/icons'
+import AddSkillModal from './skills/AddSkillModal'
+import { HIDDEN_SKILLS, SPECIAL_RENDERED_SKILLS, SKILL_DISPLAY_INFO, getSkillDisplay } from './skills/skill-constants'
 
 interface Props {
   agentId: number
@@ -74,6 +76,9 @@ export default function AgentSkillsManager({ agentId }: Props) {
   const [customSkillAssignments, setCustomSkillAssignments] = useState<any[]>([])
   const [availableCustomSkills, setAvailableCustomSkills] = useState<any[]>([])
   const [showCustomSkillPicker, setShowCustomSkillPicker] = useState(false)
+
+  // Add Skill modal state
+  const [showAddSkillModal, setShowAddSkillModal] = useState(false)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -157,6 +162,61 @@ export default function AgentSkillsManager({ agentId }: Props) {
     } catch (err) {
       console.error('Failed to toggle skill:', err)
       alert('Failed to toggle skill')
+    }
+  }
+
+  // Add a built-in skill and open its config modal
+  const addBuiltinSkill = async (skillType: string) => {
+    try {
+      const skillDef = availableSkills.find(s => s.skill_type === skillType)
+      const defaultConfig: Record<string, any> = {}
+      if (skillDef) {
+        Object.entries(skillDef.config_schema || {}).forEach(([key, schema]) => {
+          defaultConfig[key] = (schema as any).default
+        })
+      }
+      await api.updateAgentSkill(agentId, skillType, { is_enabled: true, config: defaultConfig })
+      setShowAddSkillModal(false)
+      await loadData()
+
+      // Open the appropriate config modal
+      const info = SKILL_DISPLAY_INFO[skillType]
+      if (info?.configType === 'provider' && info.providerKey) {
+        openProviderConfig(info.providerKey as 'scheduler' | 'email' | 'web_search')
+      } else if (info?.configType === 'audio') {
+        openAudioConfig(skillType === 'audio_transcript' ? 'transcript' : 'tts')
+      } else if (info?.configType === 'shell') {
+        openShellConfig()
+      } else {
+        openConfig(skillType)
+      }
+    } catch (err) {
+      console.error('Failed to add skill:', err)
+      alert('Failed to add skill')
+    }
+  }
+
+  // Add a custom skill to the agent
+  const addCustomSkill = async (customSkillId: number) => {
+    try {
+      await api.assignCustomSkillToAgent(agentId, customSkillId)
+      setShowAddSkillModal(false)
+      loadData()
+    } catch (err) {
+      console.error('Failed to assign custom skill:', err)
+      alert('Failed to assign skill')
+    }
+  }
+
+  // Remove (disable) a built-in skill
+  const removeSkill = async (skillType: string, displayName: string) => {
+    if (!confirm(`Remove "${displayName}" from this agent?`)) return
+    try {
+      await api.disableAgentSkill(agentId, skillType)
+      loadData()
+    } catch (err) {
+      console.error('Failed to remove skill:', err)
+      alert('Failed to remove skill')
     }
   }
 
@@ -716,10 +776,10 @@ export default function AgentSkillsManager({ agentId }: Props) {
                 Edit Keywords & Options
               </button>
               <button
-                onClick={() => toggleSkill(skillType, false)}
+                onClick={() => removeSkill(skillType, displayName)}
                 className="px-3 py-1 text-sm text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
               >
-                Disable
+                Remove
               </button>
             </div>
           </div>
@@ -1012,10 +1072,10 @@ export default function AgentSkillsManager({ agentId }: Props) {
                 <RadioIcon size={14} /> Shell Command Center
               </a>
               <button
-                onClick={() => toggleSkill('shell', false)}
+                onClick={() => removeSkill('shell', 'Shell')}
                 className="px-3 py-1 text-sm text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
               >
-                Disable
+                Remove
               </button>
             </div>
           </div>
@@ -1027,80 +1087,120 @@ export default function AgentSkillsManager({ agentId }: Props) {
   // Render standard skill card (audio, etc.)
   const renderStandardSkillCard = (skill: SkillDefinition) => {
     // Skip provider-based skills (they're rendered separately)
-    // - flows: Part of Scheduler skill
-    // - gmail: Part of Email skill
-    // - asana: Provider for Scheduler skill
-    // - audio_tts: Part of unified Audio skill
-    // - audio_transcript: Part of unified Audio skill
-    // - shell: Has its own dedicated card
-    if (skill.skill_type === 'flows' || skill.skill_type === 'gmail' || skill.skill_type === 'asana' || skill.skill_type === 'audio_tts' || skill.skill_type === 'audio_transcript' || skill.skill_type === 'shell') {
+    if (SPECIAL_RENDERED_SKILLS.has(skill.skill_type) || skill.skill_type === 'asana') {
       return null
     }
 
-    const enabled = isSkillEnabled(skill.skill_type)
     const config = getSkillConfig(skill.skill_type)
+    const display = getSkillDisplay(skill.skill_type, skill.skill_name, skill.skill_description)
+    const Icon = display.icon
 
     return (
       <div
         key={skill.skill_type}
-        className={`border border-tsushin-border rounded-lg p-6 ${
-          enabled
-            ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-600'
-            : 'bg-tsushin-ink'
-        }`}
+        className="border border-teal-300 dark:border-teal-600 rounded-lg p-6 bg-gradient-to-br from-teal-50 to-cyan-50 dark:from-teal-900/20 dark:to-cyan-900/20"
       >
         <div className="flex justify-between items-start mb-4">
           <div className="flex-1">
-            <h3 className="text-lg font-semibold mb-2">{skill.skill_name}</h3>
-            <p className="text-sm text-tsushin-slate">{skill.skill_description}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={enabled}
-                onChange={(e) => toggleSkill(skill.skill_type, e.target.checked)}
-                className="mr-2 w-5 h-5"
-              />
-              <span className="text-sm font-medium">
-                {enabled ? 'Enabled' : 'Disabled'}
+            <div className="flex items-center gap-2 mb-2">
+              <Icon size={24} />
+              <h3 className="text-lg font-semibold">{display.displayName}</h3>
+              <span className="px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-800/30 text-green-700 dark:text-green-300 rounded-full">
+                Active
               </span>
-            </label>
-            {enabled && (
-              <button
-                onClick={() => openConfig(skill.skill_type)}
-                className="btn-primary px-3 py-1 text-sm rounded"
-              >
-                Configure
-              </button>
-            )}
+            </div>
+            <p className="text-sm text-tsushin-slate">{display.description}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => openConfig(skill.skill_type)}
+              className="px-4 py-2 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 transition-colors inline-flex items-center gap-1.5"
+            >
+              <SettingsIcon size={14} /> Configure
+            </button>
           </div>
         </div>
 
-        {enabled && Object.keys(config).length > 0 && (
-          <div className="mt-4 pt-4 border-t border-green-300 dark:border-green-600">
-            <h4 className="text-sm font-medium mb-2 text-green-700 dark:text-green-300">Current Configuration:</h4>
+        {Object.keys(config).length > 0 && (
+          <div className="mt-4 pt-4 border-t border-teal-200 dark:border-teal-700">
             <div className="grid grid-cols-3 gap-4">
               {Object.entries(config)
                 .filter(([key]) => {
                   if (key === 'ai_model' && config.intent_detection_model) return false
                   return true
                 })
+                .slice(0, 6)
                 .map(([key, value]) => (
                   <div key={key} className="bg-tsushin-surface rounded p-2 border border-tsushin-border">
-                    <div className="text-xs text-tsushin-slate">{key}</div>
-                    <div className="text-sm font-medium truncate">{String(value)}</div>
+                    <div className="text-xs text-tsushin-slate">{key.replace(/_/g, ' ')}</div>
+                    <div className="text-sm font-medium truncate">{Array.isArray(value) ? `${value.length} items` : String(value)}</div>
                   </div>
                 ))
               }
             </div>
+            <div className="mt-3">
+              <button
+                onClick={() => removeSkill(skill.skill_type, display.displayName)}
+                className="px-3 py-1 text-sm text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
+              >
+                Remove
+              </button>
+            </div>
           </div>
         )}
 
-
+        {Object.keys(config).length === 0 && (
+          <div className="mt-3">
+            <button
+              onClick={() => removeSkill(skill.skill_type, display.displayName)}
+              className="px-3 py-1 text-sm text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
+            >
+              Remove
+            </button>
+          </div>
+        )}
       </div>
     )
   }
+
+  // Compute enabled skill types for the Add Skill modal (must be before any early return)
+  const enabledSkillTypes = useMemo(() => {
+    return new Set(agentSkills.filter(s => s.is_enabled).map(s => s.skill_type))
+  }, [agentSkills])
+
+  const assignedCustomSkillIds = useMemo(() => {
+    return new Set(customSkillAssignments.map((a: any) => a.custom_skill_id))
+  }, [customSkillAssignments])
+
+  // Filter which provider skills are enabled
+  const enabledProviderSkills = useMemo(() => {
+    const result: { providerKey: 'scheduler' | 'email' | 'web_search'; displayName: string; skillType: string; icon: React.FC<IconProps>; description: string }[] = []
+    const providerEntries: { providerKey: 'scheduler' | 'email' | 'web_search'; displayName: string; skillType: string; icon: React.FC<IconProps>; description: string }[] = [
+      { providerKey: 'scheduler', displayName: 'Scheduler', skillType: 'flows', icon: CalendarIcon, description: 'Create events, reminders, and schedule AI conversations. Choose between built-in Flows, Google Calendar, or Asana.' },
+      { providerKey: 'email', displayName: 'Email', skillType: 'gmail', icon: MailIcon, description: 'Read and search emails. Connect your Gmail account to enable email access.' },
+      { providerKey: 'web_search', displayName: 'Web Search', skillType: 'web_search', icon: SearchIcon, description: 'Search the web for information. Choose between Brave Search (privacy-focused) or Google Search (via SerpAPI).' },
+    ]
+    for (const entry of providerEntries) {
+      if (enabledSkillTypes.has(entry.skillType)) {
+        result.push(entry)
+      }
+    }
+    return result
+  }, [enabledSkillTypes])
+
+  const isAudioEnabled = enabledSkillTypes.has('audio_tts') || enabledSkillTypes.has('audio_transcript')
+  const isShellEnabled = enabledSkillTypes.has('shell')
+
+  // Filter standard skills that are enabled (not provider/audio/shell)
+  const enabledStandardSkills = useMemo(() => {
+    return availableSkills.filter(skill => {
+      if (HIDDEN_SKILLS.has(skill.skill_type)) return false
+      if (SPECIAL_RENDERED_SKILLS.has(skill.skill_type)) return false
+      return enabledSkillTypes.has(skill.skill_type)
+    })
+  }, [availableSkills, enabledSkillTypes])
+
+  const totalEnabledCount = enabledProviderSkills.length + (isAudioEnabled ? 1 : 0) + (isShellEnabled ? 1 : 0) + enabledStandardSkills.length + customSkillAssignments.length
 
   if (loading) {
     return <div className="p-8 text-center">Loading skills...</div>
@@ -1114,233 +1214,142 @@ export default function AgentSkillsManager({ agentId }: Props) {
   const selectedProviderData = currentProviders.find(p => p.provider_type === selectedProvider)
 
   return (
-    <div className="space-y-8">
-      {/* Provider-Based Skills Section */}
-      <div>
-        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-          <PlugIcon size={20} /> Integration Skills
-        </h2>
-        <p className="text-sm text-tsushin-slate mb-4">
-          These skills connect to external services. Configure the provider and account to use.
-        </p>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          {renderProviderSkillCard(
-            'Scheduler',
-            'scheduler',
-            CalendarIcon,
-            'Create events, reminders, and schedule AI conversations. Choose between built-in Flows, Google Calendar, or Asana.'
-          )}
-
-          {renderProviderSkillCard(
-            'Email',
-            'email',
-            MailIcon,
-            'Read and search emails. Connect your Gmail account to enable email access.'
-          )}
-
-          {renderProviderSkillCard(
-            'Web Search',
-            'web_search',
-            SearchIcon,
-            'Search the web for information. Choose between Brave Search (privacy-focused) or Google Search (via SerpAPI).'
-          )}
-
-          {/* Unified Audio Skill Card (TTS + Transcript) */}
-          {renderUnifiedAudioCard()}
-
-          {/* Shell Skill Card */}
-          {renderShellSkillCard()}
-        </div>
-      </div>
-
-      {/* Standard Skills Section */}
-      <div>
-        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-          <WrenchIcon size={20} /> Other Skills
-        </h2>
-        <p className="text-sm text-tsushin-slate mb-4">
-          Additional capabilities for your agent.
-        </p>
-
-        <div className="grid gap-6">
-          {availableSkills.map((skill) => renderStandardSkillCard(skill))}
-        </div>
-      </div>
-
-      {/* Phase 24: Custom Skills Section */}
-      <div>
-        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-          <FileTextIcon size={20} /> Custom Skills
-          {customSkillAssignments.length > 0 && (
-            <span className="text-sm font-normal text-tsushin-slate ml-2">
-              {agentSkills.filter(s => s.is_enabled).length} built-in &middot; {customSkillAssignments.length} custom
+    <div className="space-y-6">
+      {/* Header with Add Skill button */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <PlugIcon size={20} /> Skills
+            <span className="text-sm font-normal text-tsushin-slate ml-1">
+              {totalEnabledCount} active
             </span>
-          )}
-        </h2>
-        <p className="text-sm text-tsushin-slate mb-4">
-          Tenant-created custom skills assigned to this agent. Create skills in the Custom Skills page, then assign them here.
-        </p>
+          </h2>
+          <p className="text-sm text-tsushin-slate mt-1">
+            Manage the capabilities enabled for this agent.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowAddSkillModal(true)}
+          className="px-4 py-2 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 transition-colors inline-flex items-center gap-1.5 font-medium"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Add Skill
+        </button>
+      </div>
 
-        {customSkillAssignments.length === 0 && availableCustomSkills.length === 0 ? (
-          <div className="text-tsushin-slate text-sm p-6 bg-tsushin-ink rounded-lg border border-white/5 text-center">
-            No custom skills available. Create custom skills first to assign them to this agent.
-          </div>
-        ) : customSkillAssignments.length === 0 ? (
-          <div className="text-tsushin-slate text-sm p-6 bg-tsushin-ink rounded-lg border border-white/5 text-center">
-            No custom skills assigned yet. Click &quot;+ Assign Skill&quot; to add one.
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {customSkillAssignments.map((assignment: any) => (
-              <div
-                key={assignment.id}
-                className={`bg-tsushin-surface/50 border rounded-lg p-4 ${
-                  assignment.is_enabled
-                    ? 'border-teal-600/30'
-                    : 'border-white/5'
-                }`}
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{assignment.skill?.icon || '\uD83E\uDDE9'}</span>
-                    <div>
-                      <h3 className="text-sm font-semibold text-white">{assignment.skill?.name}</h3>
-                      <p className="text-xs text-tsushin-muted">{assignment.skill?.skill_type_variant} &middot; {assignment.skill?.execution_mode}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={assignment.is_enabled}
-                        onChange={async (e) => {
-                          try {
-                            await api.updateAgentCustomSkill(agentId, assignment.id, { is_enabled: e.target.checked })
-                            loadData()
-                          } catch (err) {
-                            console.error('Failed to toggle custom skill:', err)
-                          }
-                        }}
-                        className="sr-only peer"
-                      />
-                      <div className="w-9 h-5 bg-gray-200 rounded-full peer bg-tsushin-elevated peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all border-tsushin-border peer-checked:bg-teal-600"></div>
-                    </label>
-                    <button
-                      onClick={async () => {
-                        if (confirm(`Remove "${assignment.skill?.name}" from this agent?`)) {
-                          try {
-                            await api.removeAgentCustomSkill(agentId, assignment.id)
-                            loadData()
-                          } catch (err) {
-                            console.error('Failed to remove custom skill:', err)
-                          }
-                        }
-                      }}
-                      className="text-red-400 hover:text-red-300 p-1"
-                      title="Remove assignment"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
+      {/* Empty state */}
+      {totalEnabledCount === 0 ? (
+        <div className="text-center py-16 bg-tsushin-ink rounded-lg border border-white/5">
+          <PlugIcon size={48} className="mx-auto text-tsushin-muted mb-4" />
+          <h3 className="text-lg font-medium text-white mb-2">No skills configured</h3>
+          <p className="text-sm text-tsushin-muted mb-6 max-w-md mx-auto">
+            Add skills to give your agent capabilities like web search, scheduling, audio processing, and more.
+          </p>
+          <button
+            onClick={() => setShowAddSkillModal(true)}
+            className="px-6 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors inline-flex items-center gap-2 font-medium"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Your First Skill
+          </button>
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* Enabled Provider Skills */}
+          {enabledProviderSkills.map((ps) => renderProviderSkillCard(ps.displayName, ps.providerKey, ps.icon, ps.description))}
+
+          {/* Audio (if either TTS or Transcript is enabled) */}
+          {isAudioEnabled && renderUnifiedAudioCard()}
+
+          {/* Shell (if enabled) */}
+          {isShellEnabled && renderShellSkillCard()}
+
+          {/* Enabled Standard Skills */}
+          {enabledStandardSkills.map((skill) => renderStandardSkillCard(skill))}
+
+          {/* Custom Skills */}
+          {customSkillAssignments.map((assignment: any) => (
+            <div
+              key={assignment.id}
+              className={`bg-tsushin-surface/50 border rounded-lg p-4 ${
+                assignment.is_enabled
+                  ? 'border-teal-600/30'
+                  : 'border-white/5'
+              }`}
+            >
+              <div className="flex justify-between items-start mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{assignment.skill?.icon || '\uD83E\uDDE9'}</span>
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">{assignment.skill?.name}</h3>
+                    <p className="text-xs text-tsushin-muted">{assignment.skill?.skill_type_variant} &middot; {assignment.skill?.execution_mode}</p>
                   </div>
                 </div>
-                {assignment.skill?.description && (
-                  <p className="text-xs text-tsushin-slate mt-1">{assignment.skill.description}</p>
-                )}
-                {assignment.skill?.scan_status && assignment.skill.scan_status !== 'clean' && (
-                  <span className="inline-block mt-2 px-2 py-0.5 text-xs bg-yellow-800/30 text-yellow-300 rounded-full">
-                    Scan: {assignment.skill.scan_status}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Assign Skill Button */}
-        {availableCustomSkills.length > 0 && (
-          <div className="mt-4">
-            <button
-              onClick={() => setShowCustomSkillPicker(true)}
-              className="px-4 py-2 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 transition-colors inline-flex items-center gap-1.5"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Assign Skill
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Custom Skill Picker Modal */}
-      {showCustomSkillPicker && (() => {
-        const assignedIds = new Set(customSkillAssignments.map((a: any) => a.custom_skill_id))
-        const unassigned = availableCustomSkills.filter((s: any) => !assignedIds.has(s.id) && s.is_enabled)
-
-        return (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-tsushin-surface rounded-xl max-w-md w-full max-h-[80vh] overflow-hidden flex flex-col shadow-2xl">
-              <div className="bg-gradient-to-r from-teal-600 to-cyan-600 px-6 py-4 flex justify-between items-center">
-                <h3 className="text-lg font-semibold text-white">Assign Custom Skill</h3>
-                <button onClick={() => setShowCustomSkillPicker(false)} className="text-white/80 hover:text-white">
-                  &#x2715;
-                </button>
-              </div>
-              <div className="overflow-y-auto p-4 space-y-2 flex-1">
-                {unassigned.length === 0 ? (
-                  <p className="text-tsushin-slate text-sm text-center py-6">
-                    All custom skills are already assigned to this agent.
-                  </p>
-                ) : (
-                  unassigned.map((skill: any) => (
-                    <button
-                      key={skill.id}
-                      onClick={async () => {
+                <div className="flex items-center gap-2">
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={assignment.is_enabled}
+                      onChange={async (e) => {
                         try {
-                          await api.assignCustomSkillToAgent(agentId, skill.id)
-                          setShowCustomSkillPicker(false)
+                          await api.updateAgentCustomSkill(agentId, assignment.id, { is_enabled: e.target.checked })
                           loadData()
                         } catch (err) {
-                          console.error('Failed to assign skill:', err)
-                          alert('Failed to assign skill')
+                          console.error('Failed to toggle custom skill:', err)
                         }
                       }}
-                      className="w-full text-left p-4 rounded-lg border border-tsushin-border hover:border-teal-500 hover:bg-teal-900/10 transition-all"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-xl">{skill.icon || '\uD83E\uDDE9'}</span>
-                        <div>
-                          <div className="font-medium text-white">{skill.name}</div>
-                          <div className="text-xs text-tsushin-muted">
-                            {skill.skill_type_variant} &middot; {skill.execution_mode}
-                            {skill.scan_status !== 'clean' && (
-                              <span className="ml-2 text-yellow-400">({skill.scan_status})</span>
-                            )}
-                          </div>
-                          {skill.description && (
-                            <div className="text-xs text-tsushin-slate mt-1">{skill.description}</div>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  ))
-                )}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-gray-200 rounded-full peer bg-tsushin-elevated peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all border-tsushin-border peer-checked:bg-teal-600"></div>
+                  </label>
+                  <button
+                    onClick={async () => {
+                      if (confirm(`Remove "${assignment.skill?.name}" from this agent?`)) {
+                        try {
+                          await api.removeAgentCustomSkill(agentId, assignment.id)
+                          loadData()
+                        } catch (err) {
+                          console.error('Failed to remove custom skill:', err)
+                        }
+                      }
+                    }}
+                    className="text-red-400 hover:text-red-300 p-1"
+                    title="Remove skill"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
               </div>
-              <div className="bg-tsushin-ink px-6 py-3 border-t border-tsushin-border">
-                <button
-                  onClick={() => setShowCustomSkillPicker(false)}
-                  className="w-full px-4 py-2 text-tsushin-slate hover:bg-tsushin-surface rounded-lg text-sm"
-                >
-                  Cancel
-                </button>
-              </div>
+              {assignment.skill?.description && (
+                <p className="text-xs text-tsushin-slate mt-1">{assignment.skill.description}</p>
+              )}
+              {assignment.skill?.scan_status && assignment.skill.scan_status !== 'clean' && (
+                <span className="inline-block mt-2 px-2 py-0.5 text-xs bg-yellow-800/30 text-yellow-300 rounded-full">
+                  Scan: {assignment.skill.scan_status}
+                </span>
+              )}
             </div>
-          </div>
-        )
-      })()}
+          ))}
+        </div>
+      )}
+
+      {/* Add Skill Modal */}
+      <AddSkillModal
+        isOpen={showAddSkillModal}
+        onClose={() => setShowAddSkillModal(false)}
+        onAddBuiltinSkill={addBuiltinSkill}
+        onAddCustomSkill={addCustomSkill}
+        availableSkills={availableSkills}
+        enabledSkillTypes={enabledSkillTypes}
+        availableCustomSkills={availableCustomSkills}
+        assignedCustomSkillIds={assignedCustomSkillIds}
+      />
 
       {/* Provider Configuration Modal */}
       {configuringProvider && (

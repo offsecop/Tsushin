@@ -21,6 +21,7 @@ from models import (
     HubIntegration, GmailIntegration, CalendarIntegration,
 )
 from api.api_auth import ApiCaller, require_api_permission
+from api.v1.schemas import COMMON_RESPONSES, NOT_FOUND_RESPONSE, VALIDATION_RESPONSE
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -273,18 +274,22 @@ def _enrich_skill(skill: AgentSkill, skill_integration_map: dict, db: Session) -
 # Endpoints
 # ============================================================================
 
-@router.get("/api/v1/studio/agents/{agent_id}")
+@router.get(
+    "/api/v1/studio/agents/{agent_id}",
+    response_model=StudioBuilderDataResponse,
+    responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE},
+)
 async def get_builder_data(
     agent_id: int,
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("agents.read")),
 ):
     """
-    Get full Agent Studio builder data for an agent.
+    Retrieve the complete Studio builder state for an agent.
 
-    Returns the complete builder state including agent details, skills with metadata,
-    knowledge documents, sentinel profile assignments, and sandboxed tool mappings.
-    This consolidates multiple internal API calls into a single response.
+    Returns agent details, skills with provider metadata, knowledge documents,
+    sentinel profile assignments, and sandboxed tool mappings in a single call.
+    Requires the `agents.read` permission.
     """
     agent = db.query(Agent).filter(
         Agent.id == agent_id,
@@ -397,7 +402,11 @@ async def get_builder_data(
     }
 
 
-@router.put("/api/v1/studio/agents/{agent_id}")
+@router.put(
+    "/api/v1/studio/agents/{agent_id}",
+    response_model=StudioSaveResponse,
+    responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE, **VALIDATION_RESPONSE},
+)
 async def save_builder_data(
     agent_id: int,
     data: StudioSaveRequest,
@@ -405,11 +414,11 @@ async def save_builder_data(
     caller: ApiCaller = Depends(require_api_permission("agents.write")),
 ):
     """
-    Atomic save of agent configuration from the Studio builder.
+    Atomically save agent configuration from the Studio builder.
 
-    All changes are applied within a single database transaction. If any step
-    fails, all changes are rolled back to prevent partial saves. Supports
-    updating agent core fields, skills, tool overrides, and sentinel assignments.
+    Applies all changes (core fields, skills, tool overrides, sentinel assignments)
+    within a single transaction; rolls back on any failure.
+    Requires the `agents.write` permission.
     """
     agent = db.query(Agent).filter(
         Agent.id == agent_id,
@@ -592,18 +601,23 @@ async def save_builder_data(
         raise HTTPException(status_code=500, detail="Failed to save builder data. Check server logs for details.")
 
 
-@router.post("/api/v1/studio/agents/{agent_id}/clone", status_code=201)
+@router.post(
+    "/api/v1/studio/agents/{agent_id}/clone",
+    status_code=201,
+    response_model=StudioCloneResponse,
+    responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE},
+)
 async def clone_agent(
     agent_id: int,
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("agents.write")),
 ):
     """
-    Clone an agent configuration.
+    Clone an existing agent and all its configuration.
 
-    Creates a complete copy of the agent including its contact, skills,
-    and sandboxed tool assignments. The cloned agent is created as inactive
-    to allow configuration review before activation.
+    Creates a full copy (contact, skills, tool assignments) as an inactive agent.
+    Knowledge documents and sentinel assignments are not cloned.
+    Requires the `agents.write` permission.
     """
     original = db.query(Agent).filter(
         Agent.id == agent_id,

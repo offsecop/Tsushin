@@ -1049,6 +1049,19 @@ def init_database(engine):
         # Phase v1.6.0: Sentinel Security Profiles
         from services.sentinel_seeding import migrate_to_profiles
         migrate_to_profiles(session)
+
+        # Cleanup deprecated weather skill records
+        try:
+            from models import AgentSkill, SlashCommand, ApiKey
+            weather_deleted = session.query(AgentSkill).filter(AgentSkill.skill_type == 'weather').delete()
+            weather_cmds = session.query(SlashCommand).filter(SlashCommand.command_name.in_(['weather', 'weather forecast'])).delete(synchronize_session='fetch')
+            session.query(ApiKey).filter(ApiKey.service == 'openweather').update({'is_active': False}, synchronize_session='fetch')
+            if weather_deleted or weather_cmds:
+                session.commit()
+                print(f"[Cleanup] Removed {weather_deleted} weather skill records, {weather_cmds} weather slash commands")
+        except Exception as e:
+            session.rollback()
+            print(f"[Cleanup] Weather cleanup skipped: {e}")
     finally:
         session.close()
 

@@ -60,7 +60,7 @@ class ConfigUpdate(BaseModel):
     context_message_count: Optional[int] = None
     context_char_limit: Optional[int] = None
     dm_auto_mode: Optional[bool] = None
-    agent_phone_number: Optional[str] = None
+    agent_phone_number: Optional[str] = Field(None, pattern=r"^\+?[1-9]\d{6,14}$")
     agent_name: Optional[str] = None
     group_keywords: Optional[List[str]] = None
     # enabled_tools removed - use AgentSkill table
