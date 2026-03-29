@@ -168,8 +168,10 @@ class GoogleFlightsProvider(FlightSearchProvider):
 
                 # 4. For round-trip, fetch return flights for top offers
                 if request.return_date and offers:
-                    # Limit to top N offers to avoid too many API calls
-                    max_return_lookups = min(request.max_results, 5)
+                    # Cast a wider net: fetch returns for more outbound options
+                    # to find cheaper outbound+return pairings, especially in
+                    # "cheapest" mode.  We cap API calls at 10 to stay reasonable.
+                    max_return_lookups = min(len(offers), 10)
 
                     for offer in offers[:max_return_lookups]:
                         if hasattr(offer, '_departure_token') and offer._departure_token:
@@ -178,9 +180,17 @@ class GoogleFlightsProvider(FlightSearchProvider):
                                     request, offer._departure_token, client
                                 )
                                 if return_data:
-                                    self._populate_return_info(offer, return_data)
+                                    self._populate_return_info(
+                                        offer, return_data,
+                                        pick_cheapest=request.sort_by == "cheapest"
+                                    )
                             except Exception as e:
                                 logger.warning(f"Failed to fetch return flights: {e}")
+
+                    # Re-sort by total price when in cheapest mode so the
+                    # cheapest outbound+return combos float to the top.
+                    if request.sort_by == "cheapest":
+                        offers.sort(key=lambda o: o.price)
 
                 return FlightSearchResponse(
                     success=True,
@@ -340,18 +350,48 @@ class GoogleFlightsProvider(FlightSearchProvider):
             logger.warning(f"Exception fetching return flights: {e}")
             return None
 
-    def _populate_return_info(self, offer: FlightOffer, return_data: Dict) -> None:
-        """Populate return flight information in the offer from fetched data."""
-        try:
-            # Get the best return flight option
-            return_flights = return_data.get("best_flights", []) or return_data.get("other_flights", [])
+    def _populate_return_info(self, offer: FlightOffer, return_data: Dict,
+                              pick_cheapest: bool = False) -> None:
+        """Populate return flight information in the offer from fetched data.
 
-            if not return_flights:
+        Args:
+            offer: The outbound FlightOffer to populate with return info.
+            return_data: Raw SerpApi response for the return leg.
+            pick_cheapest: When True, scan all return options (best + other)
+                           and select the one with the lowest price, then
+                           update the offer's total price to reflect the
+                           cheapest outbound+return combination.
+        """
+        try:
+            best_returns = return_data.get("best_flights", [])
+            other_returns = return_data.get("other_flights", [])
+
+            if not best_returns and not other_returns:
                 logger.debug("No return flights found in response")
                 return
 
-            # Use the first (best) return option
-            best_return = return_flights[0]
+            if pick_cheapest:
+                # Scan ALL return options and pick cheapest by price
+                all_returns = best_returns + other_returns
+                priced = [r for r in all_returns if r.get("price")]
+                if priced:
+                    best_return = min(priced, key=lambda r: float(r["price"]))
+                    # Update offer total price: SerpApi return price is the
+                    # round-trip total for this outbound+return pair.
+                    best_return_price = float(best_return["price"])
+                    if best_return_price > 0 and best_return_price != offer.price:
+                        logger.info(
+                            f"Cheapest return pairing: {offer.price:.0f} -> "
+                            f"{best_return_price:.0f} (saved {offer.price - best_return_price:.0f})"
+                        )
+                        offer.price = best_return_price
+                else:
+                    # No priced returns — fall back to first available
+                    best_return = (best_returns or other_returns)[0]
+            else:
+                # Default: use the first (best) return option
+                return_flights = best_returns or other_returns
+                best_return = return_flights[0]
             flights_data = best_return.get("flights", [])
 
             if not flights_data:
