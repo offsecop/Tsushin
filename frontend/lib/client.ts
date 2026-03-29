@@ -4242,7 +4242,7 @@ export const api = {
     return res.json()
   },
 
-  async updateOrganization(tenantId: string, data: { name?: string }): Promise<OrganizationData> {
+  async updateOrganization(tenantId: string, data: { name?: string; slug?: string }): Promise<OrganizationData> {
     const res = await authenticatedFetch(`${API_URL}/api/tenants/${tenantId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

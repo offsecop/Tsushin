@@ -15,7 +15,7 @@ from datetime import datetime
 import re
 
 from db import get_db
-from models_rbac import Tenant, User, UserRole, Role
+from models_rbac import Tenant, User, UserRole, Role, SubscriptionPlan
 from auth_dependencies import (
     get_current_user_required,
     require_global_admin,
@@ -43,6 +43,7 @@ class TenantCreate(BaseModel):
 
 class TenantUpdate(BaseModel):
     name: Optional[str] = None
+    slug: Optional[str] = None
     plan: Optional[str] = None
     max_users: Optional[int] = None
     max_agents: Optional[int] = None
@@ -55,6 +56,8 @@ class TenantResponse(BaseModel):
     name: str
     slug: str
     plan: str
+    plan_display_name: Optional[str] = None
+    plan_price_monthly: Optional[int] = None  # cents
     max_users: int
     max_agents: int
     max_monthly_requests: int
@@ -110,11 +113,28 @@ def tenant_to_response(tenant: Tenant, db: Session) -> TenantResponse:
         Agent.is_active == True
     ).count()
 
+    # Resolve plan pricing from SubscriptionPlan table
+    plan_display_name = None
+    plan_price_monthly = None
+    if tenant.plan_id and tenant.subscription_plan:
+        plan_display_name = tenant.subscription_plan.display_name
+        plan_price_monthly = tenant.subscription_plan.price_monthly
+    elif tenant.plan:
+        # Fallback: look up by legacy plan name string
+        sub_plan = db.query(SubscriptionPlan).filter(
+            SubscriptionPlan.name == tenant.plan
+        ).first()
+        if sub_plan:
+            plan_display_name = sub_plan.display_name
+            plan_price_monthly = sub_plan.price_monthly
+
     return TenantResponse(
         id=tenant.id,
         name=tenant.name,
         slug=tenant.slug,
         plan=tenant.plan,
+        plan_display_name=plan_display_name,
+        plan_price_monthly=plan_price_monthly,
         max_users=tenant.max_users,
         max_agents=tenant.max_agents,
         max_monthly_requests=tenant.max_monthly_requests,
@@ -374,9 +394,23 @@ async def update_tenant(
             )
         is_owner = True
 
-    # Apply updates
+    # Apply updates (owners can change name and slug)
     if request.name is not None:
         tenant.name = request.name
+
+    if request.slug is not None:
+        # Validate and sanitize slug
+        new_slug = re.sub(r'[^a-z0-9-]', '', request.slug.lower().replace(' ', '-'))[:50]
+        if not new_slug:
+            raise HTTPException(status_code=400, detail="Invalid slug")
+        # Check uniqueness (exclude current tenant)
+        existing = db.query(Tenant).filter(
+            Tenant.slug == new_slug,
+            Tenant.id != tenant.id
+        ).first()
+        if existing:
+            raise HTTPException(status_code=409, detail="This slug is already taken")
+        tenant.slug = new_slug
 
     # Only global admins can change these
     if current_user.is_global_admin:
