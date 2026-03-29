@@ -1290,7 +1290,6 @@ export const BeakerIcon = ({ size = 18, className = '' }: IconProps) => (
  */
 export const SKILL_ICON_MAP: Record<string, React.FC<IconProps>> = {
   flight_search: PlaneIcon,
-  weather: CloudSunIcon,
   web_search: SearchIcon,
   web_scraping: GlobeIcon,
   scheduler: CalendarIcon,

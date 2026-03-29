@@ -11,8 +11,8 @@ interface Props {
   agentId: number
 }
 
-// Legacy tools (google_search, weather, web_scraping) removed
-// Now handled by Skills system: web_search, weather, web_scraping skills
+// Legacy tools (google_search, web_scraping) removed
+// Now handled by Skills system: web_search, web_scraping skills
 
 const MODEL_PROVIDERS = [
   { value: 'anthropic', label: 'Anthropic', models: ['claude-sonnet-4.5', 'claude-3-5-sonnet-20241022', 'claude-3-opus-20240229'] },
@@ -61,7 +61,7 @@ export default function AgentConfigurationManager({ agentId }: Props) {
   const [selectedPersona, setSelectedPersona] = useState<Persona | null>(null)
   const [keywords, setKeywords] = useState<string[]>([])
   const [keywordInput, setKeywordInput] = useState('')
-  // enabledTools removed - use Skills system for web_search, weather, etc.
+  // enabledTools removed - use Skills system for web_search, etc.
   const [modelProvider, setModelProvider] = useState('gemini')
   const [modelName, setModelName] = useState('gemini-2.5-pro')
   const [providerInstanceId, setProviderInstanceId] = useState<number | null>(null)
@@ -145,7 +145,7 @@ export default function AgentConfigurationManager({ agentId }: Props) {
         system_prompt: systemPrompt,
         persona_id: personaId,
         keywords,
-        // enabled_tools removed - use Skills system for web_search, weather, etc.
+        // enabled_tools removed - use Skills system for web_search, etc.
         model_provider: modelProvider,
         model_name: modelName,
         provider_instance_id: providerInstanceId,
@@ -579,7 +579,7 @@ export default function AgentConfigurationManager({ agentId }: Props) {
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
         <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2 flex items-center gap-1.5"><LightbulbIcon size={16} /> Skills-Based Configuration</h3>
         <p className="text-sm text-blue-700 dark:text-blue-300">
-          Built-in tools (Web Search, Weather, Web Scraping, Flight Search) are now managed in the <strong>Skills</strong> tab.
+          Built-in tools (Web Search, Web Scraping, Flight Search) are now managed in the <strong>Skills</strong> tab.
           This provides better configuration options, per-agent customization, and unified management.
         </p>
         <a
