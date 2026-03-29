@@ -119,7 +119,7 @@ def get_api_key(service: str, db: Session, tenant_id: Optional[str] = None) -> O
     3. Environment variable fallback (e.g. GEMINI_API_KEY)
 
     Args:
-        service: Service name ('anthropic', 'openai', 'gemini', 'openrouter', 'brave_search', 'openweather', 'amadeus', 'serpapi')
+        service: Service name ('anthropic', 'openai', 'gemini', 'openrouter', 'brave_search', 'amadeus', 'serpapi')
         db: Database session
         tenant_id: Optional tenant ID for multi-tenant key isolation
 

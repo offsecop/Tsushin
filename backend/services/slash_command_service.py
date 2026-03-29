@@ -339,10 +339,6 @@ class SlashCommandService:
             ("email", "email search"): self._handle_email_search,
             ("email", "email unread"): self._handle_email_unread,
 
-            # Weather commands - programmatic weather access (zero AI tokens)
-            ("tool", "weather"): self._handle_weather,
-            ("tool", "weather forecast"): self._handle_weather_forecast,
-
             # Search commands - programmatic web search (zero AI tokens)
             ("tool", "search"): self._handle_search,
         }
@@ -1127,7 +1123,7 @@ Type `/help all` to see syntax for all commands.
                 lines.append("**Enabled Skills:**")
                 skill_icons = {
                     "web_search": ("🔍", "Search the web"),
-                    "weather": ("🌤️", "Get weather information"),
+
                     "web_scraping": ("📄", "Scrape web pages"),
                     "calendar": ("📅", "Manage calendar events"),
                     "flight_search": ("✈️", "Search for flights"),
@@ -1412,7 +1408,6 @@ Type `/help all` to see syntax for all commands.
 
         Supports:
         - /tool <tool_name> <args> - Generic tool execution
-        - /weather <location> - Direct weather tool
         - /search <query> - Direct search tool
         - /schedule <event> - Direct schedule tool
 
@@ -1427,7 +1422,7 @@ Type `/help all` to see syntax for all commands.
             tool_name = groups[0].lower() if groups else ""
             tool_args = groups[1].strip() if len(groups) > 1 else ""
         else:
-            # Direct tool command like /weather, /search
+            # Direct tool command like /search
             tool_name = command_name
             tool_args = groups[0].strip() if groups else args
 
@@ -1441,10 +1436,7 @@ Type `/help all` to see syntax for all commands.
 
         try:
             # Handle built-in tools
-            if tool_name in ("weather", "clima", "w"):
-                return await self._execute_weather_tool(tool_args, tenant_id)
-
-            elif tool_name in ("search", "buscar", "s"):
+            if tool_name in ("search", "buscar", "s"):
                 return await self._execute_search_tool(tool_args, tenant_id)
 
             elif tool_name in ("schedule", "agenda", "agendar"):
@@ -1462,46 +1454,6 @@ Type `/help all` to see syntax for all commands.
             return {
                 "status": "error",
                 "message": f"❌ Tool execution failed: {str(e)}"
-            }
-
-    async def _execute_weather_tool(self, location: str, tenant_id: str) -> Dict[str, Any]:
-        """Execute the weather tool."""
-        if not location:
-            return {
-                "status": "error",
-                "message": "❌ Please specify a location. Usage: /weather <city>\nExample: /weather New York"
-            }
-
-        try:
-            from agent.tools.weather_tool import WeatherTool
-
-            weather_tool = WeatherTool(db=self.db)
-
-            # Check if forecast is requested
-            is_forecast = any(word in location.lower() for word in ['forecast', 'próximos', 'next', 'previsão', 'week'])
-
-            if is_forecast:
-                # Remove forecast keywords from location
-                clean_location = location
-                for word in ['forecast', 'próximos dias', 'next days', 'previsão', 'week', 'semana']:
-                    clean_location = clean_location.replace(word, '').strip()
-                weather_data = weather_tool.get_forecast(clean_location or location, days=3)
-                result = weather_tool.format_forecast_data(weather_data)
-            else:
-                weather_data = weather_tool.get_current_weather(location)
-                result = weather_tool.format_weather_data(weather_data)
-
-            return {
-                "status": "success",
-                "action": "tool_executed",
-                "tool_name": "weather",
-                "message": f"🌤️ **Weather for {location}**\n\n{result}"
-            }
-        except Exception as e:
-            self.logger.error(f"Weather tool error: {e}")
-            return {
-                "status": "error",
-                "message": f"❌ Failed to get weather: {str(e)}"
             }
 
     async def _execute_search_tool(self, query: str, tenant_id: str) -> Dict[str, Any]:
@@ -1689,7 +1641,7 @@ Type `/help all` to see syntax for all commands.
 
             return {
                 "status": "error",
-                "message": f"❌ Tool '{tool_name}' not found.\n\n**Available tools:**\n{tool_list}\n\n**Built-in tools:**\n• weather\n• search\n• schedule\n• flights"
+                "message": f"❌ Tool '{tool_name}' not found.\n\n**Available tools:**\n{tool_list}\n\n**Built-in tools:**\n• search\n• schedule\n• flights"
             }
 
         # Parse arguments intelligently
@@ -2271,48 +2223,6 @@ Type `/help all` to see syntax for all commands.
             tenant_id=kwargs.get("tenant_id"),
             agent_id=kwargs.get("agent_id"),
             identifier=identifier
-        )
-
-    # =========================================================================
-    # Weather Command Handlers
-    # =========================================================================
-
-    async def _handle_weather(self, **kwargs) -> Dict[str, Any]:
-        """
-        Handle /weather <location> command.
-
-        Get current weather (programmatic, zero AI tokens).
-        """
-        from services.weather_command_service import WeatherCommandService
-
-        groups = kwargs.get("groups", ())
-        location = groups[0] if groups else ""
-
-        service = WeatherCommandService(self.db)
-        return await service.execute_current(
-            tenant_id=kwargs.get("tenant_id"),
-            agent_id=kwargs.get("agent_id"),
-            location=location
-        )
-
-    async def _handle_weather_forecast(self, **kwargs) -> Dict[str, Any]:
-        """
-        Handle /weather forecast <location> [days] command.
-
-        Get weather forecast (programmatic, zero AI tokens).
-        """
-        from services.weather_command_service import WeatherCommandService
-
-        groups = kwargs.get("groups", ())
-        location = groups[0] if groups else ""
-        days = int(groups[1]) if len(groups) > 1 and groups[1] else 3
-
-        service = WeatherCommandService(self.db)
-        return await service.execute_forecast(
-            tenant_id=kwargs.get("tenant_id"),
-            agent_id=kwargs.get("agent_id"),
-            location=location,
-            days=days
         )
 
     # =========================================================================

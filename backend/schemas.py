@@ -216,7 +216,7 @@ class FlowStepConfig(BaseModel):
     context: Optional[Dict[str, Any]] = None
 
     # Skill-specific
-    skill_type: Optional[str] = None  # e.g. "flight_search", "weather", "scheduler"
+    skill_type: Optional[str] = None  # e.g. "flight_search", "scheduler"
     prompt: Optional[str] = None  # Natural language instruction for the skill
 
     # Summarization-specific

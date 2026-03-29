@@ -159,7 +159,6 @@ class StudioCloneResponse(BaseModel):
 
 SKILL_METADATA = {
     "web_search": {"category": "search", "name": "Web Search", "description": "Search the web for information"},
-    "weather": {"category": "integration", "name": "Weather", "description": "Get weather forecasts"},
     "web_scraping": {"category": "search", "name": "Web Scraping", "description": "Scrape content from websites"},
     "audio_transcript": {"category": "audio", "name": "Audio Transcript", "description": "Transcribe audio to text"},
     "audio_tts": {"category": "audio", "name": "Text to Speech", "description": "Convert text to speech"},

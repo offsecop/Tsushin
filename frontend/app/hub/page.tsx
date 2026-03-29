@@ -8,7 +8,7 @@
  * - Communication: WhatsApp, Telegram, Discord, Slack, Email (coming soon)
  * - Productivity: Asana, Google Calendar, Notion (coming soon)
  * - Developer Tools: Shell, GitHub (coming soon)
- * - Tool APIs: Brave Search, OpenWeather, Amadeus
+ * - Tool APIs: Brave Search, Amadeus
  * - Sandboxed Tools: Per-tenant toolbox containers
  */
 

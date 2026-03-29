@@ -8,7 +8,6 @@ Phase 5.5: Added Asana Skill
 
 API Tools Migration: Migrated API Tools to Skills:
 - SearchSkill (web_search)
-- WeatherSkill (weather)
 - WebScrapingSkill (web_scraping)
 """
 
@@ -20,7 +19,6 @@ from .scheduler_query_skill import SchedulerQuerySkill  # Phase 6.4 Week 5
 from .knowledge_sharing_skill import KnowledgeSharingSkill  # Task 3
 # AsanaSkill removed: Asana is now a provider for the Scheduler skill (via FlowsSkill)
 from .search_skill import SearchSkill  # API Tools Migration
-from .weather_skill import WeatherSkill  # API Tools Migration
 from .web_scraping_skill import WebScrapingSkill  # API Tools Migration
 
 __all__ = [
@@ -34,6 +32,5 @@ __all__ = [
     'SchedulerQuerySkill',
     'KnowledgeSharingSkill',
     'SearchSkill',
-    'WeatherSkill',
     'WebScrapingSkill'
 ]

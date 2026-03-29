@@ -109,7 +109,6 @@ services:
 
       # Tool API Keys
       - BRAVE_API=${BRAVE_API:-}
-      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY:-}
       - AMADEUS_API_KEY=${AMADEUS_API_KEY:-}
       - AMADEUS_API_SECRET=${AMADEUS_API_SECRET:-}
 

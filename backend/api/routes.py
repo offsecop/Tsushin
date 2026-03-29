@@ -139,7 +139,7 @@ def get_config(
         raise HTTPException(status_code=404, detail="Config not found")
 
     # Parse JSON fields
-    # Note: enabled_tools removed - use AgentSkill table for web_search, weather, etc.
+    # Note: enabled_tools removed - use AgentSkill table
     config_dict = {
         **config.__dict__,
         "contact_mappings": json.loads(config.contact_mappings) if config.contact_mappings else {},
@@ -184,7 +184,7 @@ def update_config(
             value = json.dumps(value)
         elif key in ("group_keywords",) and isinstance(value, list):
             value = json.dumps(value)
-        # enabled_tools removed - use AgentSkill table for web_search, weather, etc.
+        # enabled_tools removed - use AgentSkill table
 
         # Check if filter-related field changed
         if key in filter_related_fields:
@@ -251,7 +251,7 @@ def update_config(
             logger.error(f"Failed to apply WhatsApp conversation delay: {e}", exc_info=True)
 
     # Parse JSON fields for response
-    # Note: enabled_tools removed - use AgentSkill table for web_search, weather, etc.
+    # Note: enabled_tools removed - use AgentSkill table
     config_dict = {
         **config.__dict__,
         "contact_mappings": json.loads(config.contact_mappings) if config.contact_mappings else {},
@@ -457,7 +457,7 @@ async def trigger_test(
         "model_name": agent.model_name,
         "system_prompt": agent.system_prompt,
         "memory_size": agent.memory_size or 5000,
-        # enabled_tools removed - use AgentSkill table for web_search, weather, etc.
+        # enabled_tools removed - use AgentSkill table
         "response_template": agent.response_template,
         "enable_semantic_search": agent.enable_semantic_search,
         "context_message_count": agent.context_message_count or 10,

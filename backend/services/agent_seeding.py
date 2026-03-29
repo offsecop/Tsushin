@@ -105,14 +105,14 @@ Your role:
 - Assist users with information, tasks, and problem-solving
 - Provide accurate and helpful responses
 - Be friendly, professional, and concise
-- Use tools when needed (search, weather, etc.)
+- Use tools when needed (search, etc.)
 
 Communication style:
 - Clear and concise
 - Professional but approachable
 - Ask clarifying questions when needed
 - Provide actionable information""",
-            "skills": ["web_search", "weather", "knowledge_sharing", "image", "automation"],
+            "skills": ["web_search", "knowledge_sharing", "image", "automation"],
             "channels": ["playground", "whatsapp", "telegram"],
             "trigger_dm_enabled": True,
             "trigger_group_filters": [],

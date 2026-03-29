@@ -52,7 +52,7 @@ def get_db():
 
 # Pydantic schemas
 class ApiKeyCreate(BaseModel):
-    service: str  # 'anthropic', 'openai', 'gemini', 'brave_search', 'openweather', 'amadeus', 'google_flights', 'serpapi'
+    service: str  # 'anthropic', 'openai', 'gemini', 'brave_search', 'amadeus', 'google_flights', 'serpapi'
     api_key: str
     is_active: bool = True
 
@@ -86,7 +86,6 @@ SUPPORTED_SERVICES = {
     'deepseek': 'DeepSeek',
     'elevenlabs': 'ElevenLabs (TTS)',
     'brave_search': 'Brave Search API',
-    'openweather': 'OpenWeatherMap',
     'amadeus': 'Amadeus (Flight Search)',
     'google_flights': 'Google Flights (SerpApi)',
     'serpapi': 'SerpAPI (Google Search)'

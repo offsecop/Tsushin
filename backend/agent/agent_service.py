@@ -9,7 +9,6 @@ from .ai_client import AIClient
 
 # Legacy tools removed - migrated to Skills system:
 # - SearchTool → SearchSkill (web_search) with SearchProviderRegistry
-# - WeatherTool → WeatherSkill
 # - WebScrapingSkill → WebScrapingSkill
 # - FlightSearchTool → FlightSearchSkill with FlightProviderRegistry
 
@@ -51,7 +50,7 @@ class AgentService:
             user_id: User ID for combined KB (Phase 16)
 
         Note: Ring buffer memory deprecated - use Multi-Agent Memory Manager instead
-        Note: Legacy tools (search, weather, scraping) migrated to Skills system
+        Note: Legacy tools (search, scraping) migrated to Skills system
         """
         self.config = config
         self.contact_service = contact_service  # Phase 4.2
@@ -123,7 +122,6 @@ class AgentService:
 
         # Legacy tools removed - now handled by Skills system:
         # - web_search skill (SearchSkill with Brave provider)
-        # - weather skill (WeatherSkill)
         # - web_scraping skill (WebScrapingSkill)
         # Skills are processed by SkillManager in router.py before reaching AgentService
 
@@ -378,7 +376,7 @@ class AgentService:
 
         Returns dict with: answer, tool_used, tokens, execution_time, error
 
-        Note: Legacy tool detection removed. Skills (web_search, weather, web_scraping)
+        Note: Legacy tool detection removed. Skills (web_search, web_scraping)
         are now processed by SkillManager in router.py before reaching this method.
         """
         start_time = time.time()
@@ -485,7 +483,7 @@ class AgentService:
         # Use original query for knowledge base search if provided
         search_query = original_query if original_query else message_text
 
-        # Legacy tool detection removed - skills now handle search, weather, scraping
+        # Legacy tool detection removed - skills now handle search, scraping
         # via SkillManager in router.py
 
         # Phase 4.8: Memory context now provided by Multi-Agent Memory Manager
@@ -881,7 +879,7 @@ IMPORTANT: When the user asks for system information, server status, file listin
                             media_producing_tools = {'generate_image'}
                             needs_full_result = tool_name in media_producing_tools
 
-                            # All other skill tools (web_search, get_weather, manage_flows, etc.)
+                            # All other skill tools (web_search, manage_flows, etc.)
                             skill_result = await skill_manager.execute_tool_call(
                                 db=self.db,
                                 agent_id=self.agent_id,

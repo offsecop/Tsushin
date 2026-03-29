@@ -782,7 +782,7 @@ def seed_slash_commands(session):
             "pattern": r"^/tool\s+(\w+)\s*(.*)$",
             "aliases": json.dumps([]),
             "description": "Execute a tool with arguments",
-            "help_text": "Usage: /tool <tool_name> [arguments]\nExample: /tool nmap quick_scan scanme.nmap.org\nExample: /tool weather New York",
+            "help_text": "Usage: /tool <tool_name> [arguments]\nExample: /tool nmap quick_scan scanme.nmap.org",
             "handler_type": "built-in",
             "sort_order": 46
         },
@@ -794,7 +794,7 @@ def seed_slash_commands(session):
             "pattern": r"^/ferramenta\s+(\w+)\s*(.*)$",
             "aliases": json.dumps([]),
             "description": "Executar uma ferramenta com argumentos",
-            "help_text": "Uso: /ferramenta <nome_ferramenta> [argumentos]\nExemplo: /ferramenta nmap quick_scan scanme.nmap.org\nExemplo: /ferramenta weather São Paulo",
+            "help_text": "Uso: /ferramenta <nome_ferramenta> [argumentos]\nExemplo: /ferramenta nmap quick_scan scanme.nmap.org",
             "handler_type": "built-in",
             "sort_order": 47
         },

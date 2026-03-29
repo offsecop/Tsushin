@@ -600,7 +600,7 @@ class ToolStepHandler(FlowStepHandler):
             }
 
     async def _execute_builtin_tool(self, tool_id: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute built-in tool (google_search, weather, web_scraping)."""
+        """Execute built-in tool (google_search, web_scraping)."""
         try:
             if tool_id == "google_search":
                 from agent.tools.search_tool import SearchTool
@@ -635,35 +635,6 @@ class ToolStepHandler(FlowStepHandler):
                     "search_results": results_text,
                     "search_summary": result.get("summary", "Search completed"),
                     "results_count": len(result.get("results", [])),
-                    "raw_output": result,
-                    "status": "completed"
-                }
-
-            elif tool_id == "weather":
-                from agent.tools.weather_tool import WeatherTool
-                tool = WeatherTool(db=self.db)
-                location = parameters.get("location", "")
-                result = tool.get_current_weather(location)
-
-                if result.get("error"):
-                    return {
-                        "tool_used": "weather",
-                        "tool_type": "built_in",
-                        "location": location,
-                        "status": "failed",
-                        "error": result.get("error")
-                    }
-
-                summary = f"{result['location']}, {result['country']}: {result['temperature']}°C, {result['description']}"
-
-                return {
-                    "tool_used": "weather",
-                    "tool_type": "built_in",
-                    "location": location,
-                    "weather_summary": summary,
-                    "temperature": result.get('temperature'),
-                    "description": result.get('description'),
-                    "humidity": result.get('humidity'),
                     "raw_output": result,
                     "status": "completed"
                 }
@@ -774,7 +745,7 @@ class SlashCommandStepHandler(FlowStepHandler):
 
 class SkillStepHandler(FlowStepHandler):
     """
-    Phase 16: Handles Skill steps - executes agentic skills (flight_search, weather, etc.).
+    Phase 16: Handles Skill steps - executes agentic skills (flight_search, etc.).
 
     Allows flows to call skills like FlightSearchSkill with a natural language prompt
     and receive structured output that can be injected into subsequent steps.

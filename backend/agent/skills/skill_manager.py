@@ -55,7 +55,6 @@ class SkillManager:
 
         API Tools Migration: Migrated API Tools to Skills system:
         - SearchSkill (web_search) - replaces google_search tool
-        - WeatherSkill (weather) - replaces weather tool
         - WebScrapingSkill (web_scraping) - replaces web_scraping tool
         """
         try:
@@ -66,12 +65,9 @@ class SkillManager:
             from agent.skills.flight_search_skill import FlightSearchSkill
             self.register_skill(FlightSearchSkill)
 
-            # API Tools Migration: Web Search, Weather, Web Scraping
+            # API Tools Migration: Web Search, Web Scraping
             from agent.skills.search_skill import SearchSkill
             self.register_skill(SearchSkill)
-
-            from agent.skills.weather_skill import WeatherSkill
-            self.register_skill(WeatherSkill)
 
             from agent.skills.web_scraping_skill import WebScrapingSkill
             self.register_skill(WebScrapingSkill)
@@ -124,7 +120,7 @@ class SkillManager:
             from agent.skills.sandboxed_tools_skill import SandboxedToolsSkill
             self.register_skill(SandboxedToolsSkill)
 
-            logger.info("Built-in skills registered: flight_search, web_search, weather, web_scraping, audio_transcript, audio_tts, flows, automation, adaptive_personality, knowledge_sharing, agent_switcher, gmail, shell, browser_automation, image, sandboxed_tools")
+            logger.info("Built-in skills registered: flight_search, web_search, web_scraping, audio_transcript, audio_tts, flows, automation, adaptive_personality, knowledge_sharing, agent_switcher, gmail, shell, browser_automation, image, sandboxed_tools")
         except Exception as e:
             logger.error(f"Error registering built-in skills: {e}", exc_info=True)
 

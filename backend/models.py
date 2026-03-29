@@ -310,7 +310,7 @@ class Agent(Base):
     keywords = Column(JSON, default=list)  # ["help", "assistant", "bot"]
 
     # Tool configuration - DEPRECATED: Migrated to Skills system
-    # enabled_tools removed - use AgentSkill table for skills like web_search, weather, web_scraping
+    # enabled_tools removed - use AgentSkill table for skills like web_search, web_scraping
 
     # Model configuration
     model_provider = Column(String(20), default="gemini")  # "openai" | "anthropic" | "gemini" | "groq" | "grok"
@@ -390,7 +390,7 @@ class ApiKey(Base):
     __tablename__ = "api_key"
 
     id = Column(Integer, primary_key=True)
-    service = Column(String(50), nullable=False, index=True)  # 'anthropic', 'openai', 'gemini', 'brave_search', 'openweather'
+    service = Column(String(50), nullable=False, index=True)  # 'anthropic', 'openai', 'gemini', 'brave_search'
     api_key = Column(String(500), nullable=True)  # DEPRECATED: Plaintext key (kept for migration, set to NULL after encryption)
     api_key_encrypted = Column(Text, nullable=True)  # Phase SEC-001: Encrypted API key (Fernet)
     is_active = Column(Boolean, default=True)

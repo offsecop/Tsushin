@@ -1378,16 +1378,13 @@ async def get_available_tools(
         {"id": -1, "name": "search", "tool_type": "built_in", "description": "Web search using configured provider", "commands": [
             {"name": "search", "description": "Search the web", "parameters": [{"name": "query", "type": "string", "required": True}]}
         ]},
-        {"id": -2, "name": "weather", "tool_type": "built_in", "description": "Get weather information", "commands": [
-            {"name": "current", "description": "Get current weather", "parameters": [{"name": "location", "type": "string", "required": True}]}
-        ]},
-        {"id": -3, "name": "scraper", "tool_type": "built_in", "description": "Scrape web pages", "commands": [
+        {"id": -2, "name": "scraper", "tool_type": "built_in", "description": "Scrape web pages", "commands": [
             {"name": "scrape", "description": "Extract content from URL", "parameters": [{"name": "url", "type": "string", "required": True}]}
         ]},
     ]
 
     # Built-in tools removed - now handled by Skills system
-    # web_search, weather, web_scraping are now skills configured via AgentSkill table
+    # web_search, web_scraping are now skills configured via AgentSkill table
 
     # Sandboxed tools assigned to agent
     agent_tools = db.query(AgentSandboxedTool).filter(
