@@ -116,24 +116,25 @@ def _decrypt_tls_certs(SessionFactory, tenant_id: str) -> Optional[dict]:
                 result["ca_cert"] = encryptor.decrypt(
                     config.tls_ca_cert_encrypted, f"syslog_ca_cert_{tenant_id}"
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"[SyslogForwarder] Failed to decrypt CA cert for tenant {tenant_id}: {e}")
+                return None  # Partial TLS config is unsafe — abort
 
         if config.tls_client_cert_encrypted:
             try:
                 result["client_cert"] = encryptor.decrypt(
                     config.tls_client_cert_encrypted, f"syslog_client_cert_{tenant_id}"
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"[SyslogForwarder] Failed to decrypt client cert for tenant {tenant_id}: {e}")
 
         if config.tls_client_key_encrypted:
             try:
                 result["client_key"] = encryptor.decrypt(
                     config.tls_client_key_encrypted, f"syslog_client_key_{tenant_id}"
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"[SyslogForwarder] Failed to decrypt client key for tenant {tenant_id}: {e}")
 
         result["verify"] = config.tls_verify if config.tls_verify is not None else True
         return result if result else None
@@ -161,7 +162,7 @@ def _update_operational_metadata(SessionFactory, tenant_id: str, success: bool, 
                 config.last_error_at = datetime.utcnow()
             session.commit()
     except Exception:
-        pass
+        session.rollback()
     finally:
         session.close()
 
@@ -209,6 +210,8 @@ def _worker_loop(SessionFactory, batch_size: int, poll_interval_ms: int):
                     continue
 
                 categories = config.get("categories")
+                tenant_success = False
+                tenant_error = None
 
                 for event_data in tenant_events:
                     try:
@@ -242,11 +245,17 @@ def _worker_loop(SessionFactory, batch_size: int, poll_interval_ms: int):
                         )
 
                         if success:
-                            _update_operational_metadata(SessionFactory, tenant_id, True)
+                            tenant_success = True
 
                     except Exception as e:
                         logger.error(f"[SyslogForwarder] Event send error for {tenant_id}: {e}")
-                        _update_operational_metadata(SessionFactory, tenant_id, False, str(e))
+                        tenant_error = str(e)
+
+                # Update metadata once per tenant per batch (not per event)
+                if tenant_success:
+                    _update_operational_metadata(SessionFactory, tenant_id, True)
+                elif tenant_error:
+                    _update_operational_metadata(SessionFactory, tenant_id, False, tenant_error)
 
         except Exception as e:
             logger.error(f"[SyslogForwarder] Worker cycle error: {e}")
@@ -259,6 +268,11 @@ def _worker_loop(SessionFactory, batch_size: int, poll_interval_ms: int):
 def start_syslog_forwarder(engine, queue_size: int = 10000, batch_size: int = 50, poll_interval_ms: int = 200):
     """Start the syslog forwarder background worker."""
     global _worker_thread, _event_queue, _engine
+
+    if _worker_thread and _worker_thread.is_alive():
+        logger.warning("[SyslogForwarder] Worker already running, skipping duplicate start")
+        return
+
     _engine = engine
     _event_queue = queue.Queue(maxsize=queue_size)
     _stop_event.clear()

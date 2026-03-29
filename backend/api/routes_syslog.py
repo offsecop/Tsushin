@@ -81,6 +81,16 @@ class SyslogConfigUpdate(BaseModel):
             raise ValueError("Port must be 1-65535")
         return v
 
+    @field_validator("app_name")
+    @classmethod
+    def validate_app_name(cls, v):
+        import re
+        if v is not None:
+            v = v.strip()
+            if not re.match(r'^[\x21-\x7e]{1,48}$', v):
+                raise ValueError("App name must be 1-48 printable ASCII characters with no spaces")
+        return v
+
 
 class SyslogTestRequest(BaseModel):
     host: str
@@ -88,6 +98,43 @@ class SyslogTestRequest(BaseModel):
     protocol: str = "tcp"
     tls_ca_cert: Optional[str] = None
     tls_verify: bool = True
+
+    @field_validator("host")
+    @classmethod
+    def validate_host(cls, v):
+        """Block private/loopback/link-local addresses to prevent SSRF."""
+        import ipaddress
+        v = v.strip()
+        if not v:
+            raise ValueError("Host is required")
+        # Block obvious internal hostnames
+        blocked_names = {"localhost", "postgres", "tsushin-postgres", "backend", "tsushin-backend", "host.docker.internal"}
+        if v.lower() in blocked_names:
+            raise ValueError("Internal hostnames are not allowed")
+        # Try to parse as IP and block private ranges
+        try:
+            ip = ipaddress.ip_address(v)
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                raise ValueError("Private, loopback, and link-local addresses are not allowed")
+        except ValueError as e:
+            if "not allowed" in str(e):
+                raise
+            # Not an IP — it's a hostname, allow it (DNS resolution happens at connect time)
+        return v
+
+    @field_validator("protocol")
+    @classmethod
+    def validate_protocol(cls, v):
+        if v not in ("tcp", "udp", "tls"):
+            raise ValueError("Protocol must be 'tcp', 'udp', or 'tls'")
+        return v
+
+    @field_validator("port")
+    @classmethod
+    def validate_port(cls, v):
+        if v < 1 or v > 65535:
+            raise ValueError("Port must be 1-65535")
+        return v
 
 
 class SyslogTestResponse(BaseModel):

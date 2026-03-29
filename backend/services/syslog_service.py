@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 # Tsushin Private Enterprise Number placeholder (register with IANA for production)
 TSUSHIN_PEN = "49876"
+# Cache hostname at module load to avoid repeated DNS lookups
+_CACHED_HOSTNAME = socket.getfqdn()
 
 
 class RFC5424Formatter:
@@ -57,7 +59,7 @@ class RFC5424Formatter:
         if not ts.endswith("Z") and "+" not in ts:
             ts += "Z"
 
-        host = hostname or socket.getfqdn()
+        host = hostname or _CACHED_HOSTNAME
         procid = str(os.getpid())
         msgid = "-"
 
@@ -148,22 +150,29 @@ class SyslogConnectionPool:
         protocol: str,
         tls_config: Optional[dict] = None,
     ) -> socket.socket:
-        """Get or create a connection for a tenant."""
+        """Get or create a connection for a tenant. Lock held only for dict access, not during connect."""
         with self._lock:
             existing = self._connections.get(tenant_id)
             if existing:
                 try:
-                    # Quick liveness check
                     existing.getpeername()
                     return existing
                 except (OSError, socket.error):
                     self._close_socket(existing)
                     del self._connections[tenant_id]
 
-            sock = self._create_connection(host, port, protocol, tls_config)
-            if protocol != "udp":
+        # Create connection OUTSIDE the lock to avoid blocking other tenants
+        sock = self._create_connection(host, port, protocol, tls_config)
+
+        if protocol != "udp":
+            with self._lock:
+                # Check if another thread already created one while we were connecting
+                race_sock = self._connections.get(tenant_id)
+                if race_sock:
+                    self._close_socket(sock)
+                    return race_sock
                 self._connections[tenant_id] = sock
-            return sock
+        return sock
 
     def _create_connection(
         self, host: str, port: int, protocol: str, tls_config: Optional[dict] = None
@@ -190,14 +199,16 @@ class SyslogConnectionPool:
             client_cert = tls_config.get("client_cert")
             client_key = tls_config.get("client_key")
             if client_cert and client_key:
-                import tempfile
-                with tempfile.NamedTemporaryFile(mode="w", suffix=".pem", delete=False) as cf:
-                    cf.write(client_cert)
-                    cert_path = cf.name
-                with tempfile.NamedTemporaryFile(mode="w", suffix=".key", delete=False) as kf:
-                    kf.write(client_key)
-                    key_path = kf.name
+                import tempfile, stat
+                cert_fd, cert_path = tempfile.mkstemp(suffix=".pem")
+                key_fd, key_path = tempfile.mkstemp(suffix=".key")
                 try:
+                    os.chmod(cert_path, stat.S_IRUSR | stat.S_IWUSR)  # 0o600
+                    os.chmod(key_path, stat.S_IRUSR | stat.S_IWUSR)   # 0o600
+                    os.write(cert_fd, client_cert.encode())
+                    os.close(cert_fd)
+                    os.write(key_fd, client_key.encode())
+                    os.close(key_fd)
                     ctx.load_cert_chain(cert_path, key_path)
                 finally:
                     os.unlink(cert_path)
