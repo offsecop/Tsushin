@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/client'
 import AuditLogEntry from '@/components/rbac/AuditLogEntry'
+import ToggleSwitch from '@/components/ui/ToggleSwitch'
 
 interface AuditEvent {
   id: number
@@ -82,6 +83,25 @@ export default function AuditLogsPage() {
   const [filterToDate, setFilterToDate] = useState('')
   const [offset, setOffset] = useState(0)
 
+  // Syslog
+  const [syslogExpanded, setSyslogExpanded] = useState(false)
+  const [syslogConfig, setSyslogConfig] = useState<any>(null)
+  const [syslogSaving, setSyslogSaving] = useState(false)
+  const [syslogTesting, setSyslogTesting] = useState(false)
+  const [syslogTestResult, setSyslogTestResult] = useState<any>(null)
+  const [syslogError, setSyslogError] = useState<string | null>(null)
+  const [syslogSuccess, setSyslogSuccess] = useState<string | null>(null)
+  // Syslog form
+  const [syslogEnabled, setSyslogEnabled] = useState(false)
+  const [syslogHost, setSyslogHost] = useState('')
+  const [syslogPort, setSyslogPort] = useState(514)
+  const [syslogProtocol, setSyslogProtocol] = useState('tcp')
+  const [syslogFacility, setSyslogFacility] = useState(1)
+  const [syslogAppName, setSyslogAppName] = useState('tsushin')
+  const [syslogTlsVerify, setSyslogTlsVerify] = useState(true)
+  const [syslogCaCert, setSyslogCaCert] = useState('')
+  const [syslogCategories, setSyslogCategories] = useState<string[]>([])
+
   const fetchEvents = useCallback(async () => {
     try {
       setLoading(true)
@@ -135,6 +155,22 @@ export default function AuditLogsPage() {
     }
   }, [fetchStats, hasPermission])
 
+  useEffect(() => {
+    if (hasPermission('org.settings.read')) {
+      api.getSyslogConfig().then(config => {
+        setSyslogConfig(config)
+        setSyslogEnabled(config.enabled)
+        setSyslogHost(config.host || '')
+        setSyslogPort(config.port)
+        setSyslogProtocol(config.protocol)
+        setSyslogFacility(config.facility)
+        setSyslogAppName(config.app_name)
+        setSyslogTlsVerify(config.tls_verify)
+        setSyslogCategories(config.event_categories || [])
+      }).catch(() => {})
+    }
+  }, [hasPermission])
+
   const handleExport = async () => {
     try {
       setExporting(true)
@@ -162,6 +198,87 @@ export default function AuditLogsPage() {
 
   const handleFilterByAction = (action: string) => {
     setFilterAction(action.split('.')[0])
+  }
+
+  const handleSyslogSave = async () => {
+    setSyslogSaving(true)
+    setSyslogError(null)
+    setSyslogSuccess(null)
+    try {
+      const update: any = {
+        enabled: syslogEnabled,
+        host: syslogHost,
+        port: syslogPort,
+        protocol: syslogProtocol,
+        facility: syslogFacility,
+        app_name: syslogAppName,
+        tls_verify: syslogTlsVerify,
+        event_categories: syslogCategories,
+      }
+      if (syslogCaCert) update.tls_ca_cert = syslogCaCert
+      const config = await api.updateSyslogConfig(update)
+      setSyslogConfig(config)
+      setSyslogSuccess('Syslog configuration saved')
+      setSyslogCaCert('')
+      setTimeout(() => setSyslogSuccess(null), 3000)
+    } catch (err: any) {
+      setSyslogError(err.message || 'Failed to save')
+    } finally {
+      setSyslogSaving(false)
+    }
+  }
+
+  const handleSyslogTest = async () => {
+    setSyslogTesting(true)
+    setSyslogTestResult(null)
+    try {
+      const result = await api.testSyslogConnection({
+        host: syslogHost,
+        port: syslogPort,
+        protocol: syslogProtocol,
+        tls_ca_cert: syslogCaCert || undefined,
+        tls_verify: syslogTlsVerify,
+      })
+      setSyslogTestResult(result)
+    } catch (err: any) {
+      setSyslogTestResult({ success: false, message: err.message, latency_ms: null })
+    } finally {
+      setSyslogTesting(false)
+    }
+  }
+
+  const SYSLOG_CATEGORIES = [
+    { value: 'auth', label: 'Authentication' },
+    { value: 'agent', label: 'Agents' },
+    { value: 'flow', label: 'Flows' },
+    { value: 'contact', label: 'Contacts' },
+    { value: 'settings', label: 'Settings' },
+    { value: 'security', label: 'Security' },
+    { value: 'api_client', label: 'API Clients' },
+    { value: 'skill', label: 'Custom Skills' },
+    { value: 'mcp', label: 'MCP Servers' },
+    { value: 'team', label: 'Team' },
+  ]
+
+  const FACILITY_OPTIONS = [
+    { value: 1, label: 'User-level (1)' },
+    { value: 4, label: 'Auth (4)' },
+    { value: 10, label: 'Auth-priv (10)' },
+    { value: 13, label: 'Audit (13)' },
+    { value: 16, label: 'Local0 (16)' },
+    { value: 17, label: 'Local1 (17)' },
+    { value: 18, label: 'Local2 (18)' },
+    { value: 19, label: 'Local3 (19)' },
+    { value: 20, label: 'Local4 (20)' },
+    { value: 21, label: 'Local5 (21)' },
+    { value: 22, label: 'Local6 (22)' },
+    { value: 23, label: 'Local7 (23)' },
+  ]
+
+  const toggleCategory = (cat: string) => {
+    setSyslogCategories(prev =>
+      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+    )
   }
 
   if (!hasPermission('audit.read')) {
@@ -226,6 +343,232 @@ export default function AuditLogsPage() {
                 {stats.critical_count}
               </p>
             </div>
+          </div>
+        )}
+
+        {/* Syslog Forwarding Configuration */}
+        {hasPermission('org.settings.read') && (
+          <div className="bg-tsushin-surface border border-white/10 rounded-lg mb-6 overflow-hidden">
+            {/* Header (always visible, clickable) */}
+            <button
+              onClick={() => setSyslogExpanded(!syslogExpanded)}
+              className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.02] transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <svg className="w-5 h-5 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+                </svg>
+                <span className="text-sm font-medium text-white">Syslog Forwarding</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                  syslogConfig?.enabled ? 'bg-green-500/20 text-green-300' : 'bg-white/10 text-tsushin-slate'
+                }`}>
+                  {syslogConfig?.enabled ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {syslogConfig?.enabled && syslogConfig?.host && !syslogExpanded && (
+                  <span className="text-xs text-tsushin-slate">
+                    {syslogConfig.host}:{syslogConfig.port} via {syslogConfig.protocol.toUpperCase()}
+                  </span>
+                )}
+                <svg className={`w-4 h-4 text-tsushin-slate transition-transform ${syslogExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </button>
+
+            {/* Expanded content */}
+            {syslogExpanded && (
+              <div className="border-t border-white/5 px-4 py-4 space-y-4">
+                {/* Error/Success */}
+                {syslogError && (
+                  <div className="bg-red-900/20 border border-red-800 rounded-lg p-3">
+                    <p className="text-xs text-red-200">{syslogError}</p>
+                  </div>
+                )}
+                {syslogSuccess && (
+                  <div className="bg-green-900/20 border border-green-800 rounded-lg p-3">
+                    <p className="text-xs text-green-200">{syslogSuccess}</p>
+                  </div>
+                )}
+
+                {/* Enable toggle */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-white">Enable Syslog Forwarding</p>
+                    <p className="text-xs text-tsushin-slate">Stream audit events to an external syslog server</p>
+                  </div>
+                  <ToggleSwitch
+                    checked={syslogEnabled}
+                    onChange={setSyslogEnabled}
+                    disabled={!hasPermission('org.settings.write')}
+                    size="sm"
+                  />
+                </div>
+
+                {syslogEnabled && (
+                  <>
+                    {/* Server config */}
+                    <div className="border-t border-white/5 pt-4">
+                      <h4 className="text-xs font-medium text-tsushin-slate uppercase tracking-wider mb-3">Server Configuration</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="sm:col-span-2">
+                          <label className="block text-xs text-tsushin-slate mb-1">Host</label>
+                          <input
+                            type="text"
+                            value={syslogHost}
+                            onChange={(e) => setSyslogHost(e.target.value)}
+                            placeholder="logs.example.com"
+                            className="w-full px-3 py-2 text-sm border border-white/10 rounded-md text-white bg-tsushin-surface"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-tsushin-slate mb-1">Port</label>
+                          <input
+                            type="number"
+                            value={syslogPort}
+                            onChange={(e) => setSyslogPort(parseInt(e.target.value) || 514)}
+                            min={1}
+                            max={65535}
+                            className="w-full px-3 py-2 text-sm border border-white/10 rounded-md text-white bg-tsushin-surface"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+                        <div>
+                          <label className="block text-xs text-tsushin-slate mb-1">Protocol</label>
+                          <select
+                            value={syslogProtocol}
+                            onChange={(e) => setSyslogProtocol(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-white/10 rounded-md text-white bg-tsushin-surface"
+                          >
+                            <option value="tcp">TCP</option>
+                            <option value="udp">UDP</option>
+                            <option value="tls">TLS (TCP + Encryption)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-tsushin-slate mb-1">Facility</label>
+                          <select
+                            value={syslogFacility}
+                            onChange={(e) => setSyslogFacility(parseInt(e.target.value))}
+                            className="w-full px-3 py-2 text-sm border border-white/10 rounded-md text-white bg-tsushin-surface"
+                          >
+                            {FACILITY_OPTIONS.map(opt => (
+                              <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-tsushin-slate mb-1">App Name</label>
+                          <input
+                            type="text"
+                            value={syslogAppName}
+                            onChange={(e) => setSyslogAppName(e.target.value)}
+                            placeholder="tsushin"
+                            className="w-full px-3 py-2 text-sm border border-white/10 rounded-md text-white bg-tsushin-surface"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* TLS Configuration (conditional) */}
+                    {syslogProtocol === 'tls' && (
+                      <div className="border-t border-white/5 pt-4">
+                        <h4 className="text-xs font-medium text-tsushin-slate uppercase tracking-wider mb-3">TLS Configuration</h4>
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <p className="text-sm text-white">Verify Server Certificate</p>
+                            <p className="text-xs text-tsushin-slate">Disable for self-signed certificates</p>
+                          </div>
+                          <ToggleSwitch checked={syslogTlsVerify} onChange={setSyslogTlsVerify} size="sm" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-tsushin-slate mb-1">
+                            CA Certificate (PEM)
+                            {syslogConfig?.has_ca_cert && <span className="text-green-400 ml-2">configured</span>}
+                          </label>
+                          <textarea
+                            value={syslogCaCert}
+                            onChange={(e) => setSyslogCaCert(e.target.value)}
+                            placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----"
+                            rows={3}
+                            className="w-full px-3 py-2 text-xs font-mono border border-white/10 rounded-md text-white bg-tsushin-surface"
+                          />
+                          <p className="text-[10px] text-tsushin-slate/60 mt-1">Paste PEM content or leave empty to use system CA store</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Event Categories */}
+                    <div className="border-t border-white/5 pt-4">
+                      <h4 className="text-xs font-medium text-tsushin-slate uppercase tracking-wider mb-3">
+                        Event Categories
+                        <span className="text-tsushin-slate/60 font-normal ml-2">
+                          {syslogCategories.length === 0 ? '(all events)' : `(${syslogCategories.length} selected)`}
+                        </span>
+                      </h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                        {SYSLOG_CATEGORIES.map(cat => (
+                          <label key={cat.value} className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={syslogCategories.includes(cat.value)}
+                              onChange={() => toggleCategory(cat.value)}
+                              className="rounded border-white/20 bg-tsushin-surface text-teal-500 focus:ring-teal-500"
+                            />
+                            <span className="text-xs text-white">{cat.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-tsushin-slate/60 mt-2">Leave all unchecked to forward all event types</p>
+                    </div>
+
+                    {/* Status */}
+                    {syslogConfig && (syslogConfig.last_successful_send || syslogConfig.last_error) && (
+                      <div className="border-t border-white/5 pt-4">
+                        <h4 className="text-xs font-medium text-tsushin-slate uppercase tracking-wider mb-2">Status</h4>
+                        <div className="flex gap-4 text-xs">
+                          {syslogConfig.last_successful_send && (
+                            <span className="text-green-400">Last sent: {new Date(syslogConfig.last_successful_send).toLocaleString()}</span>
+                          )}
+                          {syslogConfig.last_error && (
+                            <span className="text-red-400">Last error: {syslogConfig.last_error}</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="border-t border-white/5 pt-4 flex items-center gap-3">
+                      <button
+                        onClick={handleSyslogTest}
+                        disabled={syslogTesting || !syslogHost}
+                        className="px-3 py-1.5 bg-white/10 hover:bg-white/15 text-white text-xs font-medium rounded-md transition-colors disabled:opacity-50"
+                      >
+                        {syslogTesting ? 'Testing...' : 'Test Connection'}
+                      </button>
+                      {syslogTestResult && (
+                        <span className={`text-xs ${syslogTestResult.success ? 'text-green-400' : 'text-red-400'}`}>
+                          {syslogTestResult.message}
+                          {syslogTestResult.latency_ms != null && ` (${syslogTestResult.latency_ms}ms)`}
+                        </span>
+                      )}
+                      <div className="flex-1" />
+                      {hasPermission('org.settings.write') && (
+                        <button
+                          onClick={handleSyslogSave}
+                          disabled={syslogSaving}
+                          className="px-4 py-1.5 bg-teal-600 hover:bg-teal-500 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          {syslogSaving ? 'Saving...' : 'Save Configuration'}
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         )}
 

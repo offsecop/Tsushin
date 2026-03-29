@@ -4765,6 +4765,74 @@ export const api = {
     return res.blob()
   },
 
+  // Syslog Forwarding Configuration
+  async getSyslogConfig(): Promise<{
+    id: number
+    tenant_id: string
+    enabled: boolean
+    host: string | null
+    port: number
+    protocol: string
+    facility: number
+    app_name: string
+    tls_verify: boolean
+    has_ca_cert: boolean
+    has_client_cert: boolean
+    has_client_key: boolean
+    event_categories: string[]
+    last_successful_send: string | null
+    last_error: string | null
+    last_error_at: string | null
+  }> {
+    const res = await authenticatedFetch(`${API_URL}/api/settings/syslog/`)
+    if (!res.ok) throw new Error('Failed to get syslog configuration')
+    return res.json()
+  },
+
+  async updateSyslogConfig(data: {
+    enabled?: boolean
+    host?: string
+    port?: number
+    protocol?: string
+    facility?: number
+    app_name?: string
+    tls_ca_cert?: string
+    tls_client_cert?: string
+    tls_client_key?: string
+    tls_verify?: boolean
+    event_categories?: string[]
+  }): Promise<any> {
+    const res = await authenticatedFetch(`${API_URL}/api/settings/syslog/`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Failed to update syslog configuration' }))
+      throw new Error(error.detail || 'Failed to update syslog configuration')
+    }
+    return res.json()
+  },
+
+  async testSyslogConnection(data: {
+    host: string
+    port: number
+    protocol: string
+    tls_ca_cert?: string
+    tls_verify?: boolean
+  }): Promise<{ success: boolean; message: string; latency_ms: number | null }> {
+    const res = await authenticatedFetch(`${API_URL}/api/settings/syslog/test`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: 'Connection test failed' }))
+      throw new Error(error.detail || 'Connection test failed')
+    }
+    return res.json()
+  },
+
   // Invitation acceptance (public endpoints)
   async getInvitationInfo(token: string): Promise<InvitationInfo> {
     const res = await fetch(`${API_URL}/api/auth/invitation/${token}`)

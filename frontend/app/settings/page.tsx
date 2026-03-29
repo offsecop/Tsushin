@@ -130,7 +130,7 @@ export default function SettingsHubPage() {
     },
     {
       title: 'Audit Logs',
-      description: 'Track all activities and changes across your organization',
+      description: 'Track activities, export logs, and configure syslog forwarding',
       icon: icons.audit,
       href: '/settings/audit-logs',
       permission: 'audit.read',

@@ -303,3 +303,41 @@ class TenantSSOConfig(Base):
     # Relationships
     tenant = relationship("Tenant", back_populates="sso_config")
     default_role = relationship("Role")
+
+
+class TenantSyslogConfig(Base):
+    """
+    Per-tenant syslog forwarding configuration.
+    Allows tenants to stream audit events to external syslog servers via TCP, UDP, or TLS.
+    """
+    __tablename__ = "tenant_syslog_config"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(String(50), ForeignKey('tenant.id'), unique=True, nullable=False)
+    enabled = Column(Boolean, default=False)
+
+    # Connection settings
+    host = Column(String(255), nullable=True)
+    port = Column(Integer, default=514)
+    protocol = Column(String(10), default='tcp')  # tcp, udp, tls
+
+    # Syslog format settings
+    facility = Column(Integer, default=1)  # RFC 5424 facility (1=user-level)
+    app_name = Column(String(48), default='tsushin')
+
+    # TLS settings (Fernet-encrypted)
+    tls_ca_cert_encrypted = Column(Text, nullable=True)
+    tls_client_cert_encrypted = Column(Text, nullable=True)
+    tls_client_key_encrypted = Column(Text, nullable=True)
+    tls_verify = Column(Boolean, default=True)
+
+    # Event filtering — JSON array of category strings to stream
+    event_categories = Column(Text, nullable=True)  # e.g. ["auth","agent","security"]
+
+    # Operational metadata
+    last_successful_send = Column(DateTime, nullable=True)
+    last_error = Column(Text, nullable=True)
+    last_error_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

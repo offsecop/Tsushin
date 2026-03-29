@@ -148,6 +148,7 @@ from api.routes_sentinel_profiles import router as sentinel_profiles_router, set
 from api.routes_queue import router as queue_router
 from api.routes_api_clients import router as api_clients_router
 from api.routes_audit import router as audit_router
+from api.routes_syslog import router as syslog_config_router
 # Phase 21: Provider Instance Management
 from api.routes_provider_instances import router as provider_instances_router, set_engine as set_provider_instances_engine
 # Phase 22: Custom Skills Foundation
@@ -810,6 +811,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logging.error(f"Error starting Audit Retention Worker: {e}", exc_info=True)
 
+    # Syslog Forwarder Worker (streams audit events to external syslog servers)
+    try:
+        from services.syslog_forwarder import start_syslog_forwarder
+        start_syslog_forwarder(engine, queue_size=10000, batch_size=50, poll_interval_ms=200)
+        logging.info("Syslog Forwarder Worker started")
+    except Exception as e:
+        logging.error(f"Error starting Syslog Forwarder Worker: {e}", exc_info=True)
+
     # Phase 22.4: Auto-connect active MCP servers on startup
     async def _auto_connect_mcp_servers():
         await asyncio.sleep(5)  # Wait for full startup
@@ -938,6 +947,14 @@ async def lifespan(app: FastAPI):
         logging.info("Audit Retention Worker stopped")
     except Exception as e:
         logging.error(f"Error stopping Audit Retention Worker: {e}", exc_info=True)
+
+    # Stop Syslog Forwarder Worker
+    try:
+        from services.syslog_forwarder import stop_syslog_forwarder
+        stop_syslog_forwarder()
+        logging.info("Syslog Forwarder Worker stopped")
+    except Exception as e:
+        logging.error(f"Error stopping Syslog Forwarder Worker: {e}", exc_info=True)
 
     session.close()
     logging.info("Application shutdown")
@@ -1174,6 +1191,7 @@ app.include_router(services_router)  # Hub Local Services (Kokoro TTS container 
 app.include_router(queue_router)  # Message Queue System
 app.include_router(api_clients_router)  # Public API v1: Client Management (UI-facing)
 app.include_router(audit_router)  # v0.6.0: Tenant-Scoped Audit Logs
+app.include_router(syslog_config_router)  # v0.6.0: Syslog Forwarding Configuration
 app.include_router(v1_router)  # Public API v1: All /api/v1/ endpoints
 
 # Prometheus metrics endpoint (unauthenticated — scrape target)

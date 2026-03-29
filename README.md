@@ -254,6 +254,15 @@ Programmatic REST API for external applications.
 - 64+ granular permissions with visual permission matrix
 - Team management
 
+### Audit Logging & Compliance
+- Tenant-scoped audit events with 30+ event types (auth, CRUD, security, team)
+- JSONB structured details, severity levels, channel tracking
+- Advanced filtering (action, severity, channel, date range) with CSV export
+- Per-tenant retention policies (configurable days)
+- **Syslog streaming**: RFC 5424 forwarding via TCP, UDP, or TLS to external syslog servers
+- Per-tenant syslog configuration with event category filtering and circuit breaker
+- Background forwarder worker with connection pooling and batch processing
+
 ---
 
 ## Architecture

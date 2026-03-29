@@ -524,6 +524,26 @@ def log_tenant_event(
             severity=severity,
         )
         db.commit()  # Commit the flushed audit event
+
+        # Syslog forwarding: enqueue event data (non-blocking, fire-and-forget)
+        try:
+            from services.syslog_forwarder import enqueue_event
+            enqueue_event(tenant_id, {
+                "id": event.id,
+                "tenant_id": tenant_id,
+                "user_id": user_id,
+                "action": action,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+                "details": details,
+                "ip_address": ip_address,
+                "channel": channel,
+                "severity": severity,
+                "created_at": event.created_at.isoformat() if event.created_at else None,
+            })
+        except Exception:
+            pass  # Never let syslog forwarding break audit logging
+
         return event
     except Exception as e:
         logger.error(f"Failed to log audit event {action}: {e}")
