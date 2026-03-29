@@ -141,9 +141,19 @@ async def execute_command(
     Handles built-in commands and routes to appropriate handlers.
     """
     from agent.memory.tool_output_buffer import get_tool_output_buffer
+    from models import Agent
     import logging
 
     logger = logging.getLogger(__name__)
+
+    # Validate agent belongs to user's tenant
+    agent = db.query(Agent).filter(
+        Agent.id == data.agent_id,
+        Agent.tenant_id == current_user.tenant_id
+    ).first()
+    if not agent:
+        raise HTTPException(status_code=403, detail="Agent not accessible")
+
     service = SlashCommandService(db)
 
     # Use provided sender_key or generate from user ID

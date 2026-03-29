@@ -379,6 +379,9 @@ export default function InlineCommands({
                   {cmd.description && (
                     <p className="text-white/50 text-xs mt-0.5 truncate">{cmd.description}</p>
                   )}
+                  {isSelected && cmd.help_text && (
+                    <p className="text-white/40 text-xs mt-1 line-clamp-2 font-mono">{cmd.help_text}</p>
+                  )}
                 </div>
 
                 {isSelected && (

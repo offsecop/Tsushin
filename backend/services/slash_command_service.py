@@ -1087,7 +1087,7 @@ Type `/help all` to see syntax for all commands.
 
     async def _handle_status(self, **kwargs) -> Dict[str, Any]:
         """Handle /status."""
-        from models import Agent, UserProjectSession
+        from models import Agent, Contact, UserProjectSession
 
         agent_id = kwargs.get("agent_id")
         sender_key = kwargs.get("sender_key")
@@ -1095,6 +1095,10 @@ Type `/help all` to see syntax for all commands.
         channel = kwargs.get("channel")
 
         agent = self.db.query(Agent).filter(Agent.id == agent_id).first()
+        agent_name = "Unknown"
+        if agent:
+            contact = self.db.query(Contact).filter(Contact.id == agent.contact_id).first()
+            agent_name = contact.friendly_name if contact else f"Agent {agent.id}"
 
         # Check if in project
         session = self.db.query(UserProjectSession).filter(
@@ -1116,7 +1120,7 @@ Type `/help all` to see syntax for all commands.
             "action": "status",
             "message": f"""📊 **System Status**
 
-🤖 **Agent:** {agent.name if agent else 'Unknown'}
+🤖 **Agent:** {agent_name}
 📺 **Channel:** {channel}
 📁 **Project:** {project_status}
 ⏰ **Time:** {datetime.now().strftime('%Y-%m-%d %H:%M')}"""

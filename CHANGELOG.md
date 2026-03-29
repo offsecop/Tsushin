@@ -79,6 +79,9 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Previously, slash command responses with markdown (`**bold**`, lists, code blocks) were displayed as raw text
 - User messages remain as plain text to avoid unintended formatting
 
+#### Slash Command Fixes
+- Fixed `/status` command crash — `Agent.name` attribute error (correct field is `agent_name`)
+
 ### Added
 
 #### Sentinel Security Profiles
