@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react'
 import { SkillDefinition } from '@/lib/client'
-import { SearchIcon, IconProps } from '@/components/ui/icons'
+import { SearchIcon, WrenchIcon, IconProps } from '@/components/ui/icons'
 import {
   SKILL_CATEGORIES, SKILL_DISPLAY_INFO, HIDDEN_SKILLS, COMPOSITE_SKILLS,
   SPECIAL_RENDERED_SKILLS, getSkillDisplay, SkillCategory,
@@ -276,7 +276,9 @@ export default function AddSkillModal({
                         className="text-left p-4 rounded-lg border border-tsushin-border hover:border-teal-500 hover:bg-teal-900/10 transition-all group"
                       >
                         <div className="flex items-start gap-3">
-                          <span className="text-lg mt-0.5">{skill.icon || '\uD83E\uDDE9'}</span>
+                          <div className="w-8 h-8 rounded-lg bg-violet-500/15 border border-violet-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                            <WrenchIcon size={14} className="text-violet-400" />
+                          </div>
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-white text-sm group-hover:text-teal-300 transition-colors">
                               {skill.name}
