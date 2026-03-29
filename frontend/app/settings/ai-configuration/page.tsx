@@ -61,6 +61,26 @@ const PROVIDER_ICONS: Record<string, React.ReactNode> = {
       <path d="M13 3v6h8V3h-8zM3 21h8v-6H3v6zm0-8h8V3H3v10zm10 8h8v-6h-8v6z"/>
     </svg>
   ),
+  grok: (
+    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M4.5 2l7.5 10L4.5 22h2.1l6.45-8.55L19.5 22h2.1L12 12 21.6 2h-2.1l-6.45 8.55L6.6 2z"/>
+    </svg>
+  ),
+  groq: (
+    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M13 3L4 14h7l-2 7 9-11h-7l2-7z"/>
+    </svg>
+  ),
+  deepseek: (
+    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+    </svg>
+  ),
+  ollama: (
+    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7zm2 15h-4v-1h4v1zm1.5-4.37l-.5.34V15h-6v-2.03l-.5-.34A5 5 0 0 1 7 9a5 5 0 0 1 10 0 5 5 0 0 1-1.5 3.63z"/>
+    </svg>
+  ),
 }
 
 // Provider colors for styling
@@ -68,7 +88,11 @@ const PROVIDER_COLORS: Record<string, { bg: string; text: string; border: string
   gemini: { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/30' },
   anthropic: { bg: 'bg-orange-500/10', text: 'text-orange-400', border: 'border-orange-500/30' },
   openai: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/30' },
+  grok: { bg: 'bg-red-500/10', text: 'text-red-400', border: 'border-red-500/30' },
+  deepseek: { bg: 'bg-indigo-500/10', text: 'text-indigo-400', border: 'border-indigo-500/30' },
   openrouter: { bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/30' },
+  groq: { bg: 'bg-yellow-500/10', text: 'text-yellow-400', border: 'border-yellow-500/30' },
+  ollama: { bg: 'bg-violet-500/10', text: 'text-violet-400', border: 'border-violet-500/30' },
 }
 
 export default function AIConfigurationPage() {
