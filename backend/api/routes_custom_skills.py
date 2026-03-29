@@ -233,18 +233,34 @@ def _to_version_response(v: CustomSkillVersion) -> CustomSkillVersionResponse:
     )
 
 
-async def _scan_instructions(instructions: str, db) -> dict:
+async def _scan_instructions(instructions: str, db, tenant_id: str = None) -> dict:
     """Run Sentinel scan on instruction content. Fail-open if unavailable."""
     try:
         from services.sentinel_service import SentinelService
-        sentinel = SentinelService(db)
+        sentinel = SentinelService(db, tenant_id=tenant_id)
+
+        # Resolve effective profile for metadata
+        config = sentinel.get_effective_config()
+        profile_meta = {
+            "profile_name": config.profile_name,
+            "profile_id": config.profile_id if config.profile_id != -1 else None,
+            "profile_source": config.profile_source,
+            "detection_mode": config.detection_mode,
+            "scanned_at": datetime.utcnow().isoformat() + "Z",
+        }
+
         result = await sentinel.analyze_prompt(prompt=instructions, source=None)
         if hasattr(result, 'is_threat_detected') and result.is_threat_detected:
             return {
                 "scan_status": "rejected",
-                "last_scan_result": {"reason": getattr(result, 'threat_reason', 'Unknown')},
+                "last_scan_result": {
+                    "reason": getattr(result, 'threat_reason', 'Unknown'),
+                    "detection_type": getattr(result, 'detection_type', None),
+                    "threat_score": getattr(result, 'threat_score', None),
+                    **profile_meta,
+                },
             }
-        return {"scan_status": "clean", "last_scan_result": None}
+        return {"scan_status": "clean", "last_scan_result": {**profile_meta}}
     except Exception as e:
         logger.warning(f"Sentinel scan failed, defaulting to clean: {e}")
         return {"scan_status": "clean", "last_scan_result": None}
@@ -408,7 +424,7 @@ async def create_custom_skill(
 
     # Run Sentinel scan on instructions if provided
     if payload.instructions_md:
-        scan_result = await _scan_instructions(payload.instructions_md, db)
+        scan_result = await _scan_instructions(payload.instructions_md, db, tenant_id=ctx.tenant_id)
         skill.scan_status = scan_result["scan_status"]
         skill.last_scan_result = scan_result.get("last_scan_result")
     else:
@@ -506,7 +522,7 @@ async def update_custom_skill(
 
     # Re-scan if instructions changed
     if instructions_changed and skill.instructions_md:
-        scan_result = await _scan_instructions(skill.instructions_md, db)
+        scan_result = await _scan_instructions(skill.instructions_md, db, tenant_id=ctx.tenant_id)
         skill.scan_status = scan_result["scan_status"]
         skill.last_scan_result = scan_result.get("last_scan_result")
 
@@ -629,7 +645,7 @@ async def scan_custom_skill(
         db.commit()
         return {"scan_status": "clean", "last_scan_result": None}
 
-    scan_result = await _scan_instructions(content_to_scan, db)
+    scan_result = await _scan_instructions(content_to_scan, db, tenant_id=ctx.tenant_id)
     skill.scan_status = scan_result["scan_status"]
     skill.last_scan_result = scan_result.get("last_scan_result")
     db.commit()

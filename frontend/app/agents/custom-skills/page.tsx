@@ -103,6 +103,9 @@ function CustomSkillsPageContent() {
   const [testRunning, setTestRunning] = useState(false)
   const [testResult, setTestResult] = useState<any>(null)
 
+  // Scan detail popover
+  const [scanDetailSkillId, setScanDetailSkillId] = useState<number | null>(null)
+
   // MCP Server state
   const [mcpServers, setMcpServers] = useState<any[]>([])
   const [mcpTools, setMcpTools] = useState<any[]>([])
@@ -346,7 +349,8 @@ function CustomSkillsPageContent() {
     try {
       const result = await api.scanCustomSkill(skill.id)
       if (result.scan_status === 'rejected') {
-        setError(`Scan flagged skill "${skill.name}" as potentially unsafe`)
+        const reason = result.last_scan_result?.reason
+        setError(`Scan flagged skill "${skill.name}" as potentially unsafe${reason ? `: ${reason}` : ''}`)
       } else {
         setSuccess(`Skill "${skill.name}" passed security scan`)
       }
@@ -422,7 +426,7 @@ function CustomSkillsPageContent() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8" onClick={() => scanDetailSkillId && setScanDetailSkillId(null)}>
       <div className="max-w-6xl mx-auto">
         {/* Back + Breadcrumb */}
         <div className="flex items-center gap-3 mb-6">
@@ -549,8 +553,92 @@ function CustomSkillsPageContent() {
                         <span className={`text-xs px-2 py-0.5 rounded-full ${typeBadge(skill.skill_type_variant)}`}>
                           {typeLabel(skill.skill_type_variant)}
                         </span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${scanBadge(skill.scan_status)}`}>
-                          {skill.scan_status}
+                        <span className="relative">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setScanDetailSkillId(scanDetailSkillId === skill.id ? null : skill.id) }}
+                            className={`text-xs px-2 py-0.5 rounded-full cursor-pointer hover:opacity-80 transition-opacity ${scanBadge(skill.scan_status)}`}
+                            title="Click for scan details"
+                          >
+                            {skill.scan_status}
+                          </button>
+                          {scanDetailSkillId === skill.id && skill.last_scan_result && (
+                            <div className="absolute top-full left-0 mt-2 z-50 w-80 bg-tsushin-surface border border-white/15 rounded-xl shadow-2xl p-4 space-y-3">
+                              <div className="flex items-center justify-between">
+                                <h4 className="text-sm font-semibold text-white flex items-center gap-1.5">
+                                  <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                  </svg>
+                                  Scan Details
+                                </h4>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setScanDetailSkillId(null) }}
+                                  className="text-tsushin-slate hover:text-white transition-colors"
+                                >
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                              </div>
+                              {skill.last_scan_result.reason && (
+                                <div>
+                                  <p className="text-xs text-tsushin-slate mb-1">Reason</p>
+                                  <p className="text-sm text-red-300 bg-red-500/10 border border-red-500/20 rounded-lg p-2">
+                                    {skill.last_scan_result.reason}
+                                  </p>
+                                </div>
+                              )}
+                              {skill.last_scan_result.detection_type && (
+                                <div>
+                                  <p className="text-xs text-tsushin-slate mb-1">Detection Type</p>
+                                  <p className="text-sm text-white">{skill.last_scan_result.detection_type.replace(/_/g, ' ')}</p>
+                                </div>
+                              )}
+                              {skill.last_scan_result.threat_score != null && (
+                                <div>
+                                  <p className="text-xs text-tsushin-slate mb-1">Threat Score</p>
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                      <div
+                                        className={`h-full rounded-full ${skill.last_scan_result.threat_score > 0.7 ? 'bg-red-500' : skill.last_scan_result.threat_score > 0.4 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                        style={{ width: `${Math.round(skill.last_scan_result.threat_score * 100)}%` }}
+                                      />
+                                    </div>
+                                    <span className="text-xs text-tsushin-slate">{Math.round(skill.last_scan_result.threat_score * 100)}%</span>
+                                  </div>
+                                </div>
+                              )}
+                              {skill.last_scan_result.profile_name && (
+                                <div>
+                                  <p className="text-xs text-tsushin-slate mb-1">Sentinel Profile</p>
+                                  <p className="text-sm text-white">
+                                    {skill.last_scan_result.profile_name}
+                                    {skill.last_scan_result.profile_source && (
+                                      <span className="text-xs text-tsushin-slate ml-1.5">({skill.last_scan_result.profile_source})</span>
+                                    )}
+                                  </p>
+                                </div>
+                              )}
+                              {skill.last_scan_result.detection_mode && (
+                                <div>
+                                  <p className="text-xs text-tsushin-slate mb-1">Detection Mode</p>
+                                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                    skill.last_scan_result.detection_mode === 'block'
+                                      ? 'bg-red-500/15 text-red-300 border border-red-500/30'
+                                      : skill.last_scan_result.detection_mode === 'detect_only'
+                                      ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                                      : 'bg-white/5 text-tsushin-slate border border-white/10'
+                                  }`}>
+                                    {skill.last_scan_result.detection_mode.replace(/_/g, ' ')}
+                                  </span>
+                                </div>
+                              )}
+                              {skill.last_scan_result.scanned_at && (
+                                <div>
+                                  <p className="text-xs text-tsushin-slate mb-1">Scanned At</p>
+                                  <p className="text-xs text-tsushin-slate">{formatDate(skill.last_scan_result.scanned_at)}</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </span>
                         {!skill.is_enabled && (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-tsushin-slate border border-white/10">
@@ -699,18 +787,6 @@ function CustomSkillsPageContent() {
                   />
                 </div>
 
-                {/* Icon */}
-                <div>
-                  <label className="block text-sm font-medium text-tsushin-slate mb-1">Icon (emoji)</label>
-                  <input
-                    type="text"
-                    value={formIcon}
-                    onChange={(e) => setFormIcon(e.target.value)}
-                    className="w-20 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-center focus:outline-none focus:border-tsushin-accent/50"
-                    placeholder=""
-                    maxLength={4}
-                  />
-                </div>
 
                 {/* Type row */}
                 <div className="grid grid-cols-3 gap-4">
