@@ -11,6 +11,13 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 **Theme:** Security, Streaming, Providers, Public API & UX
 
+### Removed
+
+#### Weather Skill Deprecation
+- Removed Weather skill (OpenWeatherMap integration) from the platform
+- Removed `OPENWEATHER_API_KEY` from all environment configuration files
+- Updated skill count from 21 to 20
+
 ### Added
 
 #### Sentinel Security Profiles
@@ -302,7 +309,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.5.0] - 2026-02-07
 
-Initial public release. 21 skills, 18 providers, 60+ database tables, 170+ API endpoints, 3 channels.
+Initial public release. 20 skills, 18 providers, 60+ database tables, 170+ API endpoints, 3 channels.
 
 See `ROADMAP_ARCHIVE_2026-02-07.md` for full implementation details.
 
@@ -311,7 +318,7 @@ See `ROADMAP_ARCHIVE_2026-02-07.md` for full implementation details.
 - Multi-tenancy with RBAC (50+ permissions), JWT auth, team management
 - AI Providers: OpenAI, Anthropic, Google Gemini, Ollama, OpenRouter (100+ models)
 - Channels: WhatsApp (MCP containers), Telegram (Bot API), Playground (web)
-- 21 Skills: Shell, Browser Automation, Image Gen, Search, Weather, Web Scraping, Email, Scheduler, Flight Search, Audio TTS/Transcription, Adaptive Personality, Knowledge Sharing, Agent Switcher, Flow Engine, Sandboxed Tools, AI Classifier
+- 20 Skills: Shell, Browser Automation, Image Gen, Search, Web Scraping, Email, Scheduler, Flight Search, Audio TTS/Transcription, Adaptive Personality, Knowledge Sharing, Agent Switcher, Flow Engine, Sandboxed Tools, AI Classifier
 - Projects system with isolated workspaces and knowledge base
 - Conversation threads with message operations (edit, regenerate, branch, bookmark)
 - Conversation search (FTS5 + semantic), knowledge extraction (tags, insights)

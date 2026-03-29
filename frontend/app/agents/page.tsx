@@ -19,7 +19,6 @@ import {
   MicrophoneIcon,
   VolumeIcon,
   SearchIcon,
-  CloudSunIcon,
   GlobeIcon,
   ShuffleIcon,
   BrainIcon,
@@ -50,7 +49,7 @@ interface AgentFormData {
 }
 
 // AVAILABLE_TOOLS removed - legacy tools migrated to Skills system
-// Use AgentSkill table for web_search, weather, web_scraping skills
+// Use AgentSkill table for web_search, web_scraping skills
 const MODEL_PROVIDERS = [
   { value: 'anthropic', label: 'Anthropic', models: ['claude-sonnet-4.5', 'claude-3-5-sonnet-20241022', 'claude-3-opus-20240229'] },
   { value: 'openai', label: 'OpenAI', models: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'] },
@@ -101,7 +100,6 @@ const SKILL_ICONS: Record<string, { Icon: React.FC<IconProps>; label: string }> 
   'audio_tts': { Icon: VolumeIcon, label: 'TTS' },
   // Web skills (migrated from legacy tools)
   'web_search': { Icon: SearchIcon, label: 'Web Search' },
-  'weather': { Icon: CloudSunIcon, label: 'Weather' },
   'web_scraping': { Icon: GlobeIcon, label: 'Web Scraping' },
   // Other skills
   'agent_switcher': { Icon: ShuffleIcon, label: 'Agent Switcher' },
@@ -399,7 +397,7 @@ export default function AgentsPage() {
         system_prompt: formData.system_prompt,
         persona_id: formData.persona_id,
         keywords: formData.keywords,
-        // enabled_tools removed - use Skills system for web_search, weather, etc.
+        // enabled_tools removed - use Skills system for web_search, etc.
         model_provider: formData.model_provider,
         model_name: formData.model_name,
         is_active: formData.is_active,
@@ -1168,7 +1166,7 @@ export default function AgentsPage() {
                   <LightbulbIcon size={16} className="text-teal-400 flex-shrink-0 mt-0.5" />
                   <span>
                     <span className="text-teal-400 font-medium">Skills Note:</span>{' '}
-                    Configure Web Search, Weather, and other capabilities as Skills after creating the agent.
+                    Configure Web Search and other capabilities as Skills after creating the agent.
                     Visit the agent&apos;s Manage page → Skills tab.
                   </span>
                 </p>

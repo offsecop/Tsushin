@@ -80,7 +80,7 @@ The installer will guide you through configuration, deploy Docker containers, an
 | OpenAI | Cloud | Premium voices |
 | ElevenLabs | Cloud | Neural TTS, voice cloning, 25+ languages |
 
-### Skills (21 Built-in)
+### Skills (20 Built-in)
 | Skill | Description |
 |-------|-------------|
 | Audio Transcription | Whisper API voice-to-text |
@@ -97,7 +97,6 @@ The installer will guide you through configuration, deploy Docker containers, an
 | Knowledge Sharing | Cross-agent fact extraction |
 | Agent Switcher | Switch agents via conversation |
 | Flight Search | Amadeus and Google Flights search |
-| Weather | Multi-provider weather information |
 | Sandboxed Tools | Master toggle for Docker-isolated tool access |
 
 ### Sentinel Security System
@@ -161,7 +160,7 @@ Automated multi-step workflow engine.
 - Template-based flow creation
 - Variable interpolation
 - Multi-turn conversation support within flows
-- Skill integration (weather, flights, and more)
+- Skill integration (flights, web search, and more)
 - Flow execution history and status tracking
 
 ### Watcher (Observability)
@@ -190,7 +189,7 @@ Real-time monitoring and analytics platform.
 | Communication | WhatsApp, Telegram |
 | Productivity | Asana, Google Calendar |
 | Developer Tools | Shell, Browser Automation |
-| Tool APIs | Brave Search, SerpAPI, Amadeus, OpenWeather |
+| Tool APIs | Brave Search, SerpAPI, Amadeus |
 | TTS Providers | Kokoro, OpenAI, ElevenLabs |
 
 ### Playground
@@ -276,7 +275,7 @@ Programmatic REST API for external applications.
 │  │     CORE     │     │      HUB      │     │       STUDIO        │         │
 │  │              │     │               │     │                     │         │
 │  │ Agent Engine │     │ AI Providers  │     │ Agents   Personas   │         │
-│  │ 21 Skills    │     │ Comm Channels │     │ Contacts Projects   │         │
+│  │ 20 Skills    │     │ Comm Channels │     │ Contacts Projects   │         │
 │  │ AI Classifier│     │ Tool APIs     │     │ Tone Presets        │         │
 │  │ Sentinel     │     │ TTS Providers │     │ Knowledge Bases     │         │
 │  └──────┬───────┘     └───────┬───────┘     └─────────────────────┘         │

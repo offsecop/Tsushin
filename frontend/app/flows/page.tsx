@@ -51,7 +51,6 @@ import {
   DocumentIcon,
   CommandIcon,
   PlaneIcon,
-  CloudSunIcon,
   SearchIcon,
   GlobeIcon,
   CalendarDaysIcon,
@@ -86,7 +85,7 @@ const STEP_TYPES: { value: StepType; label: string; Icon: React.FC<IconProps>; d
   { value: 'message', label: 'Message', Icon: EnvelopeIcon, description: 'Send a single message' },
   { value: 'notification', label: 'Notification', Icon: BellIcon, description: 'Send a notification' },
   { value: 'tool', label: 'Tool', Icon: WrenchIcon, description: 'Execute a tool or action' },
-  { value: 'skill', label: 'Skill', Icon: BrainIcon, description: 'Execute an agentic skill (flight search, weather, etc.)' },
+  { value: 'skill', label: 'Skill', Icon: BrainIcon, description: 'Execute an agentic skill (flight search, web search, etc.)' },
   { value: 'summarization', label: 'Summarization', Icon: DocumentIcon, description: 'AI-powered summary of conversation' },
   { value: 'slash_command', label: 'Slash Command', Icon: CommandIcon, description: 'Execute a slash command (/scheduler, /memory, etc.)' },
 ]
@@ -120,7 +119,6 @@ const SUMMARIZATION_MODELS = [
 // Available agent skills for the skill step type
 const AVAILABLE_SKILLS: { value: string; label: string; Icon: React.FC<IconProps>; description: string }[] = [
   { value: 'flight_search', label: 'Flight Search', Icon: PlaneIcon, description: 'Search for flights using natural language' },
-  { value: 'weather', label: 'Weather', Icon: CloudSunIcon, description: 'Get weather information for any location' },
   { value: 'web_search', label: 'Web Search', Icon: SearchIcon, description: 'Search the web for information' },
   { value: 'web_scraping', label: 'Web Scraping', Icon: GlobeIcon, description: 'Extract data from web pages' },
   { value: 'scheduler', label: 'Scheduler', Icon: CalendarIcon, description: 'Manage calendar events and reminders' },
@@ -2100,7 +2098,6 @@ function StepConfigForm({ step, agents, contacts, personas, customTools, customS
               {(currentConfig?.tool_type || 'built_in') === 'built_in' ? (
                 <>
                   <option value="google_search">Google Search</option>
-                  <option value="weather">Weather</option>
                   <option value="web_scraping">Web Scraping</option>
                   <option value="asana_tasks">Asana Tasks</option>
                   <option value="send_message">Send Message</option>
@@ -2219,14 +2216,6 @@ function StepConfigForm({ step, agents, contacts, personas, customTools, customS
               <p className="text-xs text-slate-400">
                 <span className="text-cyan-400 font-medium inline-flex items-center gap-1"><PlaneIcon size={12} /> Flight Search Tips:</span> Include origin, destination, date, and currency.
                 <br />Example: "busque voos de VIX para GRU dia 20 de Janeiro de 2026 em BRL"
-              </p>
-            </div>
-          )}
-          {currentConfig?.skill_type === 'weather' && (
-            <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700">
-              <p className="text-xs text-slate-400">
-                <span className="text-cyan-400 font-medium inline-flex items-center gap-1"><CloudSunIcon size={12} /> Weather Tips:</span> Specify the location clearly.
-                <br />Example: "Como está o tempo em São Paulo hoje?"
               </p>
             </div>
           )}
@@ -3091,7 +3080,6 @@ function EditableStepConfigForm({ step, agents, contacts, personas, customTools,
               {(currentConfig?.tool_type || 'built_in') === 'built_in' ? (
                 <>
                   <option value="google_search">Google Search</option>
-                  <option value="weather">Weather</option>
                   <option value="web_scraping">Web Scraping</option>
                   <option value="asana_tasks">Asana Tasks</option>
                   <option value="send_message">Send Message</option>
@@ -3199,14 +3187,6 @@ function EditableStepConfigForm({ step, agents, contacts, personas, customTools,
               <p className="text-xs text-slate-400">
                 <span className="text-cyan-400 font-medium inline-flex items-center gap-1"><PlaneIcon size={12} /> Flight Search Tips:</span> Include origin, destination, date, and currency.
                 <br />Example: "busque voos de VIX para GRU dia 20 de Janeiro de 2026 em BRL"
-              </p>
-            </div>
-          )}
-          {currentConfig?.skill_type === 'weather' && (
-            <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700">
-              <p className="text-xs text-slate-400">
-                <span className="text-cyan-400 font-medium inline-flex items-center gap-1"><CloudSunIcon size={12} /> Weather Tips:</span> Specify the location clearly.
-                <br />Example: "Como está o tempo em São Paulo hoje?"
               </p>
             </div>
           )}
