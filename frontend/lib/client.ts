@@ -89,7 +89,7 @@ export interface Config {
   agent_phone_number: string
   agent_name: string
   group_keywords: string[]
-  // enabled_tools removed - use AgentSkill table for web_search, weather, etc.
+  // enabled_tools removed - use AgentSkill table for web_search, etc.
   // Phase 4.1 fields
   enable_semantic_search: boolean
   semantic_search_results: number
@@ -793,7 +793,7 @@ export interface Agent {
   tone_preset_name?: string
   custom_tone?: string
   keywords: string[]
-  // enabled_tools removed - use AgentSkill table for web_search, weather, etc.
+  // enabled_tools removed - use AgentSkill table for web_search, etc.
   model_provider: string
   model_name: string
   response_template: string
@@ -2743,7 +2743,7 @@ export const api = {
     tone_preset_id?: number
     custom_tone?: string
     keywords?: string[]
-    // enabled_tools removed - use AgentSkill table for web_search, weather, etc.
+    // enabled_tools removed - use AgentSkill table for web_search, etc.
     model_provider?: string
     model_name?: string
     is_active?: boolean
