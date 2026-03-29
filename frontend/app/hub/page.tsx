@@ -38,7 +38,6 @@ import {
   TerminalIcon as TerminalIconSvg,
   GitHubIcon,
   SearchIcon,
-  CloudSunIcon,
   BotIcon as BotIconSvg,
   BrainIcon,
   BeakerIcon,
@@ -217,7 +216,6 @@ const DEVELOPER_TOOLS: { value: string; label: string; Icon: React.FC<IconProps>
 const TOOL_APIS: { value: string; label: string; Icon: React.FC<IconProps>; description: string; status: string }[] = [
   { value: 'brave_search', label: 'Brave Search', Icon: SearchIcon, description: 'Privacy-focused web search API', status: 'available' },
   { value: 'google_flights', label: 'SerpAPI (Google Services)', Icon: GlobeIcon, description: 'Unified SerpAPI key for Google Search, Google Flights, and other Google services', status: 'available' },
-  { value: 'openweather', label: 'OpenWeather', Icon: CloudSunIcon, description: 'Weather data API', status: 'available' },
   { value: 'amadeus', label: 'Amadeus', Icon: PlaneIcon, description: 'Flight search API', status: 'available' },
 ]
 
@@ -2907,7 +2905,7 @@ export default function HubPage() {
                   </h3>
                   <p className="text-xs text-tsushin-slate">
                     These tools are automatically available to agents when the corresponding API keys are configured.
-                    Tools include: Web Search (Brave/Google), Weather (OpenWeather), Flight Search (Amadeus/Google), and Web Scraping.
+                    Tools include: Web Search (Brave/Google), Flight Search (Amadeus/Google), and Web Scraping.
                   </p>
                 </div>
               </div>
