@@ -13,6 +13,18 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+#### Dedicated Custom Skill Scan Profile (Sentinel)
+- New "Custom Skill Scan" system Sentinel profile optimized for scanning admin-authored skill instructions
+- Context-aware LLM analysis prompt (`SKILL_SCAN_UNIFIED_PROMPT`) that understands skill instructions are meant to modify agent behavior — won't flag "act as X" or "always recommend Y" as threats
+- Disables `agent_takeover`, `poisoning`, and `memory_poisoning` detections (these ARE what skills do by design)
+- Keeps `shell_malicious` (skills should never embed dangerous shell commands) and skill-aware `prompt_injection` (meta-attacks targeting the scanner)
+- New `analyze_skill_instructions()` method in SentinelService with `_resolve_skill_scan_config()` auto-resolving to the dedicated system profile
+- Post-classification detection filter: if LLM classifies as a disabled detection type, overrides to allowed (bug fix benefiting all analysis)
+- Separate cache namespace (`unified_skill_scan`) prevents cross-contamination with standard message analysis
+- Profile is customizable per tenant via Settings > Sentinel > Custom Skill Scanning section
+- Rejected skills are enforced at runtime — `skill_manager.py` filters `scan_status == 'clean'` in 3 locations
+- Skills can only become usable again via manual re-scan returning clean (not auto-override)
+
 #### Custom Skill Scan Detail Popover
 - Clickable scan status badge on every custom skill card opens a detailed popover
 - Popover shows: rejection reason, detection type, threat score (visual bar), Sentinel profile name/scope/mode, and scan timestamp

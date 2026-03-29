@@ -305,6 +305,85 @@ class SentinelService:
     # Analysis Methods
     # =========================================================================
 
+    def _resolve_skill_scan_config(self, profile_id: Optional[int] = None) -> SentinelEffectiveConfig:
+        """
+        Resolve config for skill instruction scanning.
+
+        Resolution order:
+        1. Explicitly specified profile_id (from the CustomSkill record)
+        2. "custom-skill-scan" system profile (auto-resolved)
+        3. Fallback to standard effective config (tenant/system default)
+        """
+        try:
+            from .sentinel_profiles_service import SentinelProfilesService
+            from models import SentinelProfile
+
+            if profile_id:
+                svc = SentinelProfilesService(self.db, self.tenant_id)
+                profile = self.db.query(SentinelProfile).filter(
+                    SentinelProfile.id == profile_id,
+                ).first()
+                if profile:
+                    return svc._resolve_profile(profile, "skill_scan")
+
+            # Auto-resolve: look for "custom-skill-scan" system profile
+            skill_scan_profile = self.db.query(SentinelProfile).filter(
+                SentinelProfile.slug == "custom-skill-scan",
+                SentinelProfile.is_system == True,
+                SentinelProfile.tenant_id.is_(None),
+            ).first()
+
+            if skill_scan_profile and skill_scan_profile.is_enabled:
+                svc = SentinelProfilesService(self.db, self.tenant_id)
+                return svc._resolve_profile(skill_scan_profile, "system")
+        except Exception as e:
+            self.logger.warning(f"Skill scan profile resolution failed, using default: {e}")
+
+        return self.get_effective_config()
+
+    async def analyze_skill_instructions(
+        self,
+        instructions: str,
+        skill_profile_id: Optional[int] = None,
+    ) -> SentinelAnalysisResult:
+        """
+        Analyze custom skill instructions for embedded malicious content.
+
+        Uses the "Custom Skill Scan" system profile by default, which disables
+        detections that conflict with intentional behavior modification
+        (agent_takeover, poisoning, memory_poisoning) while keeping
+        shell_malicious and a skill-aware prompt_injection check.
+
+        Args:
+            instructions: The skill instruction text to scan
+            skill_profile_id: Optional specific profile to use (overrides auto-resolution)
+
+        Returns:
+            SentinelAnalysisResult with threat detection results
+        """
+        start_time = time.time()
+
+        config = self._resolve_skill_scan_config(skill_profile_id)
+
+        if not config.is_enabled:
+            return self._create_allowed_result("skill_scan", "sentinel_disabled", start_time)
+
+        if config.aggressiveness_level <= 0:
+            return self._create_allowed_result("skill_scan", "aggressiveness_off", start_time)
+
+        truncated = instructions[:config.max_input_chars]
+
+        return await self._analyze_unified(
+            input_content=truncated,
+            analysis_type="skill_scan",
+            config=config,
+            sender_key=None,
+            message_id=None,
+            agent_id=None,
+            start_time=start_time,
+            scan_mode="skill_scan",
+        )
+
     async def analyze_prompt(
         self,
         prompt: str,
@@ -1011,6 +1090,7 @@ class SentinelService:
         agent_id: Optional[int],
         start_time: float,
         skill_context: Optional[str] = None,
+        scan_mode: str = "standard",
     ) -> SentinelAnalysisResult:
         """
         Perform unified threat classification with a single LLM call.
@@ -1018,9 +1098,13 @@ class SentinelService:
         This replaces the multi-call approach with a single unified prompt that
         detects AND classifies threats, reducing token consumption by 67-75%.
 
+        Args:
+            scan_mode: "standard" for user messages, "skill_scan" for custom skill instructions.
+                       skill_scan uses a context-aware prompt that won't flag behavior modification.
+
         Returns the most appropriate threat classification or 'none' if safe.
         """
-        from .sentinel_detections import get_unified_prompt
+        from .sentinel_detections import get_unified_prompt, get_skill_scan_prompt
 
         # Check detection mode
         detection_mode = config.detection_mode
@@ -1030,16 +1114,19 @@ class SentinelService:
 
         input_hash = self._hash_input(input_content)
 
-        # Check cache (using 'unified' as detection_type for cache key)
+        # Use scan_mode in cache key to avoid cross-contamination
+        cache_detection_key = "unified" if scan_mode == "standard" else f"unified_{scan_mode}"
+
+        # Check cache
         cached_result = self._check_cache(
             input_hash=input_hash,
             analysis_type=analysis_type,
-            detection_type="unified",
+            detection_type=cache_detection_key,
             aggressiveness=config.aggressiveness_level,
         )
 
         if cached_result:
-            self.logger.debug("Cache hit for unified analysis")
+            self.logger.debug(f"Cache hit for {scan_mode} analysis")
             cached_result.response_time_ms = int((time.time() - start_time) * 1000)
             if cached_result.is_threat_detected:
                 if detection_mode == "detect_only":
@@ -1048,8 +1135,11 @@ class SentinelService:
                     cached_result.action = "warned"
             return cached_result
 
-        # Get unified classification prompt
-        analysis_prompt = get_unified_prompt(config.aggressiveness_level)
+        # Get classification prompt based on scan mode
+        if scan_mode == "skill_scan":
+            analysis_prompt = get_skill_scan_prompt(config.aggressiveness_level)
+        else:
+            analysis_prompt = get_unified_prompt(config.aggressiveness_level)
         if not analysis_prompt:
             return self._create_allowed_result(analysis_type, "no_prompt", start_time)
 
@@ -1080,6 +1170,17 @@ class SentinelService:
             response_time_ms,
         )
 
+        # Post-classification detection filter: if LLM classified as a detection
+        # type that is disabled in the profile, override to allowed
+        if result.is_threat_detected and result.detection_type != "none":
+            if not config.is_detection_enabled(result.detection_type):
+                self.logger.info(
+                    f"Detection type '{result.detection_type}' classified but disabled in profile "
+                    f"'{config.profile_name}', overriding to allowed"
+                )
+                result.is_threat_detected = False
+                result.action = "allowed"
+
         # Handle non-blocking detection modes
         if result.is_threat_detected and detection_mode == "detect_only":
             self.logger.info(
@@ -1098,7 +1199,7 @@ class SentinelService:
         self._save_cache(
             input_hash=input_hash,
             analysis_type=analysis_type,
-            detection_type="unified",
+            detection_type=cache_detection_key,
             aggressiveness=config.aggressiveness_level,
             result=result,
             ttl=config.cache_ttl_seconds,

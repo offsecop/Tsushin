@@ -233,14 +233,14 @@ def _to_version_response(v: CustomSkillVersion) -> CustomSkillVersionResponse:
     )
 
 
-async def _scan_instructions(instructions: str, db, tenant_id: str = None) -> dict:
-    """Run Sentinel scan on instruction content. Fail-open if unavailable."""
+async def _scan_instructions(instructions: str, db, tenant_id: str = None, sentinel_profile_id: int = None) -> dict:
+    """Run Sentinel scan on skill instruction content using skill-optimized analysis. Fail-open if unavailable."""
     try:
         from services.sentinel_service import SentinelService
         sentinel = SentinelService(db, tenant_id=tenant_id)
 
-        # Resolve effective profile for metadata
-        config = sentinel.get_effective_config()
+        # Resolve effective skill-scan profile for metadata
+        config = sentinel._resolve_skill_scan_config(sentinel_profile_id)
         profile_meta = {
             "profile_name": config.profile_name,
             "profile_id": config.profile_id if config.profile_id != -1 else None,
@@ -249,7 +249,10 @@ async def _scan_instructions(instructions: str, db, tenant_id: str = None) -> di
             "scanned_at": datetime.utcnow().isoformat() + "Z",
         }
 
-        result = await sentinel.analyze_prompt(prompt=instructions, source=None)
+        result = await sentinel.analyze_skill_instructions(
+            instructions=instructions,
+            skill_profile_id=sentinel_profile_id,
+        )
         if hasattr(result, 'is_threat_detected') and result.is_threat_detected:
             return {
                 "scan_status": "rejected",
@@ -424,11 +427,21 @@ async def create_custom_skill(
 
     # Run Sentinel scan on instructions if provided
     if payload.instructions_md:
-        scan_result = await _scan_instructions(payload.instructions_md, db, tenant_id=ctx.tenant_id)
+        scan_result = await _scan_instructions(payload.instructions_md, db, tenant_id=ctx.tenant_id, sentinel_profile_id=payload.sentinel_profile_id)
         skill.scan_status = scan_result["scan_status"]
         skill.last_scan_result = scan_result.get("last_scan_result")
     else:
         skill.scan_status = 'clean'
+
+    # Security H-1: Scan script skills for network imports (non-blocking advisory)
+    if payload.skill_type_variant == 'script' and payload.script_content:
+        from services.shell_security_service import ShellSecurityService
+        network_warnings = ShellSecurityService.scan_for_network_imports(payload.script_content)
+        if network_warnings:
+            existing_scan = skill.last_scan_result or {}
+            existing_scan["network_import_warnings"] = network_warnings
+            skill.last_scan_result = existing_scan
+            logger.info(f"Network import warnings for skill '{skill.name}': {network_warnings}")
 
     db.commit()
     db.refresh(skill)
@@ -500,14 +513,17 @@ async def update_custom_skill(
     )
     db.add(version_entry)
 
-    # Track if instructions changed for re-scan
+    # Track if instructions or script changed for re-scan
     instructions_changed = False
+    script_changed = False
 
     # Apply updates
     update_data = payload.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         if field == 'instructions_md' and value != skill.instructions_md:
             instructions_changed = True
+        if field == 'script_content' and value != skill.script_content:
+            script_changed = True
         setattr(skill, field, value)
 
     # Bump version
@@ -522,9 +538,21 @@ async def update_custom_skill(
 
     # Re-scan if instructions changed
     if instructions_changed and skill.instructions_md:
-        scan_result = await _scan_instructions(skill.instructions_md, db, tenant_id=ctx.tenant_id)
+        scan_result = await _scan_instructions(skill.instructions_md, db, tenant_id=ctx.tenant_id, sentinel_profile_id=skill.sentinel_profile_id)
         skill.scan_status = scan_result["scan_status"]
         skill.last_scan_result = scan_result.get("last_scan_result")
+
+    # Security H-1: Re-scan script for network imports if script_content changed (non-blocking advisory)
+    if script_changed and skill.script_content and skill.skill_type_variant == 'script':
+        from services.shell_security_service import ShellSecurityService
+        network_warnings = ShellSecurityService.scan_for_network_imports(skill.script_content)
+        existing_scan = skill.last_scan_result or {}
+        if network_warnings:
+            existing_scan["network_import_warnings"] = network_warnings
+        else:
+            # Clear previous warnings if script no longer has network imports
+            existing_scan.pop("network_import_warnings", None)
+        skill.last_scan_result = existing_scan
 
     db.commit()
     db.refresh(skill)
@@ -645,7 +673,7 @@ async def scan_custom_skill(
         db.commit()
         return {"scan_status": "clean", "last_scan_result": None}
 
-    scan_result = await _scan_instructions(content_to_scan, db, tenant_id=ctx.tenant_id)
+    scan_result = await _scan_instructions(content_to_scan, db, tenant_id=ctx.tenant_id, sentinel_profile_id=skill.sentinel_profile_id)
     skill.scan_status = scan_result["scan_status"]
     skill.last_scan_result = scan_result.get("last_scan_result")
     db.commit()

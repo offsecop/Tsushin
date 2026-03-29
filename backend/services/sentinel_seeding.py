@@ -505,6 +505,16 @@ def seed_system_profiles(db: Session) -> list:
             "aggressiveness_level": 3,
             "is_default": False,
         },
+        {
+            "name": "Custom Skill Scan",
+            "slug": "custom-skill-scan",
+            "description": "Optimized for scanning custom skill instructions. Disables detections that conflict with intentional behavior modification (agent_takeover, poisoning, memory_poisoning) while keeping shell_malicious and skill-aware prompt_injection checks.",
+            "is_enabled": True,
+            "detection_mode": "block",
+            "aggressiveness_level": 1,
+            "is_default": False,
+            "detection_overrides": '{"agent_takeover": {"enabled": false}, "poisoning": {"enabled": false}, "memory_poisoning": {"enabled": false}, "prompt_injection": {"enabled": true}, "shell_malicious": {"enabled": true}}',
+        },
     ]
 
     created_profiles = []
@@ -556,8 +566,8 @@ def seed_system_profiles(db: Session) -> list:
                 enable_notifications=True,
                 notification_on_block=True,
                 notification_on_detect=False,
-                # Empty overrides = all detections use registry defaults
-                detection_overrides="{}",
+                # Use profile-specific overrides if provided, else empty (all defaults)
+                detection_overrides=profile_data.get("detection_overrides", "{}"),
             )
             db.add(profile)
             db.commit()
