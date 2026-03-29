@@ -1,8 +1,58 @@
 # Tsushin Bug Tracker
-**Open:** 1 | **In Progress:** 0 | **Resolved:** 98
-**Source:** v0.6.1 RBAC & Multi-Tenancy Audit + Security Vulnerability Audit + GKE Readiness Audit (2026-03-28)
+**Open:** 6 | **In Progress:** 0 | **Resolved:** 98
+**Source:** v0.6.1 RBAC & Multi-Tenancy Audit + Security Vulnerability Audit + GKE Readiness Audit + Hub AI Providers Audit (2026-03-28)
 
 ## Open Issues
+
+### BUG-100: DeepSeek provider has zero backend implementation despite being listed in System AI Config
+- **Status:** Open
+- **Severity:** High
+- **Category:** Missing Implementation
+- **Found:** 2026-03-28 (Hub AI Providers audit)
+- **Files:** `backend/agent/ai_client.py`, `backend/api/routes_api_keys.py`, `backend/services/api_key_service.py`, `backend/api/routes_integrations.py`, `backend/api/routes_provider_instances.py`, `frontend/app/hub/page.tsx`
+- **Description:** DeepSeek is listed in `system_ai_config.py` PROVIDERS and PROVIDER_MODELS and is selectable in the System AI Configuration page, but has zero actual backend wiring. Selecting DeepSeek as system AI provider would raise `ValueError: Unsupported provider: deepseek` in `ai_client.py`. Missing from 5 backend subsystems: (1) ai_client.py provider dispatch, (2) SUPPORTED_SERVICES in routes_api_keys.py, (3) ENV_KEY_MAP in api_key_service.py, (4) PROVIDER_TEST_MODELS in routes_integrations.py, (5) VALID_VENDORS in routes_provider_instances.py. Also completely absent from Hub frontend — no provider card, no API key management, no instance placeholder.
+- **Impact:** Users cannot use DeepSeek as a provider. Selecting it in AI Config would crash agent calls.
+- **Remediation:** Add `deepseek` to all 5 backend registries using OpenAI-compat client with `base_url="https://api.deepseek.com"`. Add `deepseek` to Hub frontend: `AI_PROVIDERS`, `VENDOR_LABELS`, `VENDOR_ICONS`, `allVendors` seed array.
+
+### BUG-101: ElevenLabs missing from Provider Instances system — only in legacy Service API Keys
+- **Status:** Open
+- **Severity:** Low
+- **Category:** Incomplete Feature
+- **Found:** 2026-03-28 (Hub AI Providers audit)
+- **Files:** `frontend/app/hub/page.tsx` (VENDOR_LABELS, VENDOR_ICONS, allVendors), `backend/api/routes_provider_instances.py` (VALID_VENDORS)
+- **Description:** ElevenLabs appears only in the legacy "Service API Keys" section of the Hub, not in the modern Provider Instances section. No VENDOR_LABELS/VENDOR_ICONS entries, not in the allVendors seed list. This is architecturally correct (ElevenLabs is TTS-only, not an LLM provider), but the UI grouping alongside LLM providers in `AI_PROVIDERS` is misleading. If a user creates an ElevenLabs provider instance via the modal, no dedicated section or icon exists.
+- **Impact:** Minor UX inconsistency. ElevenLabs management is split between two UI systems.
+- **Remediation:** Either move ElevenLabs out of the AI_PROVIDERS array into its own "TTS Providers" section, or add it to VENDOR_LABELS/VENDOR_ICONS for proper rendering in both systems.
+
+### BUG-102: Groq and Grok share identical LightningIcon — no visual distinction
+- **Status:** Open
+- **Severity:** Low
+- **Category:** UX / Visual
+- **Found:** 2026-03-28 (Hub AI Providers audit)
+- **Files:** `frontend/app/hub/page.tsx` (lines 179-187, 1669-1670)
+- **Description:** Both Groq and Grok (xAI) use `LightningIcon` in the Hub AI Providers section. The only distinction is the color (yellow for Groq, red for Grok), which is insufficient for accessibility. The Provider Instances section header icons are identical.
+- **Impact:** Users may confuse the two providers, especially in the Provider Instances cards where color context is minimal.
+- **Remediation:** Use a distinct icon for Grok (e.g., an "X" mark icon matching xAI branding) or for Groq (e.g., a chip/processor icon).
+
+### BUG-103: Dead code in Settings > Integrations — unreachable handler functions
+- **Status:** Open
+- **Severity:** Low
+- **Category:** Code Quality / Dead Code
+- **Found:** 2026-03-28 (Hub AI Providers audit)
+- **Files:** `frontend/app/settings/integrations/page.tsx`
+- **Description:** When AI providers were moved to Hub in v0.6.0, the `AI_PROVIDERS` array was emptied (line 40: `const AI_PROVIDERS: any[] = []`), but the handler functions `handleSaveApiKey`, `handleDeleteApiKey`, and `handleTestConnection` remain in the file. These are unreachable dead code since the rendering block is gated by `AI_PROVIDERS.length > 0`.
+- **Impact:** No functional impact. Code bloat and maintenance burden.
+- **Remediation:** Remove the dead handler functions and associated state variables from the integrations page.
+
+### BUG-104: Dual API key storage — legacy api_keys table and provider_instances table can hold keys for same provider
+- **Status:** Open
+- **Severity:** Medium
+- **Category:** Architecture / Data Consistency
+- **Found:** 2026-03-28 (Hub AI Providers audit)
+- **Files:** `backend/api/routes_api_keys.py`, `backend/api/routes_provider_instances.py`, `backend/services/api_key_service.py`
+- **Description:** The Hub has two API key storage paths: (1) legacy `api_key` table via "Service API Keys" section and (2) `provider_instance.api_key_encrypted` via Provider Instances section. Both can hold a key for the same provider (e.g., Gemini). The info box in the Hub explains the relationship, but the precedence rules are not enforced or clearly communicated. The `get_api_key()` resolution chain uses: tenant DB key → system DB key → env var — but does NOT check provider_instance keys. This means a provider instance with a key configured will use that key, while system-level operations fall back to the legacy key. If they differ, behavior is inconsistent.
+- **Impact:** Users may configure API keys in two places without understanding which takes effect for which operation.
+- **Remediation:** Add a clear visual indicator showing which key is active per provider. Consider deprecating the legacy api_keys path for LLM providers and migrating to provider_instances-only, keeping legacy keys only for non-LLM services (Brave Search, OpenWeather, etc.).
 
 ### BUG-065: SSRF via ollama_base_url — zero URL validation on user-controlled endpoint
 - **Status:** Resolved
