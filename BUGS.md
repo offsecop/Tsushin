@@ -6,7 +6,7 @@
 
 ### BUG-100: DeepSeek provider has zero backend implementation despite being listed in System AI Config
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Missing Implementation
 - **Found:** 2026-03-28 (Hub AI Providers audit)
@@ -14,10 +14,11 @@
 - **Description:** DeepSeek is listed in `system_ai_config.py` PROVIDERS and PROVIDER_MODELS and is selectable in the System AI Configuration page, but has zero actual backend wiring. Selecting DeepSeek as system AI provider would raise `ValueError: Unsupported provider: deepseek` in `ai_client.py`. Missing from 5 backend subsystems: (1) ai_client.py provider dispatch, (2) SUPPORTED_SERVICES in routes_api_keys.py, (3) ENV_KEY_MAP in api_key_service.py, (4) PROVIDER_TEST_MODELS in routes_integrations.py, (5) VALID_VENDORS in routes_provider_instances.py. Also completely absent from Hub frontend — no provider card, no API key management, no instance placeholder.
 - **Impact:** Users cannot use DeepSeek as a provider. Selecting it in AI Config would crash agent calls.
 - **Remediation:** Add `deepseek` to all 5 backend registries using OpenAI-compat client with `base_url="https://api.deepseek.com"`. Add `deepseek` to Hub frontend: `AI_PROVIDERS`, `VENDOR_LABELS`, `VENDOR_ICONS`, `allVendors` seed array.
+- **Resolution:** Backend was already fully implemented (ai_client.py, routes_api_keys.py, api_key_service.py, routes_integrations.py, routes_provider_instances.py). Added DeepSeek to frontend: AI_PROVIDERS array, VENDOR_LABELS/ICONS/COLORS maps, allVendors seed, ProviderInstanceModal VENDORS dropdown + VENDOR_DEFAULT_URLS. Verified via API and browser regression.
 
 ### BUG-101: ElevenLabs missing from Provider Instances system — only in legacy Service API Keys
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Low
 - **Category:** Incomplete Feature
 - **Found:** 2026-03-28 (Hub AI Providers audit)
@@ -25,10 +26,11 @@
 - **Description:** ElevenLabs appears only in the legacy "Service API Keys" section of the Hub, not in the modern Provider Instances section. No VENDOR_LABELS/VENDOR_ICONS entries, not in the allVendors seed list. This is architecturally correct (ElevenLabs is TTS-only, not an LLM provider), but the UI grouping alongside LLM providers in `AI_PROVIDERS` is misleading. If a user creates an ElevenLabs provider instance via the modal, no dedicated section or icon exists.
 - **Impact:** Minor UX inconsistency. ElevenLabs management is split between two UI systems.
 - **Remediation:** Either move ElevenLabs out of the AI_PROVIDERS array into its own "TTS Providers" section, or add it to VENDOR_LABELS/VENDOR_ICONS for proper rendering in both systems.
+- **Resolution:** Added ElevenLabs to VENDOR_LABELS, VENDOR_ICONS (MicrophoneIcon), VENDOR_COLORS (text-pink-400), allVendors seed array, and ProviderInstanceModal VENDORS dropdown + VENDOR_DEFAULT_URLS. Kept in AI_PROVIDERS for Service API Keys. Now renders correctly in both sections.
 
 ### BUG-102: Groq and Grok share identical LightningIcon — no visual distinction
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Low
 - **Category:** UX / Visual
 - **Found:** 2026-03-28 (Hub AI Providers audit)
@@ -36,10 +38,11 @@
 - **Description:** Both Groq and Grok (xAI) use `LightningIcon` in the Hub AI Providers section. The only distinction is the color (yellow for Groq, red for Grok), which is insufficient for accessibility. The Provider Instances section header icons are identical.
 - **Impact:** Users may confuse the two providers, especially in the Provider Instances cards where color context is minimal.
 - **Remediation:** Use a distinct icon for Grok (e.g., an "X" mark icon matching xAI branding) or for Groq (e.g., a chip/processor icon).
+- **Resolution:** Already fixed prior to audit — GrokIcon (X-shaped SVG matching xAI branding) was already defined at hub/page.tsx:177-181 and used for Grok in both AI_PROVIDERS and VENDOR_ICONS. Groq uses LightningIcon. Visual distinction confirmed.
 
 ### BUG-103: Dead code in Settings > Integrations — unreachable handler functions
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Low
 - **Category:** Code Quality / Dead Code
 - **Found:** 2026-03-28 (Hub AI Providers audit)
@@ -47,10 +50,11 @@
 - **Description:** When AI providers were moved to Hub in v0.6.0, the `AI_PROVIDERS` array was emptied (line 40: `const AI_PROVIDERS: any[] = []`), but the handler functions `handleSaveApiKey`, `handleDeleteApiKey`, and `handleTestConnection` remain in the file. These are unreachable dead code since the rendering block is gated by `AI_PROVIDERS.length > 0`.
 - **Impact:** No functional impact. Code bloat and maintenance burden.
 - **Remediation:** Remove the dead handler functions and associated state variables from the integrations page.
+- **Resolution:** Already cleaned prior to audit — handleSaveApiKey, handleDeleteApiKey, handleTestConnection and associated dead code no longer present in the file (352 lines, verified clean).
 
 ### BUG-104: Dual API key storage — legacy api_keys table and provider_instances table can hold keys for same provider
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Medium
 - **Category:** Architecture / Data Consistency
 - **Found:** 2026-03-28 (Hub AI Providers audit)
@@ -58,10 +62,11 @@
 - **Description:** The Hub has two API key storage paths: (1) legacy `api_key` table via "Service API Keys" section and (2) `provider_instance.api_key_encrypted` via Provider Instances section. Both can hold a key for the same provider (e.g., Gemini). The info box in the Hub explains the relationship, but the precedence rules are not enforced or clearly communicated. The `get_api_key()` resolution chain uses: tenant DB key → system DB key → env var — but does NOT check provider_instance keys. This means a provider instance with a key configured will use that key, while system-level operations fall back to the legacy key. If they differ, behavior is inconsistent.
 - **Impact:** Users may configure API keys in two places without understanding which takes effect for which operation.
 - **Remediation:** Add a clear visual indicator showing which key is active per provider. Consider deprecating the legacy api_keys path for LLM providers and migrating to provider_instances-only, keeping legacy keys only for non-LLM services (Brave Search, OpenWeather, etc.).
+- **Resolution:** Added visual precedence indicator in renderIntegrationCard: when a Service API Key exists AND a Provider Instance with a configured key exists for the same vendor, the card shows "Fallback — instance key takes priority" in amber text. Uses `providerInstances.some(i => i.vendor === item.value && i.api_key_configured)` check.
 
 ### BUG-065: SSRF via ollama_base_url — zero URL validation on user-controlled endpoint
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Critical
 - **Category:** Server-Side Request Forgery (CWE-918)
 - **Found:** 2026-03-28 (URL Rebase security design review)
@@ -72,7 +77,7 @@
 
 ### BUG-066: Scraper and Playwright SSRF blocklists bypassable via DNS rebinding
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Critical
 - **Category:** Server-Side Request Forgery (CWE-918)
 - **Found:** 2026-03-28 (URL Rebase security design review)
@@ -83,7 +88,7 @@
 
 ### BUG-067: Config table is global singleton — ollama_base_url affects all tenants
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Broken Access Control / Multi-Tenancy Isolation (CWE-284)
 - **Found:** 2026-03-28 (URL Rebase security design review)
@@ -94,7 +99,7 @@
 
 ### BUG-068: Sentinel SSRF detection only covers 2 tool names — misses provider URL paths
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Medium
 - **Category:** Insufficient Security Controls (CWE-693)
 - **Found:** 2026-03-28 (URL Rebase security design review)
@@ -105,7 +110,7 @@
 
 ### BUG-063: Command injection in toolbox install_package via unsanitized package_name
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Critical
 - **Category:** Command Injection (CWE-78)
 - **Found:** 2026-03-28 (GKE readiness security review)
@@ -116,7 +121,7 @@
 
 ### BUG-064: Workspace directories created with 0o777 permissions
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Medium
 - **Category:** Insecure File Permissions (CWE-732)
 - **Found:** 2026-03-28 (GKE readiness security review)
@@ -127,7 +132,7 @@
 
 ### BUG-069: REGRESSION — Cross-tenant default agent operations (internal API)
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Critical
 - **Category:** Broken Object Level Authorization / Cross-Tenant Data Corruption (CWE-284)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -142,7 +147,7 @@
 
 ### BUG-070: API client custom scope allows privilege escalation beyond creator's permissions
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Critical
 - **Category:** Privilege Escalation (CWE-269)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -153,7 +158,7 @@
 
 ### BUG-071: Password reset tokens stored in plaintext in database
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Critical
 - **Category:** Sensitive Data Exposure (CWE-312)
 - **Found:** 2026-03-28 (Security Vulnerability Audit)
@@ -165,7 +170,7 @@
 
 ### BUG-072: Soft-deleted users can still authenticate
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Critical
 - **Category:** Broken Authentication (CWE-287)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -176,7 +181,7 @@
 
 ### BUG-073: SSO user password login causes unhandled 500 error
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Error Handling / Denial of Service (CWE-755)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -187,7 +192,7 @@
 
 ### BUG-074: Wildcard trusted proxy enables rate limit bypass via IP spoofing
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Rate Limiting Bypass (CWE-799)
 - **Found:** 2026-03-28 (Security Vulnerability Audit)
@@ -198,7 +203,7 @@
 
 ### BUG-075: Sentinel logs, stats, and agent-config endpoints missing permission checks
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Broken Access Control (CWE-862)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -209,7 +214,7 @@
 
 ### BUG-076: Duplicate get_current_user bypasses is_active check
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Broken Authentication (CWE-287)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -220,7 +225,7 @@
 
 ### BUG-077: Hub Shell page has no frontend permission gate
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Broken Access Control — Frontend (CWE-862)
 - **Found:** 2026-03-28 (Frontend RBAC Audit)
@@ -231,7 +236,7 @@
 
 ### BUG-078: Hub Sandboxed Tools page has no frontend permission gate
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Broken Access Control — Frontend (CWE-862)
 - **Found:** 2026-03-28 (Frontend RBAC Audit)
@@ -242,7 +247,7 @@
 
 ### BUG-079: Five sensitive settings pages accessible to any authenticated user
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Broken Access Control — Frontend (CWE-862)
 - **Found:** 2026-03-28 (Frontend RBAC Audit)
@@ -259,7 +264,7 @@
 
 ### BUG-080: Hard user delete fails with FK violation on PostgreSQL
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Data Integrity / Broken Delete Flow (CWE-404)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -270,7 +275,7 @@
 
 ### BUG-081: SSO config endpoint uses inverted logic for global admin tenant context
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Broken Access Control (CWE-863)
 - **Found:** 2026-03-28 (Security Vulnerability Audit)
@@ -281,7 +286,7 @@
 
 ### BUG-082: Analytics includes NULL-tenant agents for all users
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Information Disclosure / Multi-Tenancy Leakage (CWE-200)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -292,7 +297,7 @@
 
 ### BUG-083: conversation_search_service references non-existent Memory columns
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** High
 - **Category:** Runtime Error / Dead Code (CWE-476)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -303,7 +308,7 @@
 
 ### BUG-084: RBAC migration seed out of sync — missing 9 permissions
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Medium
 - **Category:** Configuration Drift (CWE-1188)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -314,7 +319,7 @@
 
 ### BUG-085: Blind setattr mass assignment pattern on agent update
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Medium
 - **Category:** Mass Assignment (CWE-915)
 - **Found:** 2026-03-28 (Security Vulnerability Audit)
@@ -325,7 +330,7 @@
 
 ### BUG-086: Password reset flow non-functional — no email delivery
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Medium
 - **Category:** Broken Functionality (CWE-440)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -336,7 +341,7 @@
 
 ### BUG-087: No self-service profile update or password change endpoints
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Medium
 - **Category:** Missing Feature / Broken User Management
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -347,7 +352,7 @@
 
 ### BUG-088: Tenant ID generation collision at second-precision timestamps
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Medium
 - **Category:** Data Integrity / Race Condition (CWE-362)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -358,7 +363,7 @@
 
 ### BUG-089: Flow template validate/render endpoints lack permission check
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Medium
 - **Category:** Broken Access Control (CWE-862)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -369,7 +374,7 @@
 
 ### BUG-090: No audit logging for tenant-level role changes
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Medium
 - **Category:** Insufficient Logging (CWE-778)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -380,7 +385,7 @@
 
 ### BUG-091: Global email uniqueness blocks re-registration after soft delete
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Medium
 - **Category:** Data Integrity / Design Flaw (CWE-1289)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -391,7 +396,7 @@
 
 ### BUG-092: Missing HSTS security header
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Medium
 - **Category:** Transport Security (CWE-319)
 - **Found:** 2026-03-28 (Security Vulnerability Audit)
@@ -402,7 +407,7 @@
 
 ### BUG-093: PermissionGate component and matchesPermission() are dead code
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Low
 - **Category:** Dead Code / Technical Debt
 - **Found:** 2026-03-28 (Frontend RBAC Audit)
@@ -413,7 +418,7 @@
 
 ### BUG-094: Settings audit-logs and team member detail pages use mock data
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Low
 - **Category:** Incomplete Implementation
 - **Found:** 2026-03-28 (Frontend RBAC Audit)
@@ -424,7 +429,7 @@
 
 ### BUG-095: Inconsistent 403/401 error handling across frontend API methods
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Low
 - **Category:** Error Handling (CWE-755)
 - **Found:** 2026-03-28 (Frontend RBAC Audit)
@@ -435,7 +440,7 @@
 
 ### BUG-096: Stale JWT role/tenant claims not revalidated after changes
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Low
 - **Category:** Session Management (CWE-613)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -446,7 +451,7 @@
 
 ### BUG-097: rbac_middleware.py decorator functions are unused dead code
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Low
 - **Category:** Dead Code / Technical Debt
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -457,7 +462,7 @@
 
 ### BUG-098: Tenant user limit check has race condition on concurrent invites
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Low
 - **Category:** Race Condition (CWE-362)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -468,7 +473,7 @@
 
 ### BUG-099: Team invite error reveals email domain exists in another tenant
 - **Status:** Resolved
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **Severity:** Low
 - **Category:** Information Disclosure (CWE-200)
 - **Found:** 2026-03-28 (RBAC & Multi-Tenancy Audit)
@@ -481,7 +486,7 @@
 - **Status:** Resolved
 - **Severity:** Critical
 - **Category:** Broken Object Level Authorization
-- **Resolved:** 104-03-28
+- **Resolved:** 2026-03-28
 - **File:** `backend/api/v1/routes_agents.py:576-581` (update), `backend/api/v1/routes_agents.py:372` (create)
 - **Description:** Persona lookup during agent create/update has no tenant_id filter. Tenant A can assign Tenant B's persona to their agent via `persona_id`, gaining access to that tenant's persona configuration (embedded in agent context during inference).
 - **Proof:** `persona = db.query(Persona).filter(Persona.id == request.persona_id).first()` — no tenant scoping.
