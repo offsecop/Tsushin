@@ -253,7 +253,7 @@ export default function AgentsPage() {
 
   const checkOllamaHealth = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'
+      const apiUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081')
       const response = await fetch(`${apiUrl}/api/ollama/health`)
       if (response.ok) {
         const data = await response.json()

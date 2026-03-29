@@ -27,11 +27,7 @@ export default function OnboardingWizard() {
   const { state, nextStep, previousStep, minimize, maximize, completeTour, skipTour } = useOnboarding()
   const router = useRouter()
   const pathname = usePathname()
-
-  // BUG-122: Don't render tour on unauthenticated pages
-  if (pathname?.startsWith('/auth/')) {
-    return null
-  }
+  const isAuthPage = pathname?.startsWith('/auth/')
 
   const tourSteps: TourStep[] = [
     {
@@ -176,6 +172,11 @@ export default function OnboardingWizard() {
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [state.isActive, state.isMinimized, state.currentStep, state.totalSteps, nextStep, previousStep, minimize])
+
+  // BUG-122: Don't render tour on unauthenticated pages (placed after all hooks)
+  if (isAuthPage) {
+    return null
+  }
 
   // Minimized pill UI - Always on top with very high z-index
   if (state.isActive && state.isMinimized) {

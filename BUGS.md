@@ -1,5 +1,5 @@
 # Tsushin Bug Tracker
-**Open:** 0 | **In Progress:** 0 | **Resolved:** 144
+**Open:** 0 | **In Progress:** 0 | **Resolved:** 146
 **Source:** v0.6.1 RBAC & Multi-Tenancy Audit + Security Vulnerability Audit + GKE Readiness Audit + Hub AI Providers Audit + Platform Hardening + QA Regression + v0.6.0 UI/UX QA Audit (2026-03-29)
 
 ## Open Issues
@@ -196,6 +196,26 @@
 - **Files:** `backend/api/routes_toolbox.py`
 - **Description:** The BUG-139 regex `[a-zA-Z0-9._-]+` allowed `.` and `..` as segment starts. Field_validator caught `..` but single `.` was unguarded.
 - **Resolution:** Changed regex to require alphanumeric first character: `[a-zA-Z0-9][a-zA-Z0-9._-]*`. Defense-in-depth with existing `..` validator.
+
+### BUG-144: React Rules of Hooks violation in OnboardingWizard (runtime crash)
+- **Status:** Resolved
+- **Resolved:** 2026-03-29
+- **Severity:** Critical
+- **Category:** Frontend / Stability
+- **Found:** 2026-03-29 (v0.6.0 Implementation Review)
+- **Files:** `frontend/components/OnboardingWizard.tsx`
+- **Description:** Early return for auth pages (`if (pathname?.startsWith('/auth/')) return null`) was placed BEFORE the `useEffect` hook call at line 163. This violates React's Rules of Hooks — hooks must be called unconditionally. Navigating between auth and non-auth pages would cause "Rendered more hooks than during the previous render" crash.
+- **Resolution:** Moved early return to AFTER the `useEffect` hook. Auth page check stored in `isAuthPage` variable used for the conditional return after all hooks.
+
+### BUG-145: Ollama health check uses raw API URL causing CORS on HTTPS
+- **Status:** Resolved
+- **Resolved:** 2026-03-29
+- **Severity:** High
+- **Category:** Frontend / CORS
+- **Found:** 2026-03-29 (v0.6.0 Implementation Review)
+- **Files:** `frontend/app/agents/page.tsx:256`
+- **Description:** `checkOllamaHealth` used `process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'` directly, bypassing the BUG-124 CORS fix. Mixed-content blocked on HTTPS pages.
+- **Resolution:** Applied same browser-side empty-string pattern as client.ts: `typeof window !== 'undefined' ? '' : (...)`.
 
 ### BUG-127: Messages sender column shows "-" for all rows in Watcher Conversations tab
 - **Status:** Resolved
