@@ -98,6 +98,8 @@ class StepCreateRequest(BaseModel):
     conversation_objective: Optional[str] = Field(None, description="Objective for conversation steps")
     agent_id: Optional[int] = Field(None, description="Agent ID override for this step")
     persona_id: Optional[int] = Field(None, description="Persona ID for this step")
+    on_failure: Optional[str] = Field(None, description="Failure behavior: continue, skip, end (default: end)")
+    on_success: Optional[str] = Field(None, description="Success behavior: continue, skip_to:{step}, end (default: continue)")
 
 
 class StepUpdateRequest(BaseModel):
@@ -116,6 +118,8 @@ class StepUpdateRequest(BaseModel):
     conversation_objective: Optional[str] = Field(None, description="Objective for conversation steps")
     agent_id: Optional[int] = Field(None, description="Agent ID override")
     persona_id: Optional[int] = Field(None, description="Persona ID for this step")
+    on_failure: Optional[str] = Field(None, description="Failure behavior: continue, skip, end")
+    on_success: Optional[str] = Field(None, description="Success behavior: continue, skip_to:{step}, end")
 
 
 class StepResponse(BaseModel):
@@ -136,6 +140,8 @@ class StepResponse(BaseModel):
     conversation_objective: Optional[str] = Field(None, description="Conversation objective")
     agent_id: Optional[int] = Field(None, description="Agent ID override")
     persona_id: Optional[int] = Field(None, description="Persona ID")
+    on_failure: Optional[str] = Field(None, description="Failure behavior")
+    on_success: Optional[str] = Field(None, description="Success behavior")
     created_at: Optional[str] = Field(None, description="Creation timestamp")
     updated_at: Optional[str] = Field(None, description="Last update timestamp")
 
@@ -251,6 +257,8 @@ def _node_to_response(node: FlowNode) -> dict:
         "conversation_objective": node.conversation_objective,
         "agent_id": node.agent_id,
         "persona_id": node.persona_id,
+        "on_failure": node.on_failure,
+        "on_success": node.on_success,
         "created_at": node.created_at.isoformat() if node.created_at else None,
         "updated_at": (node.updated_at or node.created_at).isoformat() if (node.updated_at or node.created_at) else None,
     }
@@ -640,6 +648,8 @@ async def create_step(
         conversation_objective=request.conversation_objective,
         agent_id=request.agent_id,
         persona_id=request.persona_id,
+        on_failure=request.on_failure,
+        on_success=request.on_success,
     )
     db.add(db_step)
     db.commit()
@@ -705,6 +715,10 @@ async def update_step(
         step.agent_id = request.agent_id
     if request.persona_id is not None:
         step.persona_id = request.persona_id
+    if request.on_failure is not None:
+        step.on_failure = request.on_failure
+    if request.on_success is not None:
+        step.on_success = request.on_success
 
     step.updated_at = datetime.utcnow()
     db.commit()

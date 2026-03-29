@@ -2167,12 +2167,20 @@ class FlowEngine:
                 )
                 end_time = datetime.utcnow()
 
-                # Update step_run with success
-                step_run.status = "completed"
+                # Update step_run with results
                 step_run.completed_at = end_time
                 step_run.output_json = json.dumps(output)
                 step_run.execution_time_ms = int((end_time - start_time).total_seconds() * 1000)
                 step_run.tool_used = output.get("tool_used")
+
+                # Check if the handler reported internal failure via output status
+                if isinstance(output, dict) and output.get("status") == "failed":
+                    step_run.status = "failed"
+                    step_run.error_text = output.get("error", "Step handler reported failure")
+                    logger.warning(f"Step {step.id} ({step.type}) reported failure: {step_run.error_text}")
+                else:
+                    step_run.status = "completed"
+                    logger.info(f"Step {step.id} ({step.type}) completed in {step_run.execution_time_ms}ms")
 
                 if "token_usage" in output:
                     step_run.token_usage_json = json.dumps(output["token_usage"])
@@ -2180,7 +2188,6 @@ class FlowEngine:
                 self.db.commit()
                 self.db.refresh(step_run)
 
-                logger.info(f"Step {step.id} ({step.type}) completed in {step_run.execution_time_ms}ms")
                 return step_run
 
             except asyncio.TimeoutError:
