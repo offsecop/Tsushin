@@ -282,6 +282,7 @@ export default function HubPage() {
     idle_timeout_seconds: 300,
   })
   const [mcpServerActionLoading, setMcpServerActionLoading] = useState<number | null>(null)
+  const [allowedBinaries, setAllowedBinaries] = useState<string[]>(['uvx', 'npx', 'node'])
 
   // UI state
   const [loading, setLoading] = useState(true)
@@ -471,6 +472,13 @@ export default function HubPage() {
     }
   }, [showQRModal, selectedMcpInstance])
 
+  // Fetch allowed stdio binaries when MCP server modal opens
+  useEffect(() => {
+    if (showMcpServerModal) {
+      loadAllowedBinaries()
+    }
+  }, [showMcpServerModal])
+
   const loadAllData = async () => {
     setLoading(true)
     try {
@@ -547,6 +555,17 @@ export default function HubPage() {
       console.error('Failed to fetch MCP servers:', error)
     } finally {
       setMcpServersLoading(false)
+    }
+  }
+
+  const loadAllowedBinaries = async () => {
+    try {
+      const result = await api.getAllowedBinaries()
+      if (result.binaries && result.binaries.length > 0) {
+        setAllowedBinaries(result.binaries)
+      }
+    } catch (error) {
+      console.error('Failed to fetch allowed binaries:', error)
     }
   }
 
@@ -2132,20 +2151,6 @@ export default function HubPage() {
               </div>
             )}
 
-            {/* Provider Instance Modal */}
-            <ProviderInstanceModal
-              isOpen={instanceModalOpen}
-              onClose={() => {
-                setInstanceModalOpen(false)
-                setEditingInstance(null)
-                setSelectedVendor('')
-                setInstanceMenuOpen(null)
-              }}
-              onSave={fetchProviderInstances}
-              instance={editingInstance}
-              defaultVendor={selectedVendor}
-            />
-
             {/* ==================== COMMUNICATION TAB ==================== */}
             {activeTab === 'communication' && (
               <div className="space-y-6 animate-fade-in">
@@ -3245,10 +3250,13 @@ export default function HubPage() {
                   className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white"
                 >
                   <option value="">Select binary...</option>
-                  <option value="uvx">uvx (Python/uv)</option>
-                  <option value="npx">npx (Node.js)</option>
-                  <option value="node">node</option>
+                  {allowedBinaries.map(bin => (
+                    <option key={bin} value={bin}>{bin}</option>
+                  ))}
                 </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  {allowedBinaries.length} allowed {allowedBinaries.length === 1 ? 'binary' : 'binaries'} in toolbox containers
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">Arguments (one per line)</label>
@@ -3708,6 +3716,20 @@ export default function HubPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Provider Instance Modal — rendered at root level to avoid z-index/overflow issues (BUG-109) */}
+      <ProviderInstanceModal
+        isOpen={instanceModalOpen}
+        onClose={() => {
+          setInstanceModalOpen(false)
+          setEditingInstance(null)
+          setSelectedVendor('')
+          setInstanceMenuOpen(null)
+        }}
+        onSave={fetchProviderInstances}
+        instance={editingInstance}
+        defaultVendor={selectedVendor}
+      />
 
       {/* Phase 10.1.1: Telegram Bot Creation Modal */}
       <TelegramBotModal

@@ -319,6 +319,8 @@ class ToolboxContainerService:
                 security_opt=["no-new-privileges:true"],
                 cap_drop=["ALL"],
                 pids_limit=256,
+                # Security H-1: External DNS to prevent internal service name resolution attacks
+                dns=["8.8.8.8", "8.8.4.4"],
             )
 
             container_id = container.id if hasattr(container, 'id') else str(container)

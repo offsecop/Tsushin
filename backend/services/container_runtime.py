@@ -54,6 +54,7 @@ class ContainerRuntime(ABC):
         security_opt: Optional[List[str]] = None,
         cap_drop: Optional[List[str]] = None,
         pids_limit: Optional[int] = None,
+        dns: Optional[List[str]] = None,
     ) -> Any:
         """
         Create and start a container.
@@ -75,6 +76,7 @@ class ContainerRuntime(ABC):
             security_opt: Security options (e.g. ["no-new-privileges:true"])
             cap_drop: Linux capabilities to drop (e.g. ["ALL"])
             pids_limit: Maximum number of PIDs in the container
+            dns: Custom DNS servers (e.g. ["8.8.8.8", "8.8.4.4"])
 
         Returns:
             Container object (Docker Container or K8s Pod wrapper)
@@ -424,6 +426,7 @@ class DockerRuntime(ContainerRuntime):
         security_opt: Optional[List[str]] = None,
         cap_drop: Optional[List[str]] = None,
         pids_limit: Optional[int] = None,
+        dns: Optional[List[str]] = None,
     ) -> Any:
         import docker as docker_lib
         try:
@@ -458,6 +461,8 @@ class DockerRuntime(ContainerRuntime):
                 kwargs["cap_drop"] = cap_drop
             if pids_limit is not None:
                 kwargs["pids_limit"] = pids_limit
+            if dns is not None:
+                kwargs["dns"] = dns
 
             container = self._client.containers.run(**kwargs)
             logger.info(f"DockerRuntime: Created container {name} (ID: {container.id})")
@@ -1062,6 +1067,7 @@ class K8sRuntime(ContainerRuntime):
         security_opt: Optional[List[str]] = None,
         cap_drop: Optional[List[str]] = None,
         pids_limit: Optional[int] = None,
+        dns: Optional[List[str]] = None,
     ) -> Any:
         k8s_client = self._k8s_client_module
         dep_name = self._sanitize_name(name)
@@ -1127,11 +1133,20 @@ class K8sRuntime(ContainerRuntime):
             security_context=security_context,
         )
 
+        # DNS configuration for network egress hardening
+        dns_config = None
+        dns_policy = None
+        if dns:
+            dns_config = k8s_client.V1PodDNSConfig(nameservers=dns)
+            dns_policy = "None"  # Use only the custom nameservers
+
         # Pod spec
         pod_spec = k8s_client.V1PodSpec(
             containers=[container_spec],
             volumes=k8s_volumes or None,
             restart_policy="Always",
+            dns_config=dns_config,
+            dns_policy=dns_policy,
         )
 
         # Pod template

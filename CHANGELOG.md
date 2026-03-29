@@ -54,6 +54,26 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+#### Stdio MCP Transport (Custom Skills Phase 5)
+- Full Stdio transport implementation for running MCP server binaries inside tenant toolbox containers
+- Binary allowlist (`uvx`, `npx`, `node`) with path traversal rejection and shell metacharacter validation
+- JSON-RPC 2.0 protocol via stdin with `printf` for safe piping
+- Idle watchdog (default 300s) with graceful SIGTERM then SIGKILL shutdown
+- Resource limits: `ulimit -v 1048576 -t 60` (1GB virtual memory, 60s CPU time)
+- Frontend: dynamic binary allowlist fetched from API, count indicator in UI
+
+#### MCP Server Periodic Health Check Service
+- Background service checking all active MCP servers every 3 minutes
+- Auto-reconnects disconnected servers, respects circuit breaker cooldown for degraded servers
+- Records health check results (latency, success, errors) in `MCPServerHealth` table
+- Integrated into app startup/shutdown lifecycle
+
+#### Network Egress Hardening for Toolbox Containers
+- Explicit DNS configuration (`8.8.8.8`, `8.8.4.4`) prevents internal Docker DNS resolution attacks
+- Network import scanning for script-type custom skills via `ShellSecurityService.scan_for_network_imports()`
+- Non-blocking advisory warnings stored in `last_scan_result` for scripts with network imports
+- K8s runtime support: maps DNS config to `V1PodDNSConfig` with `dns_policy="None"`
+
 #### Syslog Streaming (Audit Log Forwarding)
 - Per-tenant syslog forwarding configuration (`tenant_syslog_config` table)
 - RFC 5424 structured syslog format with Tsushin-specific structured data element
@@ -79,9 +99,27 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 #### BUG-109: Hub Edit Provider Instance Modal Z-Index
-- Converted `Modal.tsx` to use React Portal (`createPortal`) to escape CSS stacking contexts
-- Modal now renders directly in `document.body`, preventing backdrop-filter isolation issues
-- Added SSR safety with mounted state check for Next.js hydration compatibility
+- Moved `ProviderInstanceModal` from inside `glass-card overflow-hidden` container to root-level modal section
+- Modal now renders outside the CSS stacking context, appearing centered and fully visible
+- QA validated via Playwright browser automation
+
+#### BUG-112: Admin Test Endpoints Missing Token Tracking
+- Added `TokenTracker` to 4 admin test connection endpoints (Sentinel LLM test, Provider Instance test-connection, Integration test, System AI test)
+- LLM costs from test connection calls are now visible in billing analytics
+
+#### BUG-113: Streaming Token Count Estimation
+- OpenAI streaming now uses `stream_options={"include_usage": True}` for actual token counts instead of `len(text)//4` estimation
+- Gemini streaming captures `usage_metadata` when available for accurate tracking
+- Falls back to estimation only when provider doesn't support usage metadata
+
+#### BUG-114: Streaming Token Tracker Integration
+- `generate_streaming()` now calls `token_tracker.track_usage()` on "done" chunks, matching the non-streaming `generate()` behavior
+- All streaming responses now have proper cost tracking in analytics
+
+#### BUG-115: MCP Tool Description Sentinel Scanning
+- MCP tool descriptions from untrusted servers are now scanned by Sentinel before storage
+- Trust-level-aware: system/verified servers skip scan, untrusted servers get full analysis
+- Description length capped at 1000 characters (Security C-3)
 
 ### Changed
 

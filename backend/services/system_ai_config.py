@@ -181,7 +181,7 @@ def get_models_for_provider(provider: str) -> List[Dict[str, str]]:
     return PROVIDER_MODELS.get(provider, [])
 
 
-async def test_system_ai_connection(db: Session, provider: Optional[str] = None, model: Optional[str] = None) -> Dict:
+async def test_system_ai_connection(db: Session, provider: Optional[str] = None, model: Optional[str] = None, tenant_id: Optional[str] = None) -> Dict:
     """
     Test connection to the system AI provider.
 
@@ -205,8 +205,14 @@ async def test_system_ai_connection(db: Session, provider: Optional[str] = None,
         # Import here to avoid circular imports
         from agent.ai_client import AIClient
 
+        # Create token tracker if tenant_id available
+        token_tracker = None
+        if tenant_id:
+            from analytics.token_tracker import TokenTracker
+            token_tracker = TokenTracker(db, tenant_id)
+
         # Create client and send test message
-        client = AIClient(provider=provider, model_name=model, db=db)
+        client = AIClient(provider=provider, model_name=model, db=db, token_tracker=token_tracker, tenant_id=tenant_id)
 
         result = await client.generate(
             system_prompt="You are a test assistant. Respond with exactly: OK",

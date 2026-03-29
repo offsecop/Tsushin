@@ -913,10 +913,14 @@ async def test_llm_connection(
     start_time = time.time()
 
     try:
+        from analytics.token_tracker import TokenTracker
+        tracker = TokenTracker(db, ctx.tenant_id)
+
         client = AIClient(
             provider=request.provider,
             model_name=request.model,
             db=db,
+            token_tracker=tracker,
             temperature=0.1,
             max_tokens=50,
             tenant_id=ctx.tenant_id,

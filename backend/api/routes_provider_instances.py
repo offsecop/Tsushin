@@ -460,11 +460,14 @@ async def test_provider_connection(
 
     try:
         from agent.ai_client import AIClient
+        from analytics.token_tracker import TokenTracker
+        tracker = TokenTracker(db, instance.tenant_id)
 
         client = AIClient(
             provider=instance.vendor if instance.vendor != "custom" else "openai",
             model_name=test_model,
             db=db,
+            token_tracker=tracker,
             tenant_id=instance.tenant_id,
             max_tokens=20,
         )

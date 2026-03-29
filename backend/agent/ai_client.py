@@ -594,32 +594,49 @@ class AIClient:
             Dict with type "token" or "done"
         """
         try:
+            # Select provider-specific stream generator
             if self.provider == "anthropic":
-                async for chunk in self._stream_anthropic(system_prompt, user_message):
-                    yield chunk
+                stream_gen = self._stream_anthropic(system_prompt, user_message)
             elif self.provider == "openai":
-                async for chunk in self._stream_openai(system_prompt, user_message):
-                    yield chunk
+                stream_gen = self._stream_openai(system_prompt, user_message)
             elif self.provider == "gemini":
-                async for chunk in self._stream_gemini(system_prompt, user_message):
-                    yield chunk
+                stream_gen = self._stream_gemini(system_prompt, user_message)
             elif self.provider == "ollama":
-                async for chunk in self._stream_ollama(system_prompt, user_message, tools=tools):
-                    yield chunk
+                stream_gen = self._stream_ollama(system_prompt, user_message, tools=tools)
             elif self.provider == "openrouter":
                 # OpenRouter uses OpenAI-compatible streaming API
-                async for chunk in self._stream_openai(system_prompt, user_message):
-                    yield chunk
+                stream_gen = self._stream_openai(system_prompt, user_message)
             elif self.provider in ("groq", "grok", "deepseek"):
                 # Groq, Grok, and DeepSeek use OpenAI-compatible streaming API
-                async for chunk in self._stream_openai(system_prompt, user_message):
-                    yield chunk
+                stream_gen = self._stream_openai(system_prompt, user_message)
             else:
                 yield {
                     "type": "error",
                     "error": f"Unsupported provider: {self.provider}"
                 }
                 return
+
+            # Yield chunks and intercept "done" to track token usage
+            async for chunk in stream_gen:
+                if chunk.get("type") == "done" and self.token_tracker:
+                    usage = chunk.get("token_usage")
+                    if usage and usage.get("total", 0) > 0:
+                        try:
+                            self.token_tracker.track_usage(
+                                operation_type=operation_type,
+                                model_provider=self.provider,
+                                model_name=self.model_name,
+                                prompt_tokens=usage.get("prompt", 0),
+                                completion_tokens=usage.get("completion", 0),
+                                agent_id=agent_id,
+                                agent_run_id=agent_run_id,
+                                skill_type=skill_type,
+                                sender_key=sender_key,
+                                message_id=message_id,
+                            )
+                        except Exception as track_err:
+                            self.logger.warning(f"Failed to track streaming token usage: {track_err}")
+                yield chunk
 
         except Exception as e:
             self.logger.error(f"Error streaming from {self.provider}: {e}", exc_info=True)
@@ -687,27 +704,35 @@ class AIClient:
                 ],
                 max_tokens=self.max_tokens,
                 temperature=self.temperature,
-                stream=True
+                stream=True,
+                stream_options={"include_usage": True}
             )
 
+            usage_data = None
             async for chunk in stream:
                 if chunk.choices and len(chunk.choices) > 0:
                     delta = chunk.choices[0].delta
                     if delta.content:
                         accumulated_text += delta.content
                         yield {"type": "token", "content": delta.content}
+                # Capture usage from final chunk (sent with empty choices)
+                if hasattr(chunk, 'usage') and chunk.usage:
+                    usage_data = chunk.usage
 
-            # OpenAI doesn't provide token counts in streaming mode
-            # Estimate based on text length (rough approximation: 4 chars per token)
-            estimated_prompt = len(system_prompt + user_message) // 4
-            estimated_completion = len(accumulated_text) // 4
+            if usage_data:
+                prompt_tokens = usage_data.prompt_tokens
+                completion_tokens = usage_data.completion_tokens
+            else:
+                # Fallback estimation if provider doesn't support stream_options
+                prompt_tokens = len(system_prompt + user_message) // 4
+                completion_tokens = len(accumulated_text) // 4
 
             yield {
                 "type": "done",
                 "token_usage": {
-                    "prompt": estimated_prompt,
-                    "completion": estimated_completion,
-                    "total": estimated_prompt + estimated_completion
+                    "prompt": prompt_tokens,
+                    "completion": completion_tokens,
+                    "total": prompt_tokens + completion_tokens
                 },
                 "error": None
             }
@@ -749,6 +774,7 @@ class AIClient:
             chunk_queue = queue.Queue()
             done_event = threading.Event()
             error_holder = [None]
+            usage_holder = [None]  # Capture usage_metadata from response
 
             def sync_stream():
                 """Synchronous streaming in background thread"""
@@ -761,6 +787,9 @@ class AIClient:
                     for chunk in response:
                         if chunk.text:
                             chunk_queue.put(chunk.text)
+                    # After full iteration, response accumulates usage_metadata
+                    if hasattr(response, 'usage_metadata') and response.usage_metadata:
+                        usage_holder[0] = response.usage_metadata
                 except Exception as e:
                     error_holder[0] = e
                 finally:
@@ -785,16 +814,23 @@ class AIClient:
             if error_holder[0]:
                 raise error_holder[0]
 
-            # Estimate token usage (Gemini SDK doesn't expose counts in streaming)
-            estimated_prompt = len(full_prompt) // 4
-            estimated_completion = len(accumulated_text) // 4
+            # Use actual usage_metadata if available, otherwise estimate
+            if usage_holder[0]:
+                prompt_tokens = getattr(usage_holder[0], 'prompt_token_count', 0) or 0
+                completion_tokens = getattr(usage_holder[0], 'candidates_token_count', 0) or 0
+                total_tokens = getattr(usage_holder[0], 'total_token_count', 0) or (prompt_tokens + completion_tokens)
+            else:
+                # Fallback estimation
+                prompt_tokens = len(full_prompt) // 4
+                completion_tokens = len(accumulated_text) // 4
+                total_tokens = prompt_tokens + completion_tokens
 
             yield {
                 "type": "done",
                 "token_usage": {
-                    "prompt": estimated_prompt,
-                    "completion": estimated_completion,
-                    "total": estimated_prompt + estimated_completion
+                    "prompt": prompt_tokens,
+                    "completion": completion_tokens,
+                    "total": total_tokens
                 },
                 "error": None
             }

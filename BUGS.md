@@ -1,8 +1,53 @@
 # Tsushin Bug Tracker
-**Open:** 0 | **In Progress:** 0 | **Resolved:** 111
+**Open:** 5 | **In Progress:** 0 | **Resolved:** 115
 **Source:** v0.6.1 RBAC & Multi-Tenancy Audit + Security Vulnerability Audit + GKE Readiness Audit + Hub AI Providers Audit + Platform Hardening + QA Regression (2026-03-29)
 
 ## Open Issues
+
+### BUG-116: API v1 OAuth2 token response missing `scope` field
+- **Status:** Open
+- **Severity:** Low
+- **Category:** API v1
+- **Found:** 2026-03-29 (v0.6.0 Regression Test)
+- **Files:** `backend/api/routes_api_v1.py`
+- **Description:** The `POST /api/v1/oauth/token` response returns `{access_token, token_type, expires_in}` but does not include a `scope` field. The `test_api_v1_e2e.py::TestOAuth2TokenExchange::test_valid_exchange` test expects `scope` in the response dict. Either the test expectation is wrong or the endpoint needs to return the granted scopes.
+- **Impact:** Test assertion failure only. API v1 OAuth2 flow works correctly for authentication.
+
+### BUG-117: API v1 X-Request-Id uses UUID format instead of `req_` prefix
+- **Status:** Open
+- **Severity:** Low
+- **Category:** API v1
+- **Found:** 2026-03-29 (v0.6.0 Regression Test)
+- **Files:** `backend/middleware/request_id.py`
+- **Description:** The `X-Request-Id` header returns a standard UUID (e.g., `51469fb6-3ea2-45ae-a702-68d00fb07bdd`) but `test_api_v1_e2e.py::TestRateLimitHeaders::test_request_id_header` expects the format to start with `req_`. Either the test or the middleware format needs alignment.
+- **Impact:** Test assertion failure only. Request IDs work correctly for correlation and debugging.
+
+### BUG-118: API v1 agent description search doesn't find recently created agents
+- **Status:** Open
+- **Severity:** Low
+- **Category:** API v1
+- **Found:** 2026-03-29 (v0.6.0 Regression Test)
+- **Files:** `backend/api/routes_api_v1.py`
+- **Description:** `test_api_v1_e2e.py::TestAgentDescription::test_list_agents_shows_description` creates an agent with a description and immediately lists agents to find it, but the search returns None. Possible pagination or tenant scoping issue causing the newly created agent not to appear in the filtered list.
+- **Impact:** Test assertion failure. Agent CRUD and description storage work correctly.
+
+### BUG-119: MemGuard detect_only mode doesn't trigger audit logging mock
+- **Status:** Open
+- **Severity:** Low
+- **Category:** Security / MemGuard
+- **Found:** 2026-03-29 (v0.6.0 Regression Test)
+- **Files:** `backend/services/memguard_service.py`, `backend/tests/test_memguard.py`
+- **Description:** `TestLayerBDetectOnlyMode::test_detect_only_logs_as_detected` and `test_block_mode_logs_as_blocked` fail because `mock.add` is not being called. The mock expectation may not match the actual audit logging path, or the MemGuard service's audit logging was refactored without updating the test mocks.
+- **Impact:** Test assertion failure only. MemGuard detection and blocking work correctly in production.
+
+### BUG-120: MemGuard threat score extraction returns None for certain patterns
+- **Status:** Open
+- **Severity:** Low
+- **Category:** Security / MemGuard
+- **Found:** 2026-03-29 (v0.6.0 Regression Test)
+- **Files:** `backend/services/memguard_service.py`, `backend/tests/test_memguard.py`
+- **Description:** `TestThreatScoreVariability` tests fail with `TypeError: 'NoneType' object is not subscriptable`, indicating that the threat score extraction function returns None instead of a dict for certain poisoning patterns (credentials, command instructions, suspicious overrides). The Layer B scan may not be returning structured results for all pattern types.
+- **Impact:** Test assertion failure. The detection itself works (threats are caught), but the score metadata is not always populated.
 
 ### BUG-110: 13 AIClient call sites missing token_tracker — LLM costs silently untracked
 - **Status:** Resolved
@@ -33,7 +78,47 @@
 - **Files:** `frontend/components/ui/Modal.tsx`
 - **Description:** When clicking "Edit" on a Provider Instance in Hub > AI Providers, the modal overlay appears behind the content area instead of on top. The `glass-card` CSS class applies `backdrop-filter: blur(12px)` which creates a new CSS stacking context, trapping the modal's z-index inside it.
 - **Impact:** Users cannot visually interact with the edit modal. Workaround: use keyboard navigation or inspect element.
-- **Resolution:** Converted Modal.tsx to use React Portal (`createPortal(jsx, document.body)`) to escape all CSS stacking contexts. Added SSR safety with `useState(false)` for `mounted` state. Fix applies universally to all modal consumers (ProviderInstanceModal, TelegramBotModal, QR modals, etc.).
+- **Resolution:** Moved `ProviderInstanceModal` JSX from inside the `glass-card overflow-hidden` container (line ~2149) to the root-level modal section alongside `TelegramBotModal` (line ~3712). This escapes the CSS stacking context created by `overflow-hidden`. QA validated: modal now renders centered and fully visible with dark backdrop overlay.
+
+### BUG-112: 4 admin test endpoints missing token_tracker — test connection costs untracked
+- **Status:** Resolved
+- **Resolved:** 2026-03-29
+- **Severity:** Low
+- **Category:** Billing / Analytics
+- **Found:** 2026-03-29 (v0.6.0 Platform Hardening)
+- **Files:** `backend/api/routes_sentinel.py`, `backend/api/routes_provider_instances.py`, `backend/api/routes_integrations.py`, `backend/services/system_ai_config.py`
+- **Description:** Four admin test connection endpoints created AIClient without passing token_tracker, causing LLM costs from test connection calls to be invisible in billing analytics.
+- **Resolution:** Added `TokenTracker(db, tenant_id)` to all 4 endpoints. System AI config endpoint received optional `tenant_id` parameter for graceful degradation.
+
+### BUG-113: OpenAI/Groq/Grok/DeepSeek streaming estimates tokens via len()//4 instead of actual counts
+- **Status:** Resolved
+- **Resolved:** 2026-03-29
+- **Severity:** Medium
+- **Category:** Billing / Analytics
+- **Found:** 2026-03-29 (v0.6.0 Platform Hardening)
+- **Files:** `backend/agent/ai_client.py`
+- **Description:** The `_stream_openai()` method estimated streaming token counts using `len(text)//4`. OpenAI's API supports `stream_options={"include_usage": True}` which returns actual usage on the final chunk, but this was not enabled.
+- **Resolution:** Added `stream_options={"include_usage": True}` to the `create()` call. Captures `chunk.usage` on the final chunk for actual token counts. Falls back to estimation only when the provider doesn't support stream_options.
+
+### BUG-114: generate_streaming() never calls token_tracker.track_usage()
+- **Status:** Resolved
+- **Resolved:** 2026-03-29
+- **Severity:** Medium
+- **Category:** Billing / Analytics
+- **Found:** 2026-03-29 (v0.6.0 Platform Hardening)
+- **Files:** `backend/agent/ai_client.py`
+- **Description:** The `generate_streaming()` method yielded chunks from provider methods but never called `self.token_tracker.track_usage()`, unlike the non-streaming `generate()` method. All streaming responses had zero cost tracking.
+- **Resolution:** Added unified wrapper in `generate_streaming()` that intercepts "done" chunks and calls `track_usage()` with the same parameters as the non-streaming path.
+
+### BUG-115: MCP tool descriptions from untrusted servers bypass Sentinel scanning
+- **Status:** Resolved
+- **Resolved:** 2026-03-29
+- **Severity:** High
+- **Category:** Security
+- **Found:** 2026-03-29 (v0.6.0 Security Hardening M-4)
+- **Files:** `backend/hub/mcp/connection_manager.py`
+- **Description:** The `refresh_tools()` method hardcoded `scan_status='clean'` for all discovered MCP tools regardless of the server's trust level. Tool descriptions from untrusted external MCP servers were stored without any Sentinel security analysis, potentially allowing malicious tool descriptions to inject prompts.
+- **Resolution:** Added `_scan_tool_description()` method with trust-level-aware scanning: untrusted servers get full Sentinel analysis, system/verified servers skip scan. Description length capped at 1000 chars (Security C-3). Fail-open on Sentinel unavailability with logging.
 
 ### BUG-108: Kokoro TTS health check fails when /health endpoint is temporarily unavailable
 - **Status:** Resolved

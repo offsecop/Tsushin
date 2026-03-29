@@ -849,6 +849,15 @@ async def lifespan(app: FastAPI):
 
     asyncio.create_task(_auto_connect_mcp_servers())
 
+    # v0.6.0 G3-A: Start MCP Server Periodic Health Check Service
+    try:
+        from services.mcp_server_health_service import MCPServerHealthCheckService
+        app.state.mcp_server_health_service = MCPServerHealthCheckService(engine)
+        await app.state.mcp_server_health_service.start()
+        logging.info("MCP Server Health Check Service started (interval=180s)")
+    except Exception as e:
+        logging.error(f"Error starting MCP Server Health Check Service: {e}", exc_info=True)
+
     yield
 
     # Shutdown
@@ -894,6 +903,14 @@ async def lifespan(app: FastAPI):
             logging.info("🏥 MCP Health Monitor Service stopped")
         except Exception as e:
             logging.error(f"Error stopping MCP Health Monitor: {e}", exc_info=True)
+
+    # v0.6.0 G3-A: Stop MCP Server Health Check Service
+    if hasattr(app.state, 'mcp_server_health_service'):
+        try:
+            await app.state.mcp_server_health_service.stop()
+            logging.info("MCP Server Health Check Service stopped")
+        except Exception as e:
+            logging.error(f"Error stopping MCP Server Health Check Service: {e}", exc_info=True)
 
     # Phase 18.4: Stop Beacon Connection Service
     try:

@@ -165,6 +165,55 @@ class MCPConnectionManager:
         for server_id in server_ids:
             await self.disconnect(server_id, db)
 
+    # Security C-3: Maximum description length for MCP tool descriptions
+    MAX_TOOL_DESCRIPTION_CHARS = 1000
+
+    async def _scan_tool_description(
+        self, description: str, tool_name: str, trust_level: str, tenant_id: str, db: Session
+    ) -> str:
+        """Run Sentinel scan on an MCP tool description.
+
+        Trusted sources (system/verified) are whitelisted to avoid false
+        positives and unnecessary LLM calls. Untrusted descriptions are
+        scanned for prompt injection and other threats.
+
+        Args:
+            description: Tool description text (already truncated).
+            tool_name: Name of the tool (for logging).
+            trust_level: Server trust level ('system', 'verified', 'untrusted').
+            tenant_id: Tenant ID for Sentinel config resolution.
+            db: SQLAlchemy session.
+
+        Returns:
+            Scan status string: 'clean' or 'rejected'.
+        """
+        # Trusted servers skip scanning
+        if trust_level in ('system', 'verified'):
+            return 'clean'
+
+        # Empty descriptions are trivially clean
+        if not description or not description.strip():
+            return 'clean'
+
+        try:
+            from services.sentinel_service import SentinelService
+            sentinel = SentinelService(db, tenant_id=tenant_id)
+            result = await sentinel.analyze_prompt(
+                prompt=description,
+                source=None,  # Not an internal source — should be scanned
+            )
+            if hasattr(result, 'is_threat_detected') and result.is_threat_detected:
+                logger.warning(
+                    f"Sentinel rejected MCP tool description: tool={tool_name}, "
+                    f"reason={getattr(result, 'threat_reason', 'unknown')}"
+                )
+                return 'rejected'
+            return 'clean'
+        except Exception as e:
+            # Fail-open: if Sentinel is unavailable, allow the tool
+            logger.warning(f"Sentinel scan unavailable for tool '{tool_name}', defaulting to clean: {e}")
+            return 'clean'
+
     async def refresh_tools(self, server_id: int, db: Session) -> list:
         """Discover tools from the MCP server and upsert into DB.
 
@@ -189,25 +238,35 @@ class MCPConnectionManager:
             seen_tool_names.add(tool_name)
             namespaced = f"{config.server_name}__{tool_name}"
 
+            # Security C-3: Truncate description to prevent oversized payloads
+            raw_description = getattr(tool, 'description', '') or ''
+            description = raw_description[:self.MAX_TOOL_DESCRIPTION_CHARS]
+
+            # Security M-4: Sentinel scan for untrusted tool descriptions
+            scan_status = await self._scan_tool_description(
+                description, tool_name, config.trust_level, config.tenant_id, db
+            )
+
             existing = db.query(MCPDiscoveredTool).filter(
                 MCPDiscoveredTool.server_id == server_id,
                 MCPDiscoveredTool.tool_name == tool_name
             ).first()
 
             if existing:
-                existing.description = getattr(tool, 'description', '') or ''
+                existing.description = description
                 existing.input_schema = getattr(tool, 'inputSchema', {}) or {}
                 existing.namespaced_name = namespaced
+                existing.scan_status = scan_status
             else:
                 new_tool = MCPDiscoveredTool(
                     server_id=server_id,
                     tenant_id=config.tenant_id,
                     tool_name=tool_name,
                     namespaced_name=namespaced,
-                    description=getattr(tool, 'description', '') or '',
+                    description=description,
                     input_schema=getattr(tool, 'inputSchema', {}) or {},
                     is_enabled=True,
-                    scan_status='clean'
+                    scan_status=scan_status
                 )
                 db.add(new_tool)
                 discovered.append(new_tool)

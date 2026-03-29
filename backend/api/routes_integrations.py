@@ -90,10 +90,14 @@ async def _test_llm_provider(
         )
 
     try:
+        from analytics.token_tracker import TokenTracker
+        tracker = TokenTracker(db, tenant_id)
+
         client = AIClient(
             provider=provider,
             model_name=test_model,
             db=db,
+            token_tracker=tracker,
             tenant_id=tenant_id,
             max_tokens=20,
         )
