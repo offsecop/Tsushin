@@ -12,6 +12,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRequireAuth } from '@/contexts/AuthContext'
 import { api, SSOConfig, PlatformSSOStatus, SSOConfigUpdate } from '@/lib/client'
 import Link from 'next/link'
+import ToggleSwitch from '@/components/ui/ToggleSwitch'
 
 // Type for Google credentials from Hub API
 interface GoogleCredentials {
@@ -346,16 +347,13 @@ export default function SecuritySettingsPage() {
                   Allow users to sign in using their Google account
                 </p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={googleEnabled}
-                  onChange={(e) => setGoogleEnabled(e.target.checked)}
-                  disabled={!canEdit || !canUseSSO}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
-              </label>
+              <ToggleSwitch
+                checked={googleEnabled}
+                onChange={(checked) => setGoogleEnabled(checked)}
+                disabled={!canEdit || !canUseSSO}
+                size="md"
+                title={googleEnabled ? 'Disable Google SSO' : 'Enable Google SSO'}
+              />
             </div>
 
             {!canUseSSO && (
@@ -405,16 +403,13 @@ export default function SecuritySettingsPage() {
                       Automatically create accounts for users who sign in with Google
                     </p>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={autoProvision}
-                      onChange={(e) => setAutoProvision(e.target.checked)}
-                      disabled={!canEdit}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
-                  </label>
+                  <ToggleSwitch
+                    checked={autoProvision}
+                    onChange={(checked) => setAutoProvision(checked)}
+                    disabled={!canEdit}
+                    size="md"
+                    title={autoProvision ? 'Disable auto-provision' : 'Enable auto-provision'}
+                  />
                 </div>
 
                 {autoProvision && (

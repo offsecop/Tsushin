@@ -33,6 +33,7 @@ import {
   BrainIcon,
   LayersIcon,
 } from '@/components/ui/icons'
+import ToggleSwitch from '@/components/ui/ToggleSwitch'
 
 type TabType = 'general' | 'profiles' | 'memguard' | 'prompts' | 'llm' | 'stats' | 'exceptions' | 'hierarchy'
 
@@ -675,16 +676,13 @@ export default function SentinelSettingsPage() {
                       Enable AI-powered security analysis
                     </p>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formState.is_enabled ?? false}
-                      onChange={(e) => setFormState({ ...formState, is_enabled: e.target.checked })}
-                      disabled={!canEdit}
-                      className="sr-only peer"
-                    />
-                    <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 dark:peer-focus:ring-teal-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
-                  </label>
+                  <ToggleSwitch
+                    checked={formState.is_enabled ?? false}
+                    onChange={(checked) => setFormState({ ...formState, is_enabled: checked })}
+                    disabled={!canEdit}
+                    size="lg"
+                    title={formState.is_enabled ? 'Disable Sentinel' : 'Enable Sentinel'}
+                  />
                 </div>
               </div>
 
@@ -703,16 +701,12 @@ export default function SentinelSettingsPage() {
                       <p className="font-medium text-gray-900 dark:text-gray-100">{toggle.label}</p>
                       <p className="text-sm text-gray-500 dark:text-gray-400">{toggle.desc}</p>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={(formState as any)[toggle.key] ?? false}
-                        onChange={(e) => setFormState({ ...formState, [toggle.key]: e.target.checked })}
-                        disabled={!canEdit}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
-                    </label>
+                    <ToggleSwitch
+                      checked={(formState as any)[toggle.key] ?? false}
+                      onChange={(checked) => setFormState({ ...formState, [toggle.key]: checked })}
+                      disabled={!canEdit}
+                      size="md"
+                    />
                   </div>
                 ))}
               </div>
@@ -804,16 +798,12 @@ export default function SentinelSettingsPage() {
                         <p className="text-sm text-gray-500 dark:text-gray-400">{detection.desc}</p>
                       </div>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={(formState as any)[detection.key] ?? false}
-                        onChange={(e) => setFormState({ ...formState, [detection.key]: e.target.checked })}
-                        disabled={!canEdit}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
-                    </label>
+                    <ToggleSwitch
+                      checked={(formState as any)[detection.key] ?? false}
+                      onChange={(checked) => setFormState({ ...formState, [detection.key]: checked })}
+                      disabled={!canEdit}
+                      size="md"
+                    />
                   </div>
                 ))}
               </div>
@@ -869,16 +859,13 @@ export default function SentinelSettingsPage() {
                     <p className="font-medium text-gray-900 dark:text-gray-100">Log All Analyses</p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Log all analyses including allowed messages (increases storage)</p>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formState.log_all_analyses ?? false}
-                      onChange={(e) => setFormState({ ...formState, log_all_analyses: e.target.checked })}
-                      disabled={!canEdit}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
-                  </label>
+                  <ToggleSwitch
+                    checked={formState.log_all_analyses ?? false}
+                    onChange={(checked) => setFormState({ ...formState, log_all_analyses: checked })}
+                    disabled={!canEdit}
+                    size="md"
+                    title="Toggle verbose logging"
+                  />
                 </div>
               </div>
             </div>
@@ -2214,16 +2201,12 @@ If you believe this is an error, please contact support."
                         <p className="font-medium text-gray-900 dark:text-gray-100">Enabled</p>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Activate this security profile</p>
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={profileForm.is_enabled ?? true}
-                          onChange={(e) => setProfileForm({ ...profileForm, is_enabled: e.target.checked })}
-                          disabled={editingProfile?.is_system}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
-                      </label>
+                      <ToggleSwitch
+                        checked={profileForm.is_enabled ?? true}
+                        onChange={(checked) => setProfileForm({ ...profileForm, is_enabled: checked })}
+                        disabled={editingProfile?.is_system}
+                        size="md"
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Detection Mode</label>
@@ -2258,16 +2241,12 @@ If you believe this is an error, please contact support."
                         <p className="font-medium text-gray-900 dark:text-gray-100">Set as Default</p>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Use as fallback when no profile is assigned</p>
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={profileForm.is_default ?? false}
-                          onChange={(e) => setProfileForm({ ...profileForm, is_default: e.target.checked })}
-                          disabled={editingProfile?.is_system}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
-                      </label>
+                      <ToggleSwitch
+                        checked={profileForm.is_default ?? false}
+                        onChange={(checked) => setProfileForm({ ...profileForm, is_default: checked })}
+                        disabled={editingProfile?.is_system}
+                        size="md"
+                      />
                     </div>
                   </>
                 )}
@@ -2289,16 +2268,12 @@ If you believe this is an error, please contact support."
                           <p className="font-medium text-gray-900 dark:text-gray-100">{toggle.label}</p>
                           <p className="text-sm text-gray-500 dark:text-gray-400">{toggle.desc}</p>
                         </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={(profileForm as any)[toggle.key] ?? true}
-                            onChange={(e) => setProfileForm({ ...profileForm, [toggle.key]: e.target.checked })}
-                            disabled={editingProfile?.is_system}
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
-                        </label>
+                        <ToggleSwitch
+                          checked={(profileForm as any)[toggle.key] ?? true}
+                          onChange={(checked) => setProfileForm({ ...profileForm, [toggle.key]: checked })}
+                          disabled={editingProfile?.is_system}
+                          size="md"
+                        />
                       </div>
                     ))}
                     <div className="flex items-center justify-between py-2">
@@ -2306,32 +2281,24 @@ If you believe this is an error, please contact support."
                         <p className="font-medium text-gray-900 dark:text-gray-100">Block on Detection</p>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Block messages when threats are detected</p>
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={profileForm.block_on_detection ?? true}
-                          onChange={(e) => setProfileForm({ ...profileForm, block_on_detection: e.target.checked })}
-                          disabled={editingProfile?.is_system}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
-                      </label>
+                      <ToggleSwitch
+                        checked={profileForm.block_on_detection ?? true}
+                        onChange={(checked) => setProfileForm({ ...profileForm, block_on_detection: checked })}
+                        disabled={editingProfile?.is_system}
+                        size="md"
+                      />
                     </div>
                     <div className="flex items-center justify-between py-2">
                       <div>
                         <p className="font-medium text-gray-900 dark:text-gray-100">Log All Analyses</p>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Log all analyses including allowed messages</p>
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={profileForm.log_all_analyses ?? false}
-                          onChange={(e) => setProfileForm({ ...profileForm, log_all_analyses: e.target.checked })}
-                          disabled={editingProfile?.is_system}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
-                      </label>
+                      <ToggleSwitch
+                        checked={profileForm.log_all_analyses ?? false}
+                        onChange={(checked) => setProfileForm({ ...profileForm, log_all_analyses: checked })}
+                        disabled={editingProfile?.is_system}
+                        size="md"
+                      />
                     </div>
                   </>
                 )}
@@ -2368,20 +2335,16 @@ If you believe this is an error, please contact support."
                                 {det.source === 'registry_default' && (
                                   <span className="text-xs text-gray-400">(default)</span>
                                 )}
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={det.enabled}
-                                    onChange={(e) => {
-                                      const updated = [...profileDetections]
-                                      updated[idx] = { ...det, enabled: e.target.checked, source: 'explicit' }
-                                      setProfileDetections(updated)
-                                    }}
-                                    disabled={editingProfile?.is_system}
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
-                                </label>
+                                <ToggleSwitch
+                                  checked={det.enabled}
+                                  onChange={(checked) => {
+                                    const updated = [...profileDetections]
+                                    updated[idx] = { ...det, enabled: checked, source: 'explicit' }
+                                    setProfileDetections(updated)
+                                  }}
+                                  disabled={editingProfile?.is_system}
+                                  size="md"
+                                />
                               </div>
                             </div>
                             {det.source === 'explicit' && det.enabled && (
@@ -2510,16 +2473,12 @@ If you believe this is an error, please contact support."
                         <p className="font-medium text-gray-900 dark:text-gray-100">Enable Notifications</p>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Send notifications when security events occur</p>
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={profileForm.enable_notifications ?? true}
-                          onChange={(e) => setProfileForm({ ...profileForm, enable_notifications: e.target.checked })}
-                          disabled={editingProfile?.is_system}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
-                      </label>
+                      <ToggleSwitch
+                        checked={profileForm.enable_notifications ?? true}
+                        onChange={(checked) => setProfileForm({ ...profileForm, enable_notifications: checked })}
+                        disabled={editingProfile?.is_system}
+                        size="md"
+                      />
                     </div>
                     {profileForm.enable_notifications && (
                       <>
@@ -2528,32 +2487,24 @@ If you believe this is an error, please contact support."
                             <p className="font-medium text-gray-900 dark:text-gray-100">Notify on Block</p>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Send notification when a message is blocked</p>
                           </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={profileForm.notification_on_block ?? true}
-                              onChange={(e) => setProfileForm({ ...profileForm, notification_on_block: e.target.checked })}
-                              disabled={editingProfile?.is_system}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
-                          </label>
+                          <ToggleSwitch
+                            checked={profileForm.notification_on_block ?? true}
+                            onChange={(checked) => setProfileForm({ ...profileForm, notification_on_block: checked })}
+                            disabled={editingProfile?.is_system}
+                            size="md"
+                          />
                         </div>
                         <div className="flex items-center justify-between py-2 pl-4 border-l-2 border-teal-500">
                           <div>
                             <p className="font-medium text-gray-900 dark:text-gray-100">Notify on Detect</p>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Send notification on detection (even if not blocked)</p>
                           </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={profileForm.notification_on_detect ?? false}
-                              onChange={(e) => setProfileForm({ ...profileForm, notification_on_detect: e.target.checked })}
-                              disabled={editingProfile?.is_system}
-                              className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-teal-600"></div>
-                          </label>
+                          <ToggleSwitch
+                            checked={profileForm.notification_on_detect ?? false}
+                            onChange={(checked) => setProfileForm({ ...profileForm, notification_on_detect: checked })}
+                            disabled={editingProfile?.is_system}
+                            size="md"
+                          />
                         </div>
                         <div className="pl-4 border-l-2 border-teal-500">
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notification Recipient</label>

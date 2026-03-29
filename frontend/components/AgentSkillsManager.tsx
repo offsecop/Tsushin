@@ -10,6 +10,7 @@ import {
   IconProps,
 } from '@/components/ui/icons'
 import AddSkillModal from './skills/AddSkillModal'
+import ToggleSwitch from './ui/ToggleSwitch'
 import { HIDDEN_SKILLS, SPECIAL_RENDERED_SKILLS, SKILL_DISPLAY_INFO, getSkillDisplay } from './skills/skill-constants'
 
 interface Props {
@@ -1290,22 +1291,18 @@ export default function AgentSkillsManager({ agentId }: Props) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={assignment.is_enabled}
-                      onChange={async (e) => {
-                        try {
-                          await api.updateAgentCustomSkill(agentId, assignment.id, { is_enabled: e.target.checked })
-                          loadData()
-                        } catch (err) {
-                          console.error('Failed to toggle custom skill:', err)
-                        }
-                      }}
-                      className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-gray-200 rounded-full peer bg-tsushin-elevated peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all border-tsushin-border peer-checked:bg-teal-600"></div>
-                  </label>
+                  <ToggleSwitch
+                    checked={assignment.is_enabled}
+                    onChange={async (checked) => {
+                      try {
+                        await api.updateAgentCustomSkill(agentId, assignment.id, { is_enabled: checked })
+                        loadData()
+                      } catch (err) {
+                        console.error('Failed to toggle custom skill:', err)
+                      }
+                    }}
+                    title={assignment.is_enabled ? 'Disable skill' : 'Enable skill'}
+                  />
                   <button
                     onClick={async () => {
                       if (confirm(`Remove "${assignment.skill?.name}" from this agent?`)) {
@@ -1627,15 +1624,12 @@ export default function AgentSkillsManager({ agentId }: Props) {
                   {/* Enable Toggle */}
                   <div className="flex items-center justify-between p-3 bg-tsushin-ink rounded-lg">
                     <span className="font-medium">Enable TTS Response</span>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={isSkillEnabled('audio_tts')}
-                        onChange={(e) => toggleAudioSubSkill('audio_tts', e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 dark:peer-focus:ring-teal-800 rounded-full peer bg-tsushin-elevated peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all border-tsushin-border peer-checked:bg-teal-600"></div>
-                    </label>
+                    <ToggleSwitch
+                      checked={isSkillEnabled('audio_tts')}
+                      onChange={(checked) => toggleAudioSubSkill('audio_tts', checked)}
+                      size="md"
+                      title={isSkillEnabled('audio_tts') ? 'Disable TTS' : 'Enable TTS'}
+                    />
                   </div>
 
                   {/* Provider Selection */}
@@ -1774,15 +1768,12 @@ export default function AgentSkillsManager({ agentId }: Props) {
                   {/* Enable Toggle */}
                   <div className="flex items-center justify-between p-3 bg-tsushin-ink rounded-lg">
                     <span className="font-medium">Enable Audio Transcript</span>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={isSkillEnabled('audio_transcript')}
-                        onChange={(e) => toggleAudioSubSkill('audio_transcript', e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 dark:peer-focus:ring-teal-800 rounded-full peer bg-tsushin-elevated peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all border-tsushin-border peer-checked:bg-teal-600"></div>
-                    </label>
+                    <ToggleSwitch
+                      checked={isSkillEnabled('audio_transcript')}
+                      onChange={(checked) => toggleAudioSubSkill('audio_transcript', checked)}
+                      size="md"
+                      title={isSkillEnabled('audio_transcript') ? 'Disable transcript' : 'Enable transcript'}
+                    />
                   </div>
 
                   {/* Response Mode */}
@@ -1952,15 +1943,12 @@ export default function AgentSkillsManager({ agentId }: Props) {
                   {/* Enable Toggle */}
                   <div className="flex items-center justify-between p-3 bg-tsushin-ink rounded-lg">
                     <span className="font-medium">Enable Shell Skill</span>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={isSkillEnabled('shell')}
-                        onChange={(e) => toggleSkill('shell', e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 dark:peer-focus:ring-teal-800 rounded-full peer bg-tsushin-elevated peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all border-tsushin-border peer-checked:bg-teal-600"></div>
-                    </label>
+                    <ToggleSwitch
+                      checked={isSkillEnabled('shell')}
+                      onChange={(checked) => toggleSkill('shell', checked)}
+                      size="md"
+                      title={isSkillEnabled('shell') ? 'Disable shell' : 'Enable shell'}
+                    />
                   </div>
 
                   {/* Agent Execution Mode */}

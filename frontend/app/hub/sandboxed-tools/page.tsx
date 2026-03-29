@@ -23,6 +23,7 @@ import {
   PackageIcon,
   LightningIcon,
 } from '@/components/ui/icons'
+import ToggleSwitch from '@/components/ui/ToggleSwitch'
 
 type SubTabType = 'tools' | 'packages' | 'executions'
 
@@ -862,15 +863,11 @@ export default function CustomToolsPage() {
                             </div>
                             <h4 className="font-semibold text-white">{tool.name}</h4>
                           </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={tool.is_enabled}
-                              onChange={() => handleToggleTool(tool)}
-                              className="sr-only peer"
-                            />
-                            <div className="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-teal-500"></div>
-                          </label>
+                          <ToggleSwitch
+                            checked={tool.is_enabled}
+                            onChange={() => handleToggleTool(tool)}
+                            title={tool.is_enabled ? 'Disable tool' : 'Enable tool'}
+                          />
                         </div>
                         <p className="text-xs text-tsushin-slate mb-3 line-clamp-2">{tool.system_prompt}</p>
                         <div className="flex gap-2">

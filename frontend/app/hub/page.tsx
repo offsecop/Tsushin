@@ -57,6 +57,7 @@ import {
   AlertTriangleIcon,
   type IconProps
 } from '@/components/ui/icons'
+import ToggleSwitch from '@/components/ui/ToggleSwitch'
 
 type TabType = 'ai-providers' | 'communication' | 'productivity' | 'developer' | 'tool-apis' | 'sandboxed-tools' | 'mcp-servers'
 
@@ -1918,18 +1919,13 @@ export default function HubPage() {
                           </div>
                           {/* Enable/Disable Toggle */}
                           {canEditSettings && (
-                            <button
-                              onClick={handleOllamaToggle}
+                            <ToggleSwitch
+                              checked={ollamaEnabled}
+                              onChange={() => handleOllamaToggle()}
                               disabled={ollamaToggleLoading}
-                              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                                ollamaEnabled ? 'bg-tsushin-success' : 'bg-tsushin-slate/40'
-                              } ${ollamaToggleLoading ? 'opacity-50 cursor-wait' : ''}`}
                               title={ollamaEnabled ? 'Disable Ollama' : 'Enable Ollama'}
-                            >
-                              <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                                ollamaEnabled ? 'translate-x-4' : 'translate-x-0'
-                              }`} />
-                            </button>
+                              activeColor="bg-tsushin-success"
+                            />
                           )}
                         </div>
                       </div>
@@ -2037,26 +2033,43 @@ export default function HubPage() {
                           </div>
                           <h3 className="font-semibold text-white">Kokoro TTS (Free)</h3>
                         </div>
-                        {/* Status indicator with color-coded dot */}
-                        <div className="flex items-center gap-1.5">
-                          <div className={`w-2 h-2 rounded-full ${
-                            kokoroContainerStatus?.status === 'running'
-                              ? 'bg-tsushin-success animate-pulse'
-                              : kokoroContainerStatus?.status === 'not_installed' || kokoroContainerStatus?.status === 'error'
-                                ? 'bg-tsushin-vermilion'
-                                : 'bg-tsushin-slate'
-                          }`} />
-                          <span className="text-[11px] text-tsushin-slate capitalize">
-                            {kokoroContainerStatus?.status === 'running'
-                              ? 'Running'
-                              : kokoroContainerStatus?.status === 'exited'
-                                ? 'Stopped'
-                                : kokoroContainerStatus?.status === 'not_installed'
-                                  ? 'Not Installed'
-                                  : kokoroContainerStatus?.status === 'error'
-                                    ? 'Error'
-                                    : kokoroHealth?.available ? 'Online' : 'Offline'}
-                          </span>
+                        <div className="flex items-center gap-3">
+                          {/* Status indicator with color-coded dot */}
+                          <div className="flex items-center gap-1.5">
+                            <div className={`w-2 h-2 rounded-full ${
+                              kokoroContainerStatus?.status === 'running'
+                                ? 'bg-tsushin-success animate-pulse'
+                                : kokoroContainerStatus?.status === 'not_installed' || kokoroContainerStatus?.status === 'error'
+                                  ? 'bg-tsushin-vermilion'
+                                  : 'bg-tsushin-slate'
+                            }`} />
+                            <span className="text-[11px] text-tsushin-slate capitalize">
+                              {kokoroContainerStatus?.status === 'running'
+                                ? 'Running'
+                                : kokoroContainerStatus?.status === 'exited'
+                                  ? 'Stopped'
+                                  : kokoroContainerStatus?.status === 'not_installed'
+                                    ? 'Not Installed'
+                                    : kokoroContainerStatus?.status === 'error'
+                                      ? 'Error'
+                                      : kokoroHealth?.available ? 'Online' : 'Offline'}
+                            </span>
+                          </div>
+                          {/* Enable/Disable Toggle */}
+                          {canEditSettings && kokoroContainerStatus?.status !== 'not_installed' && (
+                            <ToggleSwitch
+                              checked={kokoroContainerStatus?.status === 'running'}
+                              onChange={async (checked) => {
+                                if (checked) {
+                                  await handleStartKokoro()
+                                } else {
+                                  await handleStopKokoro()
+                                }
+                              }}
+                              disabled={kokoroActionLoading}
+                              title={kokoroContainerStatus?.status === 'running' ? 'Stop Kokoro' : 'Start Kokoro'}
+                            />
+                          )}
                         </div>
                       </div>
                       <p className="text-xs text-tsushin-slate mb-3">Free text-to-speech with PTBR support</p>
@@ -2082,34 +2095,8 @@ export default function HubPage() {
                           </>
                         )}
                       </div>
-                      {/* Container management buttons */}
+                      {/* Container management */}
                       <div className="flex gap-2 mt-4">
-                        {kokoroContainerStatus?.status === 'running' ? (
-                          <button
-                            onClick={handleStopKokoro}
-                            disabled={kokoroActionLoading}
-                            className="flex-1 bg-tsushin-vermilion/20 text-tsushin-vermilion hover:bg-tsushin-vermilion/30 rounded-lg px-3 py-1.5 text-sm transition-colors disabled:opacity-50"
-                          >
-                            {kokoroActionLoading ? 'Stopping...' : 'Stop'}
-                          </button>
-                        ) : kokoroContainerStatus?.status === 'not_installed' || kokoroContainerStatus?.status === 'error' ? (
-                          <button
-                            onClick={async () => {
-                              await Promise.all([fetchKokoroContainerStatus(), fetchKokoroHealth()])
-                            }}
-                            className="flex-1 btn-secondary py-1.5 text-sm"
-                          >
-                            Refresh Status
-                          </button>
-                        ) : (
-                          <button
-                            onClick={handleStartKokoro}
-                            disabled={kokoroActionLoading}
-                            className="flex-1 bg-tsushin-success/20 text-tsushin-success hover:bg-tsushin-success/30 rounded-lg px-3 py-1.5 text-sm transition-colors disabled:opacity-50"
-                          >
-                            {kokoroActionLoading ? 'Starting...' : 'Start'}
-                          </button>
-                        )}
                         <button
                           onClick={async () => {
                             await Promise.all([fetchKokoroContainerStatus(), fetchKokoroHealth()])
