@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 import sys
 import os
@@ -10,6 +10,7 @@ import asyncio
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from models import Contact, UserContactMapping, ContactChannelMapping
+from api.sanitizers import strip_html_tags
 from models_rbac import User
 from auth_dependencies import TenantContext, get_tenant_context, require_permission
 from services.contact_channel_mapping_service import ContactChannelMappingService
@@ -204,11 +205,9 @@ class ChannelMappingCreate(BaseModel):
 
 
 class ContactCreate(BaseModel):
-    # TODO: Add HTML sanitization validator for friendly_name and notes fields
-    # to prevent stored XSS (same pattern as AgentCreateRequest in v1/routes_agents.py)
     friendly_name: str = Field(..., min_length=1, max_length=100)
     whatsapp_id: str | None = Field(None, max_length=50)
-    phone_number: str | None = Field(None, max_length=20)
+    phone_number: str | None = Field(None, max_length=20, pattern=r"^\+?[1-9]\d{6,14}$")
     telegram_id: str | None = Field(None, max_length=50)  # Phase 10.1.1: Telegram user ID
     telegram_username: str | None = Field(None, max_length=50)  # Phase 10.1.1: Telegram @username
     role: str = Field(default="user", pattern="^(user|agent)$")
@@ -217,12 +216,27 @@ class ContactCreate(BaseModel):
     notes: str | None = None
     linked_user_id: int | None = Field(None, description="ID of the system user to link this contact to")
 
+    @field_validator("friendly_name")
+    @classmethod
+    def sanitize_friendly_name(cls, v: str) -> str:
+        cleaned = strip_html_tags(v)
+        if not cleaned or not cleaned.strip():
+            raise ValueError("Friendly name must not be empty after removing HTML tags")
+        return cleaned.strip()
+
+    @field_validator("notes")
+    @classmethod
+    def sanitize_notes(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        return strip_html_tags(v).strip() or None
+
     class Config:
         json_schema_extra = {
             "example": {
                 "friendly_name": "Alice",
                 "whatsapp_id": "123456789012345",
-                "phone_number": "5500000000000",
+                "phone_number": "5527988290533",
                 "telegram_id": "123456789",
                 "telegram_username": "alice_user",
                 "role": "user",
@@ -237,7 +251,7 @@ class ContactCreate(BaseModel):
 class ContactUpdate(BaseModel):
     friendly_name: str | None = Field(None, min_length=1, max_length=100)
     whatsapp_id: str | None = Field(None, max_length=50)
-    phone_number: str | None = Field(None, max_length=20)
+    phone_number: str | None = Field(None, max_length=20, pattern=r"^\+?[1-9]\d{6,14}$")
     telegram_id: str | None = Field(None, max_length=50)  # Phase 10.1.1: Telegram user ID
     telegram_username: str | None = Field(None, max_length=50)  # Phase 10.1.1: Telegram @username
     role: str | None = Field(None, pattern="^(user|agent)$")
@@ -246,6 +260,23 @@ class ContactUpdate(BaseModel):
     slash_commands_enabled: Optional[bool] = None  # Feature #12: NULL = tenant default, True/False = explicit override
     notes: str | None = None
     linked_user_id: int | None = Field(None, description="ID of the system user to link this contact to (use -1 to unlink)")
+
+    @field_validator("friendly_name")
+    @classmethod
+    def sanitize_friendly_name(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        cleaned = strip_html_tags(v)
+        if not cleaned or not cleaned.strip():
+            raise ValueError("Friendly name must not be empty after removing HTML tags")
+        return cleaned.strip()
+
+    @field_validator("notes")
+    @classmethod
+    def sanitize_notes(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        return strip_html_tags(v).strip() or None
 
 
 class ContactResponse(BaseModel):

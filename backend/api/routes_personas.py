@@ -7,12 +7,13 @@ Handles CRUD operations for agent personas.
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import List, Optional
 from datetime import datetime
 import logging
 
 from models import Persona, TonePreset, Agent
+from api.sanitizers import strip_html_tags
 from models_rbac import User
 from agent.ai_summary_service import AISummaryService
 from auth_dependencies import (
@@ -43,8 +44,6 @@ def get_db():
 
 
 class PersonaCreate(BaseModel):
-    # TODO: Add HTML sanitization validator for name and description fields
-    # to prevent stored XSS (same pattern as AgentCreateRequest in v1/routes_agents.py)
     name: str
     description: str
     role: Optional[str] = None
@@ -57,6 +56,22 @@ class PersonaCreate(BaseModel):
     enabled_knowledge_bases: Optional[list] = []
     guardrails: Optional[str] = None
     is_active: bool = True
+
+    @field_validator("name")
+    @classmethod
+    def sanitize_name(cls, v: str) -> str:
+        cleaned = strip_html_tags(v)
+        if not cleaned or not cleaned.strip():
+            raise ValueError("Name must not be empty after removing HTML tags")
+        return cleaned.strip()
+
+    @field_validator("description")
+    @classmethod
+    def sanitize_description(cls, v: str) -> str:
+        cleaned = strip_html_tags(v)
+        if not cleaned or not cleaned.strip():
+            raise ValueError("Description must not be empty after removing HTML tags")
+        return cleaned.strip()
 
 
 class PersonaUpdate(BaseModel):
@@ -72,6 +87,26 @@ class PersonaUpdate(BaseModel):
     enabled_knowledge_bases: Optional[list] = None
     guardrails: Optional[str] = None
     is_active: Optional[bool] = None
+
+    @field_validator("name")
+    @classmethod
+    def sanitize_name(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        cleaned = strip_html_tags(v)
+        if not cleaned or not cleaned.strip():
+            raise ValueError("Name must not be empty after removing HTML tags")
+        return cleaned.strip()
+
+    @field_validator("description")
+    @classmethod
+    def sanitize_description(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        cleaned = strip_html_tags(v)
+        if not cleaned or not cleaned.strip():
+            raise ValueError("Description must not be empty after removing HTML tags")
+        return cleaned.strip()
 
 
 class PersonaResponse(BaseModel):

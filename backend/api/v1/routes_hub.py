@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from db import get_db
 from models import HubIntegration, AsanaIntegration, CalendarIntegration, GmailIntegration
 from api.api_auth import ApiCaller, require_api_permission
+from api.v1.schemas import COMMON_RESPONSES, NOT_FOUND_RESPONSE
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -170,7 +171,7 @@ def _integration_to_summary(hub: HubIntegration) -> dict:
 # Endpoints
 # ============================================================================
 
-@router.get("/api/v1/hub/integrations")
+@router.get("/api/v1/hub/integrations", responses=COMMON_RESPONSES)
 async def list_integrations(
     active_only: bool = Query(True, description="Only return active integrations"),
     db: Session = Depends(get_db),
@@ -180,7 +181,8 @@ async def list_integrations(
     List all Hub integrations with health status.
 
     Returns integrations belonging to the caller's tenant and shared (NULL tenant_id)
-    integrations. Filterable by active status.
+    integrations. Each entry includes type-specific fields (e.g. workspace_gid for
+    Asana, email for Gmail/Calendar). Filterable by active status.
     """
     from sqlalchemy import or_
 
@@ -225,7 +227,7 @@ async def list_integrations(
     return {"data": results}
 
 
-@router.get("/api/v1/hub/integrations/{integration_id}")
+@router.get("/api/v1/hub/integrations/{integration_id}", responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE})
 async def get_integration(
     integration_id: int,
     db: Session = Depends(get_db),
@@ -235,6 +237,7 @@ async def get_integration(
     Get detailed information about a specific integration.
 
     Includes type-specific data like workspace name (Asana) or email (Gmail/Calendar).
+    Returns 404 if the integration does not exist or belongs to another tenant.
     """
     hub = _get_integration_or_404(db, integration_id, caller.tenant_id)
 
@@ -261,7 +264,11 @@ async def get_integration(
     return result
 
 
-@router.get("/api/v1/hub/integrations/{integration_id}/health")
+@router.get(
+    "/api/v1/hub/integrations/{integration_id}/health",
+    response_model=HealthCheckResponse,
+    responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE},
+)
 async def check_integration_health(
     integration_id: int,
     db: Session = Depends(get_db),
@@ -311,7 +318,10 @@ async def check_integration_health(
                 pass
 
 
-@router.get("/api/v1/hub/integrations/{integration_id}/tools")
+@router.get(
+    "/api/v1/hub/integrations/{integration_id}/tools",
+    responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE},
+)
 async def list_integration_tools(
     integration_id: int,
     db: Session = Depends(get_db),
@@ -321,7 +331,8 @@ async def list_integration_tools(
     List available tools for a specific integration.
 
     Returns the tool name, description, and input schema for each tool
-    exposed by the integration provider.
+    exposed by the integration provider. Returns 404 if the integration
+    does not exist or belongs to another tenant.
     """
     hub = _get_integration_or_404(db, integration_id, caller.tenant_id)
 
@@ -357,7 +368,15 @@ async def list_integration_tools(
                 pass
 
 
-@router.post("/api/v1/hub/integrations/{integration_id}/tools/execute")
+@router.post(
+    "/api/v1/hub/integrations/{integration_id}/tools/execute",
+    response_model=ToolExecuteResponse,
+    responses={
+        **COMMON_RESPONSES,
+        **NOT_FOUND_RESPONSE,
+        400: {"description": "Integration inactive or unsupported"},
+    },
+)
 async def execute_integration_tool(
     integration_id: int,
     request: ToolExecuteRequest,
@@ -369,7 +388,8 @@ async def execute_integration_tool(
 
     Dispatches the tool execution to the correct provider service based on
     the integration type. The tool_name must match one of the available tools
-    returned by the tools listing endpoint.
+    returned by the tools listing endpoint. Returns 400 if the integration
+    is inactive or its type does not support tool execution.
     """
     hub = _get_integration_or_404(db, integration_id, caller.tenant_id)
 
@@ -410,7 +430,7 @@ async def execute_integration_tool(
                 pass
 
 
-@router.get("/api/v1/hub/providers")
+@router.get("/api/v1/hub/providers", responses=COMMON_RESPONSES)
 async def list_providers(
     caller: ApiCaller = Depends(require_api_permission("hub.read")),
 ):

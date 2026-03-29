@@ -6,15 +6,30 @@ Implements the client_credentials grant type for API authentication.
 import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, Form
 from sqlalchemy.orm import Session
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from db import get_db
 from services.api_client_service import ApiClientService
+from api.v1.schemas import TokenResponse, OAuthErrorResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+# Per-IP rate limiting for OAuth token endpoint (brute-force protection)
+limiter = Limiter(key_func=get_remote_address)
 
-@router.post("/api/v1/oauth/token")
+
+@router.post(
+    "/api/v1/oauth/token",
+    response_model=TokenResponse,
+    responses={
+        400: {"description": "Unsupported grant type", "model": OAuthErrorResponse},
+        401: {"description": "Invalid client credentials", "model": OAuthErrorResponse},
+        429: {"description": "Rate limit exceeded (10 requests/minute per IP)"},
+    },
+)
+@limiter.limit("10/minute")
 async def token_exchange(
     request: Request,
     grant_type: str = Form(...),
@@ -23,9 +38,10 @@ async def token_exchange(
     db: Session = Depends(get_db),
 ):
     """
-    OAuth2 token exchange endpoint.
-    Accepts client_credentials grant type with client_id and client_secret.
-    Returns a short-lived JWT access token (1 hour).
+    Exchange API client credentials for a short-lived JWT access token.
+
+    Accepts the `client_credentials` grant type only. Returns a bearer token
+    valid for 1 hour. Rate limited to 10 requests per minute per IP address.
     """
     if grant_type != "client_credentials":
         raise HTTPException(

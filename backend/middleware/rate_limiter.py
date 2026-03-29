@@ -186,6 +186,7 @@ class ApiV1RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Add standard headers to all /api/v1/ responses
         response.headers["X-Request-Id"] = request_id
+        response.headers["X-API-Version"] = "v1"
         if rate_key:
             remaining = api_rate_limiter.remaining(rate_key, rate_limit)
             response.headers["X-RateLimit-Limit"] = str(rate_limit)

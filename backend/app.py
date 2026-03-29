@@ -929,7 +929,43 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Tsushin Platform API",
     version="1.0.0",
-    description="Multi-tenant AI agent platform with flows, hub integrations, and studio builder.",
+    description="""
+Multi-tenant AI agent platform with flows, hub integrations, and studio builder.
+
+## Authentication
+
+The Public API v1 (`/api/v1/`) supports two authentication methods:
+
+- **OAuth2 Client Credentials**: Exchange `client_id` and `client_secret` at
+  `POST /api/v1/oauth/token` for a short-lived JWT bearer token (1 hour).
+- **API Key**: Pass the raw client secret directly via the `X-API-Key` header
+  (prefix: `tsn_cs_`). No token exchange required.
+
+## Rate Limiting
+
+All `/api/v1/` endpoints (except `/api/v1/oauth/token`) are rate-limited per API client.
+Default: **60 requests/minute** (configurable per client). The OAuth token endpoint
+has a separate per-IP limit of **10 requests/minute**.
+
+Response headers on every v1 request:
+- `X-RateLimit-Limit` — Maximum requests per minute
+- `X-RateLimit-Remaining` — Remaining quota in the current window
+- `X-Request-Id` — Unique request ID for debugging
+- `X-API-Version` — API version (`v1`)
+
+When rate-limited, the API returns **HTTP 429** with a `Retry-After: 60` header.
+
+## Pagination
+
+List endpoints use page-based pagination:
+- `page` (1-based, default 1) and `per_page` (default 20, max 100)
+- Response envelope: `{"data": [...], "meta": {"total": N, "page": 1, "per_page": 20}}`
+
+## Error Format
+
+Errors return a JSON body with `detail` (string or object) and the appropriate HTTP status code.
+OAuth errors follow the RFC 6749 format: `{"error": "...", "error_description": "..."}`.
+""".strip(),
     openapi_tags=[
         {"name": "OAuth", "description": "OAuth2 client credentials token exchange"},
         {"name": "Agents API", "description": "Agent CRUD and configuration management"},

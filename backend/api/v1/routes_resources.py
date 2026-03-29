@@ -16,19 +16,26 @@ from models import (
     Persona, TonePreset, SentinelProfile,
 )
 from api.api_auth import ApiCaller, require_api_permission
+from api.v1.schemas import (
+    SkillListResponse, ToolListResponse, PersonaListResponse,
+    SecurityProfileListResponse, TonePresetListResponse,
+    COMMON_RESPONSES,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/api/v1/skills")
+@router.get("/api/v1/skills", response_model=SkillListResponse, responses=COMMON_RESPONSES)
 async def list_skills(
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("agents.read")),
 ):
     """
     List available skill types in the system.
-    Returns metadata about each skill type registered in the SkillManager.
+
+    Returns metadata about each registered skill type including display name,
+    description, and category. Requires `agents.read` permission.
     """
     try:
         from agent.skills import get_skill_manager
@@ -54,12 +61,17 @@ async def list_skills(
         }
 
 
-@router.get("/api/v1/tools")
+@router.get("/api/v1/tools", response_model=ToolListResponse, responses=COMMON_RESPONSES)
 async def list_tools(
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("agents.read")),
 ):
-    """List sandboxed tools available in the tenant."""
+    """
+    List sandboxed tools available in the tenant.
+
+    Returns enabled tools with their commands and parameters.
+    Requires `agents.read` permission.
+    """
     tools = db.query(SandboxedTool).filter(
         SandboxedTool.tenant_id == caller.tenant_id,
         SandboxedTool.is_enabled == True,
@@ -104,12 +116,17 @@ async def list_tools(
     return {"data": result}
 
 
-@router.get("/api/v1/personas")
+@router.get("/api/v1/personas", response_model=PersonaListResponse, responses=COMMON_RESPONSES)
 async def list_personas(
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("agents.read")),
 ):
-    """List available personas (tenant-specific + system)."""
+    """
+    List available personas (tenant-specific and system).
+
+    Returns active personas visible to the caller's tenant, including system
+    personas shared across all tenants. Requires `agents.read` permission.
+    """
     from sqlalchemy import or_
 
     personas = db.query(Persona).filter(
@@ -136,12 +153,17 @@ async def list_personas(
     }
 
 
-@router.get("/api/v1/security-profiles")
+@router.get("/api/v1/security-profiles", response_model=SecurityProfileListResponse, responses=COMMON_RESPONSES)
 async def list_security_profiles(
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("org.settings.read")),
 ):
-    """List available Sentinel security profiles."""
+    """
+    List available Sentinel security profiles.
+
+    Returns profiles visible to the caller's tenant, including system profiles.
+    Requires `org.settings.read` permission.
+    """
     from sqlalchemy import or_
 
     profiles = db.query(SentinelProfile).filter(
@@ -168,12 +190,17 @@ async def list_security_profiles(
     }
 
 
-@router.get("/api/v1/tone-presets")
+@router.get("/api/v1/tone-presets", response_model=TonePresetListResponse, responses=COMMON_RESPONSES)
 async def list_tone_presets(
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("agents.read")),
 ):
-    """List available tone presets."""
+    """
+    List available tone presets.
+
+    Returns tone presets visible to the caller's tenant, including system presets.
+    Requires `agents.read` permission.
+    """
     from sqlalchemy import or_
 
     presets = db.query(TonePreset).filter(

@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from db import get_db
 from models import FlowDefinition, FlowNode, FlowRun, FlowNodeRun
 from api.api_auth import ApiCaller, require_api_permission
+from api.v1.schemas import PaginationMeta, StatusResponse, COMMON_RESPONSES, NOT_FOUND_RESPONSE, VALIDATION_RESPONSE
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -292,21 +293,21 @@ def _step_run_to_summary(step_run: FlowNodeRun) -> dict:
 # Flow Definition Endpoints
 # ============================================================================
 
-@router.get("/api/v1/flows")
+@router.get("/api/v1/flows", responses=COMMON_RESPONSES)
 async def list_flows(
-    page: int = Query(1, ge=1, description="Page number"),
-    per_page: int = Query(20, ge=1, le=100, description="Items per page"),
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    per_page: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
-    flow_type: Optional[str] = Query(None, description="Filter by flow type"),
-    execution_method: Optional[str] = Query(None, description="Filter by execution method"),
+    flow_type: Optional[str] = Query(None, description="Filter by flow type: notification, conversation, workflow, task"),
+    execution_method: Optional[str] = Query(None, description="Filter by execution method: immediate, scheduled, recurring"),
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("flows.read")),
 ):
-    """
-    List flow definitions with pagination and filtering.
+    """List flow definitions with pagination and filtering.
 
     Returns a paginated list of flow definitions belonging to the caller's tenant.
     Supports filtering by active status, flow type, and execution method.
+    Requires **flows.read** permission.
     """
     query = db.query(FlowDefinition).filter(FlowDefinition.tenant_id == caller.tenant_id)
 
@@ -326,17 +327,17 @@ async def list_flows(
     }
 
 
-@router.post("/api/v1/flows", status_code=201)
+@router.post("/api/v1/flows", status_code=201, response_model=FlowSummary, responses={**COMMON_RESPONSES, **VALIDATION_RESPONSE})
 async def create_flow(
     request: FlowCreateRequest,
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("flows.write")),
 ):
-    """
-    Create a new flow definition.
+    """Create a new flow definition.
 
-    The flow is created in the caller's tenant and defaults to active status.
-    Steps can be added separately after creation.
+    Creates a flow in the caller's tenant with the given name and configuration.
+    The flow defaults to active status; steps must be added separately via POST /flows/{id}/steps.
+    Requires **flows.write** permission.
     """
     db_flow = FlowDefinition(
         name=request.name,
@@ -354,20 +355,20 @@ async def create_flow(
     return _flow_to_summary(db_flow, db)
 
 
-@router.get("/api/v1/flows/runs")
+@router.get("/api/v1/flows/runs", responses=COMMON_RESPONSES)
 async def list_runs(
-    page: int = Query(1, ge=1, description="Page number"),
-    per_page: int = Query(20, ge=1, le=100, description="Items per page"),
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    per_page: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
     status: Optional[str] = Query(None, description="Filter by run status: pending, running, completed, failed, cancelled"),
     flow_id: Optional[int] = Query(None, description="Filter by flow definition ID"),
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("flows.read")),
 ):
-    """
-    List flow runs with optional filtering.
+    """List flow runs with pagination and optional filtering.
 
-    Returns flow execution runs for the caller's tenant, filterable by status
-    and flow definition ID. Ordered by most recent first.
+    Returns flow execution runs for the caller's tenant, ordered by most recent first.
+    Filterable by run status and flow definition ID.
+    Requires **flows.read** permission.
     """
     query = db.query(FlowRun).filter(FlowRun.tenant_id == caller.tenant_id)
 
@@ -385,16 +386,17 @@ async def list_runs(
     }
 
 
-@router.get("/api/v1/flows/runs/{run_id}")
+@router.get("/api/v1/flows/runs/{run_id}", response_model=FlowRunDetailResponse, responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE})
 async def get_run(
     run_id: int,
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("flows.read")),
 ):
-    """
-    Get detailed information about a specific flow run, including step-level results.
+    """Get detailed information about a specific flow run.
 
-    Returns the flow run with all associated step runs for monitoring execution progress.
+    Returns the flow run with all associated step-level results for monitoring
+    execution progress. Returns 404 if the run does not exist or belongs to another tenant.
+    Requires **flows.read** permission.
     """
     run = db.query(FlowRun).filter(
         FlowRun.id == run_id,
@@ -425,17 +427,17 @@ async def get_run(
     }
 
 
-@router.post("/api/v1/flows/runs/{run_id}/cancel")
+@router.post("/api/v1/flows/runs/{run_id}/cancel", responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE})
 async def cancel_run(
     run_id: int,
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("flows.execute")),
 ):
-    """
-    Cancel a running flow execution.
+    """Cancel a running or pending flow execution.
 
-    Sets the run status to 'cancelled' and marks incomplete step runs as cancelled.
-    Only runs in 'pending' or 'running' status can be cancelled.
+    Sets the run status to 'cancelled' and marks all incomplete step runs as cancelled.
+    Only runs in 'pending' or 'running' status can be cancelled; returns 400 otherwise.
+    Requires **flows.execute** permission.
     """
     run = db.query(FlowRun).filter(
         FlowRun.id == run_id,
@@ -462,16 +464,17 @@ async def cancel_run(
     return {"run_id": run_id, "status": "cancelled", "message": "Flow run cancelled successfully"}
 
 
-@router.get("/api/v1/flows/{flow_id}")
+@router.get("/api/v1/flows/{flow_id}", response_model=FlowDetailResponse, responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE})
 async def get_flow(
     flow_id: int,
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("flows.read")),
 ):
-    """
-    Get a flow definition with all its steps.
+    """Get a flow definition with all its steps.
 
     Returns the full flow configuration including all steps ordered by position.
+    Returns 404 if the flow does not exist or belongs to another tenant.
+    Requires **flows.read** permission.
     """
     flow = db.query(FlowDefinition).filter(
         FlowDefinition.id == flow_id,
@@ -498,18 +501,18 @@ async def get_flow(
     return result
 
 
-@router.put("/api/v1/flows/{flow_id}")
+@router.put("/api/v1/flows/{flow_id}", response_model=FlowSummary, responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE, **VALIDATION_RESPONSE})
 async def update_flow(
     flow_id: int,
     request: FlowUpdateRequest,
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("flows.write")),
 ):
-    """
-    Update a flow definition's metadata.
+    """Update a flow definition's metadata.
 
-    Supports partial updates -- only provided fields are modified. Use this
-    to rename, update description, change active status, etc.
+    Supports partial updates -- only provided fields are modified.
+    Use this to rename, change description, toggle active status, or change execution method.
+    Requires **flows.write** permission.
     """
     flow = db.query(FlowDefinition).filter(
         FlowDefinition.id == flow_id,
@@ -537,17 +540,17 @@ async def update_flow(
     return _flow_to_summary(flow, db)
 
 
-@router.delete("/api/v1/flows/{flow_id}", status_code=204)
+@router.delete("/api/v1/flows/{flow_id}", status_code=204, responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE})
 async def delete_flow(
     flow_id: int,
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("flows.write")),
 ):
-    """
-    Soft-delete a flow definition.
+    """Soft-delete a flow definition.
 
-    Sets is_active to False rather than permanently deleting the flow.
-    This preserves flow history and run data.
+    Sets is_active to False rather than permanently removing the record.
+    This preserves flow history and run data. Returns 204 No Content on success.
+    Requires **flows.write** permission.
     """
     flow = db.query(FlowDefinition).filter(
         FlowDefinition.id == flow_id,
@@ -567,16 +570,17 @@ async def delete_flow(
 # Step Endpoints
 # ============================================================================
 
-@router.get("/api/v1/flows/{flow_id}/steps")
+@router.get("/api/v1/flows/{flow_id}/steps", responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE})
 async def list_steps(
     flow_id: int,
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("flows.read")),
 ):
-    """
-    List all steps for a flow, ordered by position.
+    """List all steps for a flow, ordered by position.
 
     Returns the complete step configuration for each step in the flow.
+    Returns 404 if the parent flow does not exist or belongs to another tenant.
+    Requires **flows.read** permission.
     """
     flow = db.query(FlowDefinition).filter(
         FlowDefinition.id == flow_id,
@@ -592,18 +596,18 @@ async def list_steps(
     return {"data": [_node_to_response(s) for s in steps]}
 
 
-@router.post("/api/v1/flows/{flow_id}/steps", status_code=201)
+@router.post("/api/v1/flows/{flow_id}/steps", status_code=201, response_model=StepResponse, responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE, **VALIDATION_RESPONSE})
 async def create_step(
     flow_id: int,
     request: StepCreateRequest,
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("flows.write")),
 ):
-    """
-    Add a step to a flow at the specified position.
+    """Add a step to a flow at the specified position.
 
-    The position must be unique within the flow. Step type determines
-    how the step is executed (message, tool, conversation, etc.).
+    The position must be unique within the flow; returns 400 if already occupied.
+    Step type determines execution behavior (message, tool, conversation, etc.).
+    Requires **flows.write** permission.
     """
     flow = db.query(FlowDefinition).filter(
         FlowDefinition.id == flow_id,
@@ -645,7 +649,7 @@ async def create_step(
     return _node_to_response(db_step)
 
 
-@router.put("/api/v1/flows/{flow_id}/steps/{step_id}")
+@router.put("/api/v1/flows/{flow_id}/steps/{step_id}", response_model=StepResponse, responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE, **VALIDATION_RESPONSE})
 async def update_step(
     flow_id: int,
     step_id: int,
@@ -653,11 +657,11 @@ async def update_step(
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("flows.write")),
 ):
-    """
-    Update step configuration.
+    """Update a step's configuration.
 
     Supports partial updates -- only provided fields are modified.
-    The step must belong to the specified flow.
+    The step must belong to the specified flow; returns 404 if either is missing.
+    Requires **flows.write** permission.
     """
     flow = db.query(FlowDefinition).filter(
         FlowDefinition.id == flow_id,
@@ -710,18 +714,18 @@ async def update_step(
     return _node_to_response(step)
 
 
-@router.delete("/api/v1/flows/{flow_id}/steps/{step_id}", status_code=204)
+@router.delete("/api/v1/flows/{flow_id}/steps/{step_id}", status_code=204, responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE})
 async def delete_step(
     flow_id: int,
     step_id: int,
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("flows.write")),
 ):
-    """
-    Delete a step from a flow.
+    """Delete a step from a flow.
 
-    Permanently removes the step. This is a hard delete since steps are
-    configuration elements, not data records.
+    Permanently removes the step (hard delete). Returns 204 No Content on success.
+    Returns 404 if the flow or step does not exist.
+    Requires **flows.write** permission.
     """
     flow = db.query(FlowDefinition).filter(
         FlowDefinition.id == flow_id,
@@ -747,18 +751,18 @@ async def delete_step(
 # Execution Endpoints
 # ============================================================================
 
-@router.post("/api/v1/flows/{flow_id}/execute", status_code=202)
+@router.post("/api/v1/flows/{flow_id}/execute", status_code=202, response_model=FlowExecuteResponse, responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE})
 async def execute_flow(
     flow_id: int,
     request: Optional[FlowExecuteRequest] = None,
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("flows.execute")),
 ):
-    """
-    Execute a flow asynchronously.
+    """Execute a flow asynchronously.
 
-    Validates the flow structure, creates a FlowRun, and starts execution.
-    Returns HTTP 202 Accepted with the run_id for polling via GET /flows/runs/{run_id}.
+    Validates the flow is active and has at least one step, then starts execution.
+    Returns 202 Accepted with a run_id for polling progress via GET /flows/runs/{run_id}.
+    Requires **flows.execute** permission.
     """
     flow = db.query(FlowDefinition).filter(
         FlowDefinition.id == flow_id,

@@ -35,6 +35,13 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+#### API v1 Security Hardening
+- **HIGH:** Added per-IP rate limiting (10 req/min) to OAuth token endpoint — prevents brute-force attacks on client credentials
+- **MEDIUM:** Added HTML sanitization validators to Persona name/description fields — prevents stored XSS
+- **MEDIUM:** Added HTML sanitization validators to Contact friendly_name/notes fields — prevents stored XSS
+- **LOW:** Added E.164 phone number validation (`^\+?[1-9]\d{6,14}$`) to Contact and Config phone fields
+- **LOW:** Converted 10 debug `print()` statements in playground routes to structured `logger.debug()` — eliminates info leakage via stdout
+
 #### Slash Command Security Hardening
 - **CRITICAL:** Fixed shell RBAC bypass via WhatsApp/Telegram channels — `/shell` permission check was skipped when `user_id=None` (non-playground channels). Now denies execution without authenticated user.
 - **HIGH:** Fixed cross-tenant thread manipulation — `/thread end`, `/thread list`, `/thread status` queries now filter by `tenant_id` to prevent tenant A from accessing tenant B's threads.
@@ -43,6 +50,16 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **MEDIUM:** Added `shlex.quote()` to sandboxed tool command template rendering — prevents shell metacharacter injection via tool parameters.
 
 ### Added
+
+#### API v1 OpenAPI Documentation & Response Models
+- Shared v1 schemas module (`api/v1/schemas.py`) with 20+ reusable Pydantic models for pagination, errors, and resource responses
+- `response_model=` wired on all 40 v1 endpoints across 7 route files for typed API responses
+- `responses=` error documentation (401, 403, 404, 422, 429) on all v1 endpoints
+- Enhanced docstrings on all v1 endpoints with descriptions and permission requirements
+- `X-API-Version: v1` response header on all v1 responses
+- Enhanced FastAPI app description documenting auth methods, rate limiting, pagination, and error format
+- Static `docs/openapi.json` export (435 paths, 413 schemas) for version-controlled API spec
+- `backend/scripts/export_openapi.py` for OpenAPI spec regeneration
 
 #### Slash Command Webhook Handler
 - Implemented the webhook handler for custom slash commands (`handler_type: "webhook"`)

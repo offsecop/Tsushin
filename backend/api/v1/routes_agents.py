@@ -17,6 +17,9 @@ from db import get_db
 from models import Agent, Contact, AgentSkill, AgentSandboxedTool, SandboxedTool, Persona, TonePreset
 from api.api_auth import ApiCaller, require_api_permission
 from api.sanitizers import strip_html_tags, sanitize_text_field
+from api.v1.schemas import (
+    PaginationMeta, StatusResponse, COMMON_RESPONSES, NOT_FOUND_RESPONSE, VALIDATION_RESPONSE,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -50,9 +53,9 @@ class AgentSummary(BaseModel):
     updated_at: Optional[str] = None
 
 
-class PaginatedResponse(BaseModel):
-    data: List[AgentSummary]
-    meta: dict
+class PaginatedAgentResponse(BaseModel):
+    data: List[AgentSummary] = Field(description="List of agents")
+    meta: PaginationMeta = Field(description="Pagination metadata")
 
 
 class AgentCreateRequest(BaseModel):
@@ -265,17 +268,27 @@ def _get_agent_detail(agent: Agent, db: Session) -> dict:
 # Endpoints
 # ============================================================================
 
-@router.get("/api/v1/agents")
+@router.get(
+    "/api/v1/agents",
+    response_model=PaginatedAgentResponse,
+    responses=COMMON_RESPONSES,
+)
 async def list_agents(
-    page: int = Query(1, ge=1),
-    per_page: int = Query(20, ge=1, le=100),
-    is_active: Optional[bool] = None,
-    search: Optional[str] = None,
-    channel: Optional[str] = None,
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    per_page: int = Query(20, ge=1, le=100, description="Items per page (max 100)"),
+    is_active: Optional[bool] = Query(None, description="Filter by active status"),
+    search: Optional[str] = Query(None, description="Search by agent name"),
+    channel: Optional[str] = Query(None, description="Filter by enabled channel"),
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("agents.read")),
 ):
-    """List agents with pagination and filtering."""
+    """
+    List agents with pagination and filtering.
+
+    Returns a paginated list of agents belonging to the caller's tenant.
+    Supports filtering by active status, name search, and enabled channel.
+    Requires `agents.read` permission.
+    """
     query = db.query(Agent).filter(Agent.tenant_id == caller.tenant_id)
 
     if is_active is not None:
@@ -322,13 +335,22 @@ async def list_agents(
     }
 
 
-@router.get("/api/v1/agents/{agent_id}")
+@router.get(
+    "/api/v1/agents/{agent_id}",
+    responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE},
+)
 async def get_agent(
     agent_id: int,
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("agents.read")),
 ):
-    """Get detailed agent configuration."""
+    """
+    Get detailed agent configuration.
+
+    Returns the full agent configuration including system prompt, skills,
+    sandboxed tools, memory settings, and channel configuration.
+    Requires `agents.read` permission.
+    """
     agent = db.query(Agent).filter(
         Agent.id == agent_id,
         Agent.tenant_id == caller.tenant_id,
@@ -338,14 +360,21 @@ async def get_agent(
     return _get_agent_detail(agent, db)
 
 
-@router.post("/api/v1/agents", status_code=201)
+@router.post(
+    "/api/v1/agents",
+    status_code=201,
+    responses={**COMMON_RESPONSES, **VALIDATION_RESPONSE},
+)
 async def create_agent(
     request: AgentCreateRequest,
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("agents.write")),
 ):
     """
-    Create a new agent. Auto-creates a Contact record.
+    Create a new agent with auto-generated Contact record.
+
+    Accepts agent configuration including name, model provider, system prompt,
+    skills, and sandboxed tools. Requires `agents.write` permission.
     """
     # Auto-create contact for the agent
     contact = Contact(
@@ -439,14 +468,22 @@ async def create_agent(
     return _get_agent_detail(agent, db)
 
 
-@router.put("/api/v1/agents/{agent_id}")
+@router.put(
+    "/api/v1/agents/{agent_id}",
+    responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE, **VALIDATION_RESPONSE},
+)
 async def update_agent(
     agent_id: int,
     request: AgentUpdateRequest,
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("agents.write")),
 ):
-    """Update agent configuration (partial update)."""
+    """
+    Update agent configuration (partial update).
+
+    Only provided fields are updated; omitted fields remain unchanged.
+    Requires `agents.write` permission.
+    """
     agent = db.query(Agent).filter(
         Agent.id == agent_id,
         Agent.tenant_id == caller.tenant_id,
@@ -481,13 +518,22 @@ async def update_agent(
     return _get_agent_detail(agent, db)
 
 
-@router.delete("/api/v1/agents/{agent_id}", status_code=204)
+@router.delete(
+    "/api/v1/agents/{agent_id}",
+    status_code=204,
+    responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE, 400: {"description": "Cannot delete the only agent"}},
+)
 async def delete_agent(
     agent_id: int,
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("agents.delete")),
 ):
-    """Delete an agent permanently."""
+    """
+    Delete an agent permanently.
+
+    Cannot delete the last remaining agent for a tenant. If the deleted agent
+    is the default, another agent is automatically promoted. Requires `agents.delete` permission.
+    """
     agent = db.query(Agent).filter(
         Agent.id == agent_id,
         Agent.tenant_id == caller.tenant_id,
@@ -515,14 +561,23 @@ async def delete_agent(
     db.commit()
 
 
-@router.post("/api/v1/agents/{agent_id}/skills")
+@router.post(
+    "/api/v1/agents/{agent_id}/skills",
+    response_model=StatusResponse,
+    responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE},
+)
 async def assign_skills(
     agent_id: int,
     request: SkillAssignRequest,
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("agents.write")),
 ):
-    """Assign skills to an agent."""
+    """
+    Assign skills to an agent.
+
+    Adds the specified skill types to the agent. Use `replace: true` to replace
+    all existing skills. Requires `agents.write` permission.
+    """
     agent = db.query(Agent).filter(
         Agent.id == agent_id,
         Agent.tenant_id == caller.tenant_id,
@@ -551,14 +606,23 @@ async def assign_skills(
     return {"status": "success", "message": f"Skills assigned to agent {agent_id}"}
 
 
-@router.delete("/api/v1/agents/{agent_id}/skills/{skill_type}", status_code=204)
+@router.delete(
+    "/api/v1/agents/{agent_id}/skills/{skill_type}",
+    status_code=204,
+    responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE},
+)
 async def remove_skill(
     agent_id: int,
     skill_type: str,
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("agents.write")),
 ):
-    """Remove a skill from an agent."""
+    """
+    Remove a skill from an agent.
+
+    Deletes the specified skill type assignment. Returns 404 if the skill is not
+    assigned to this agent. Requires `agents.write` permission.
+    """
     agent = db.query(Agent).filter(
         Agent.id == agent_id,
         Agent.tenant_id == caller.tenant_id,
@@ -576,14 +640,22 @@ async def remove_skill(
         raise HTTPException(status_code=404, detail=f"Skill '{skill_type}' not found on agent")
 
 
-@router.put("/api/v1/agents/{agent_id}/persona")
+@router.put(
+    "/api/v1/agents/{agent_id}/persona",
+    responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE},
+)
 async def assign_persona(
     agent_id: int,
     request: PersonaAssignRequest,
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("agents.write")),
 ):
-    """Assign a persona to an agent."""
+    """
+    Assign or clear a persona on an agent.
+
+    Set `persona_id` to assign a persona, or `null` to clear.
+    Validates tenant ownership of the persona. Requires `agents.write` permission.
+    """
     agent = db.query(Agent).filter(
         Agent.id == agent_id,
         Agent.tenant_id == caller.tenant_id,

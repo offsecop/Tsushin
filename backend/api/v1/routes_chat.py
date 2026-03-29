@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from db import get_db
 from models import Agent, ConversationThread, Contact
 from api.api_auth import ApiCaller, require_api_permission
+from api.v1.schemas import COMMON_RESPONSES, NOT_FOUND_RESPONSE
 from services.playground_service import PlaygroundService
 from services.playground_message_service import PlaygroundMessageService
 from services.playground_thread_service import PlaygroundThreadService
@@ -78,22 +79,39 @@ class ThreadMessage(BaseModel):
 # Endpoints
 # ============================================================================
 
-@router.post("/api/v1/agents/{agent_id}/chat", response_model=None)
+@router.post(
+    "/api/v1/agents/{agent_id}/chat",
+    response_model=None,
+    responses={
+        200: {
+            "description": "Synchronous chat response",
+            "content": {"application/json": {"schema": ChatResponse.model_json_schema()}},
+        },
+        202: {
+            "description": "Async mode — message queued for processing",
+            "content": {"application/json": {"schema": QueuedResponse.model_json_schema()}},
+        },
+        **COMMON_RESPONSES,
+        **NOT_FOUND_RESPONSE,
+    },
+)
 async def send_chat_message(
     agent_id: int,
     request: ChatRequest,
-    async_mode: bool = Query(False, alias="async"),
-    stream: bool = Query(False),
+    async_mode: bool = Query(False, alias="async", description="Enqueue for async processing"),
+    stream: bool = Query(False, description="Enable SSE streaming response"),
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("agents.execute")),
 ):
     """
     Send a message to an agent and get a response.
 
-    Modes:
-    - Default (sync): Returns full response after processing
-    - ?async=true: Enqueues and returns queue ID for polling
-    - ?stream=true: Returns SSE stream with token-by-token response
+    Supports three modes:
+    - **Sync** (default): Processes the message and returns the full response.
+    - **Async** (`?async=true`): Enqueues the message and returns a queue ID for polling via `GET /api/v1/queue/{id}`.
+    - **Stream** (`?stream=true`): Returns an SSE stream with token-by-token response chunks.
+
+    Requires `agents.execute` permission.
     """
     # Validate agent access
     agent = db.query(Agent).filter(
@@ -271,13 +289,23 @@ async def _enqueue_message(agent, agent_name, request, caller, db):
     )
 
 
-@router.get("/api/v1/queue/{queue_id}")
+@router.get(
+    "/api/v1/queue/{queue_id}",
+    response_model=QueueStatusResponse,
+    responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE},
+)
 async def poll_queue_status(
     queue_id: int,
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("agents.execute")),
 ):
-    """Poll the status of a queued message."""
+    """
+    Poll the status of a queued chat message.
+
+    Returns the queue item status (`pending`, `processing`, `completed`, or `error`)
+    along with queue position and the result when completed.
+    Requires `agents.execute` permission.
+    """
     from models import MessageQueue
 
     queue_item = db.query(MessageQueue).filter(
@@ -318,15 +346,22 @@ async def poll_queue_status(
     )
 
 
-@router.get("/api/v1/agents/{agent_id}/threads")
+@router.get(
+    "/api/v1/agents/{agent_id}/threads",
+    responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE},
+)
 async def list_threads(
     agent_id: int,
-    limit: int = Query(20, ge=1, le=100),
-    offset: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100, description="Maximum threads to return"),
+    offset: int = Query(0, ge=0, description="Number of threads to skip"),
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("agents.read")),
 ):
-    """List conversation threads for an agent."""
+    """
+    List conversation threads for an agent.
+
+    Returns threads ordered by most recently updated. Requires `agents.read` permission.
+    """
     agent = db.query(Agent).filter(
         Agent.id == agent_id,
         Agent.tenant_id == caller.tenant_id,
@@ -352,17 +387,25 @@ async def list_threads(
     }
 
 
-@router.get("/api/v1/agents/{agent_id}/threads/{thread_id}/messages")
+@router.get(
+    "/api/v1/agents/{agent_id}/threads/{thread_id}/messages",
+    responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE},
+)
 async def get_thread_messages(
     agent_id: int,
     thread_id: int,
-    limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0),
-    order: str = Query("asc", pattern="^(asc|desc)$"),
+    limit: int = Query(50, ge=1, le=200, description="Maximum messages to return"),
+    offset: int = Query(0, ge=0, description="Number of messages to skip"),
+    order: str = Query("asc", pattern="^(asc|desc)$", description="Sort order (asc or desc)"),
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("agents.read")),
 ):
-    """Get messages from a conversation thread."""
+    """
+    Get messages from a conversation thread.
+
+    Returns messages with role, content, and timestamp. Supports ascending
+    or descending sort order. Requires `agents.read` permission.
+    """
     agent = db.query(Agent).filter(
         Agent.id == agent_id,
         Agent.tenant_id == caller.tenant_id,
@@ -398,14 +441,23 @@ async def get_thread_messages(
     }
 
 
-@router.delete("/api/v1/agents/{agent_id}/threads/{thread_id}", status_code=204)
+@router.delete(
+    "/api/v1/agents/{agent_id}/threads/{thread_id}",
+    status_code=204,
+    responses={**COMMON_RESPONSES, **NOT_FOUND_RESPONSE},
+)
 async def delete_thread(
     agent_id: int,
     thread_id: int,
     db: Session = Depends(get_db),
     caller: ApiCaller = Depends(require_api_permission("agents.write")),
 ):
-    """Delete a conversation thread and its messages."""
+    """
+    Delete a conversation thread and its messages.
+
+    Permanently removes the thread and all associated messages.
+    Requires `agents.write` permission.
+    """
     thread = db.query(ConversationThread).filter(
         ConversationThread.id == thread_id,
         ConversationThread.agent_id == agent_id,
