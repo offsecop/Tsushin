@@ -3,10 +3,8 @@ AI Agent Tools Module
 
 Available tools:
 - search_tool: Web search using Brave Search API
-- scraper_tool: Web scraping and data extraction
 """
 
 from .search_tool import SearchTool
-from .scraper_tool import ScraperTool
 
-__all__ = ['SearchTool', 'ScraperTool']
+__all__ = ['SearchTool']

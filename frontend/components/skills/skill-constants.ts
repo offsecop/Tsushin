@@ -53,13 +53,6 @@ export const SKILL_DISPLAY_INFO: Record<string, SkillDisplayInfo> = {
     icon: SearchIcon,
     providerKey: 'web_search',
   },
-  web_scraping: {
-    displayName: 'Web Scraping',
-    description: 'Extract content from web pages for analysis and summarization.',
-    category: 'search_web',
-    configType: 'standard',
-    icon: GlobeIcon,
-  },
   browser_automation: {
     displayName: 'Browser Automation',
     description: 'Control a web browser to perform automated web interactions.',
@@ -142,7 +135,7 @@ export const SKILL_DISPLAY_INFO: Record<string, SkillDisplayInfo> = {
 }
 
 /** Skills that should never be shown (removed from system) */
-export const HIDDEN_SKILLS = new Set<string>(['weather'])
+export const HIDDEN_SKILLS = new Set<string>(['weather', 'web_scraping'])
 
 /** Skills rendered as a composite group (Audio = TTS + Transcript) */
 export const COMPOSITE_SKILLS: Record<string, { displayName: string; skillTypes: string[]; icon: React.FC<IconProps>; description: string }> = {

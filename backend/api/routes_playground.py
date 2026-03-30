@@ -1378,9 +1378,6 @@ async def get_available_tools(
         {"id": -1, "name": "search", "tool_type": "built_in", "description": "Web search using configured provider", "commands": [
             {"name": "search", "description": "Search the web", "parameters": [{"name": "query", "type": "string", "required": True}]}
         ]},
-        {"id": -2, "name": "scraper", "tool_type": "built_in", "description": "Scrape web pages", "commands": [
-            {"name": "scrape", "description": "Extract content from URL", "parameters": [{"name": "url", "type": "string", "required": True}]}
-        ]},
     ]
 
     # Built-in tools removed - now handled by Skills system

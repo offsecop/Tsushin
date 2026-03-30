@@ -640,18 +640,12 @@ class ToolStepHandler(FlowStepHandler):
                 }
 
             elif tool_id == "web_scraping":
-                from agent.tools.scraper_tool import WebScraperTool
-                tool = WebScraperTool()
-                url = parameters.get("url", "")
-                result = await tool.scrape_async(url)
-
+                # Deprecated: web_scraping replaced by browser_automation skill
                 return {
                     "tool_used": "web_scraping",
                     "tool_type": "built_in",
-                    "url": url,
-                    "summary": f"Scraped {len(result.get('text', ''))} characters",
-                    "raw_output": result,
-                    "status": "completed"
+                    "status": "deprecated",
+                    "error": "web_scraping is deprecated. Update this flow to use browser_automation with action=extract."
                 }
 
             else:

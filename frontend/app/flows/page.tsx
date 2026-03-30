@@ -120,7 +120,6 @@ const SUMMARIZATION_MODELS = [
 const AVAILABLE_SKILLS: { value: string; label: string; Icon: React.FC<IconProps>; description: string }[] = [
   { value: 'flight_search', label: 'Flight Search', Icon: PlaneIcon, description: 'Search for flights using natural language' },
   { value: 'web_search', label: 'Web Search', Icon: SearchIcon, description: 'Search the web for information' },
-  { value: 'web_scraping', label: 'Web Scraping', Icon: GlobeIcon, description: 'Extract data from web pages' },
   { value: 'scheduler', label: 'Scheduler', Icon: CalendarIcon, description: 'Manage calendar events and reminders' },
   { value: 'scheduler_query', label: 'Scheduler Query', Icon: CalendarDaysIcon, description: 'Query calendar events' },
   { value: 'gmail', label: 'Gmail', Icon: MailIcon, description: 'Send and manage emails' },
@@ -2098,7 +2097,6 @@ function StepConfigForm({ step, agents, contacts, personas, customTools, customS
               {(currentConfig?.tool_type || 'built_in') === 'built_in' ? (
                 <>
                   <option value="google_search">Google Search</option>
-                  <option value="web_scraping">Web Scraping</option>
                   <option value="asana_tasks">Asana Tasks</option>
                   <option value="send_message">Send Message</option>
                 </>
@@ -3080,7 +3078,6 @@ function EditableStepConfigForm({ step, agents, contacts, personas, customTools,
               {(currentConfig?.tool_type || 'built_in') === 'built_in' ? (
                 <>
                   <option value="google_search">Google Search</option>
-                  <option value="web_scraping">Web Scraping</option>
                   <option value="asana_tasks">Asana Tasks</option>
                   <option value="send_message">Send Message</option>
                 </>

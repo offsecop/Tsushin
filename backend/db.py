@@ -1097,6 +1097,16 @@ def init_database(engine):
         except Exception as e:
             session.rollback()
             print(f"[Cleanup] Weather cleanup skipped: {e}")
+
+        # Cleanup deprecated web_scraping skill records (replaced by browser_automation)
+        try:
+            ws_deleted = session.query(AgentSkill).filter(AgentSkill.skill_type == 'web_scraping').delete()
+            session.commit()
+            if ws_deleted:
+                print(f"[Cleanup] Removed {ws_deleted} web_scraping skill records (replaced by browser_automation)")
+        except Exception as e:
+            session.rollback()
+            print(f"[Cleanup] web_scraping cleanup skipped: {e}")
     finally:
         session.close()
 

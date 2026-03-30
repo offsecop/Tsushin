@@ -1182,7 +1182,6 @@ Type `/help all` to see syntax for all commands.
                 skill_icons = {
                     "web_search": ("🔍", "Search the web"),
 
-                    "web_scraping": ("📄", "Scrape web pages"),
                     "calendar": ("📅", "Manage calendar events"),
                     "flight_search": ("✈️", "Search for flights"),
                     "audio_transcript": ("🎙️", "Audio transcription"),

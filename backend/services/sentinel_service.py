@@ -610,7 +610,7 @@ class SentinelService:
 
         # BUG-068 FIX: Expanded SSRF protection for URL-bearing tools
         URL_BEARING_TOOLS = {
-            "browser_navigate", "scrape_webpage", "navigate", "navigate_to",
+            "browser_navigate", "navigate", "navigate_to",
             "browse", "fetch_url", "http_request", "open_url", "web_request",
             "browser_go", "curl", "wget",
         }

@@ -65,12 +65,9 @@ class SkillManager:
             from agent.skills.flight_search_skill import FlightSearchSkill
             self.register_skill(FlightSearchSkill)
 
-            # API Tools Migration: Web Search, Web Scraping
+            # API Tools Migration: Web Search
             from agent.skills.search_skill import SearchSkill
             self.register_skill(SearchSkill)
-
-            from agent.skills.web_scraping_skill import WebScrapingSkill
-            self.register_skill(WebScrapingSkill)
 
             # Import audio transcription skill
             from agent.skills.audio_transcript import AudioTranscriptSkill

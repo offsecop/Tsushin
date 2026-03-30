@@ -380,7 +380,6 @@ export default function ConversationsTab() {
                                     <p className="text-sm font-mono text-tsushin-indigo font-medium mb-1">{run.tool_used}</p>
                                     <p className="text-xs text-tsushin-slate">
                                       {run.tool_used === 'google_search' && <span className="inline-flex items-center gap-1"><SearchIcon size={14} /> Web search performed via Brave Search API</span>}
-                                      {run.tool_used === 'web_scraping' && <span className="inline-flex items-center gap-1"><GlobeIcon size={14} /> Website content extracted</span>}
                                     </p>
                                   </div>
                                 )}
